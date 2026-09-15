@@ -11,8 +11,7 @@
   --cyan-soft: #00728d;
   --pink: #c64776;
   --success: #208b51;
-  /* macOS 优先使用苹方；Windows 使用微软雅黑/Segoe UI 回退。 */
-  --sans: "PingFang SC", "苹方-简", -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, "Microsoft YaHei", "Segoe UI", sans-serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "微软雅黑", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-family: var(--sans);
 }
@@ -109,13 +108,18 @@ dialog { width: min(620px, calc(100vw - 32px)); }
   --cyan-soft: #087d73;
   --pink: #e8754e;
   --success: #6e9e38;
-  --sans: "Kaiti SC", "STKaiti", "BiauKai", "PingFang SC", "苹方-简", "Microsoft YaHei", sans-serif;
-  --english-sans: "anthropic-sans", "Inter", "Helvetica Neue", Arial, sans-serif;
-  --english-serif: "anthropic-serif", "Iowan Old Style", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "微软雅黑", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --english-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "微软雅黑", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --english-serif: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "微软雅黑", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 html, body { background: var(--canvas); }
-body { color: var(--text); font-family: var(--sans); }
+body {
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+               "Microsoft YaHei", "微软雅黑",
+               "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
 body::before { opacity: .24; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); }
 .app-shell { background: radial-gradient(circle at 74% 4%, rgba(239,200,76,.11), transparent 22%), radial-gradient(circle at 20% 45%, rgba(7,155,145,.06), transparent 28%); }
 .sidebar { border-right-color: var(--line); background: rgba(255, 255, 250, .94); }
