@@ -1,0 +1,218 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>
+<concept id="GUID-400E6C28-0073-4AEB-9C9A-A472D505EA6E" xml:lang="zh-CN">
+    <title id="GUID-EF0307CA-004D-4B7B-B34C-05B5EC6E3995">菜单栏</title>
+<shortdesc cid="XmLVw">菜单栏提供<msgph varref="VM_ruanjian">软件</msgph>的基本功能和基本配置的快捷入口。</shortdesc>
+<conbody cid="SBrT5">
+        <section id="GUID-DB192709-F399-40D6-9327-2F36CFB00E97">
+            <title id="GUID-266E90FE-D6EC-412E-B211-8F8E46ED149B">文件</title>
+            <ul id="UL_QXX_5PJ_CYB">
+                <li id="GUID-7BD6CBE0-E138-45AF-9A62-B212079BA7D3">
+                    <p cid="20sR9T"><uicontrol>新建方案</uicontrol>：创建新方案。</p>
+                </li>
+                <li id="GUID-4C0516B8-0CBC-4A9B-9CC7-BDB21F5B5AC6">
+                    <p cid="1kgD9S"><uicontrol>打开方案</uicontrol>：选择已有方案并载入。</p>
+                </li>
+                <li id="GUID-7C232577-4F03-41DE-AA9B-575E09A4F2E1">
+                    <p cid="2FYZSW"><uicontrol>最近打开方案</uicontrol>：选择某个最近载入的方案进行加载。</p>
+                </li>
+                <li id="GUID-77C8D125-40FB-4AF4-95CE-4CE5EE487412">
+                    <p cid="2IJuq1"><uicontrol>打开示例</uicontrol>：可选择<msgph varref="VM_ruanjian">软件</msgph>自带的示例方案并打开。需额外安装当前版本对应的示例程序安装包（名称包含<codeph>Sample</codeph>的安装包）。</p>
+                </li>
+                <li id="GUID-36090820-7552-4D18-B797-CBEAE229D2B4">
+                    <p cid="1y8jX2"><uicontrol>保存方案</uicontrol>：将当前方案保存至默认的本地方案路径。</p>
+                    <ul id="UL_WZ3_Q5J_CYB">
+                        <li id="GUID-9AE20A75-293E-4258-9171-4390E6DB3C90">
+                            <p cid="1KCMOa">方案首次保存时，需先选择保存路径。并可通过<uicontrol>加密选项</uicontrol>设置方案是否加密（见下图）。方案加密保存后，载入该方案时需输入密码。</p>
+                            <note id="GUID-D04B3CD6-374D-4D5D-BDBF-39ABF0654E70">
+                                <p cid="ra1KN">通过<xref href="GUID-4A9C7AA4-286E-455D-B3CA-3B552DC0783B#GUID-4A9C7AA4-286E-455D-B3CA-3B552DC0783B" format="dita" cid="1tVTSy" />设置加密狗密码后，若需载入加密方案，需满足如下两个条件：</p>
+                                <ul id="UL_LSC_2VD_HZB">
+                                    <li id="GUID-0D49A977-671F-48E1-B13A-C23C42C8515E">
+                                        <p cid="BLj7W">工控机上插入的加密狗的密码，与通过<xref href="GUID-4A9C7AA4-286E-455D-B3CA-3B552DC0783B#GUID-4A9C7AA4-286E-455D-B3CA-3B552DC0783B" format="dita" cid="yaFPX" />设置的密码相同。</p>
+                                    </li>
+                                    <li id="GUID-3726403D-D33F-473D-9FF5-72A61CD6128D">
+                                        <p cid="1R6qBy">输入的方案密码正确。</p>
+                                    </li>
+                                </ul>
+                            </note>
+                        </li>
+                        <li id="GUID-395E4783-EF46-4188-8F90-4E22C298D43C">
+                            <p cid="CkxL2">方案非首次保存时，直接将当前方案更新保存至上述保路径。</p>
+                        </li>
+                        <li id="GUID-F73827F8-361C-4BCD-95DC-FD42BD8142EA">
+                            <p cid="sI29N">如果方案保存失败，请联系技术支持获取帮助。</p>
+                        </li>
+                    </ul>
+                    <fig id="FIG_LYK_MXJ_CYB">
+                        <title id="GUID-2F61BF91-3EF5-4D86-BFE4-4032626CAB00">方案加密设置</title>
+                        <image href="GUID-0B847A43-0509-4A51-9FB4-3334330FF135" id="IMAGE_VHK_QXJ_CYB" width="1000" />
+                    </fig>
+                </li>
+                <li id="GUID-887312E9-BC9B-43BE-8F40-E64D3B79A65F">
+                    <p cid="zEMWz"><uicontrol>方案另存为</uicontrol>：将当前方案另存至其他本地路径。</p>
+                </li>
+                <li id="GUID-89C0AB28-2216-4CB8-BEE4-1F5CF3E84523">
+                    <p cid="2HU7lZ"><uicontrol>导出算子代码</uicontrol>：可将当前方案流程中的模块搭建逻辑导出成算子代码的书写逻辑，并以工程文件的形式存储查看编辑，使用方法如下。</p>
+                    <note id="GUID-58AD3CF2-A8FC-43FB-BF70-846DECA76D55">
+                        <ul id="UL_KVL_QSD_CCC">
+                            <li id="GUID-66FD6330-364F-4233-B645-05C48C9F724B">
+                                <p cid="1kuczD">仅型号中带6210或7120的加密狗支持此功能。</p>
+                            </li>
+                            <li id="GUID-4FDA60D6-8943-48E6-9C07-E81FEAB84F10">
+                                <p cid="224ZRi">仅使用单算子的模块支持此功能；对于使用了多个算子的模块不支持此功能，例如<uicontrol>图像组合</uicontrol>、<uicontrol>阵列圆查找</uicontrol>、<uicontrol>边缘组合缺陷检测</uicontrol>、<uicontrol>边缘对组合缺陷检测</uicontrol>模块。</p>
+                            </li>
+                            <li id="GUID-5242FC3D-F6F6-461E-A0A3-0EAA9E65FE86">逻辑工具模块中仅<uicontrol>分支模块</uicontrol>支持此功能，其他逻辑工具模块不支持此功能。</li>
+                            <li id="GUID-BF84CD1F-235B-44ED-A684-C3C030D527F0">当模块间存在输入输出订阅时，模块中的输出字段与算子输出存在关联（模块输出值使用了对应算子输出值）时，支持此功能；模块订阅了自定义输出时，不支持此功能。</li>
+                        </ul>
+                    </note>
+                    <ol id="OL_XWV_42X_WBC">
+                        <li id="GUID-406DD9EE-4F5F-4723-89F2-3CA0D1870320">
+                            <p cid="1jl7LP">在<msgph varref="VM_ruanjian">软件</msgph>顶部菜单栏，选择<menucascade>
+                                    <uicontrol>文件</uicontrol>
+                                    <uicontrol>导出算子代码</uicontrol>
+                                </menucascade>。</p>
+                        </li>
+                        <li id="GUID-45DF9104-6246-4BA3-AE44-07C891113CF1">在<uicontrol>导出算子代码</uicontrol>对话框，配置如下参数。<parml cid="Xk3rG">
+                                <plentry id="GUID-5E13E5E7-156D-4BD3-B237-CD4A3F40D354">
+                                    <pt cid="1lwNVu">编程语言</pt>
+                                    <pd cid="UuxAY">
+                                        <p cid="liMne">支持<parmname cid="2I1cRS">C++</parmname>和<parmname cid="27MUEO">C#</parmname>两种编程语言，根据实际需要进行选择。</p>
+                                    </pd>
+                                </plentry>
+                                <plentry id="GUID-83D17592-4B80-4DC0-85C5-D12163776D0F">
+                                    <pt cid="aun0X">编译平台</pt>
+                                    <pd cid="WPopU">
+                                        <p cid="24fEDK">当前暂只支持选择<parmname cid="11fdeB">VS2013</parmname>。</p>
+                                    </pd>
+                                </plentry>
+                                <plentry id="GUID-7C10597E-93DE-4B14-9ADA-72E78399035B">
+                                    <pt cid="13nfib">工程名称</pt>
+                                    <pd cid="KghB3">
+                                        <p cid="84A9E">设置导出工程文件夹的名称。</p>
+                                    </pd>
+                                </plentry>
+                                <plentry id="GUID-E96E37F0-908E-4CC7-A74A-4D859DB696AD">
+                                    <pt cid="1AqztT">导出目录</pt>
+                                    <pd cid="1vuhX0">
+                                        <p cid="1244Ps">设置导出工程文件的存放路径。</p>
+                                    </pd>
+                                </plentry>
+                                <plentry id="GUID-A655215D-841F-4508-8A43-083E97EA94BF">
+                                    <pt cid="2zw5u">导出流程</pt>
+                                    <pd cid="1zXohh">
+                                        <p cid="1X5t0n">选择要导出的流程，可选择一个或多个流程导出。</p>
+                                    </pd>
+                                </plentry>
+                                <plentry id="GUID-C4662F17-02E4-4737-A1C5-F7076835ACBE">
+                                    <pt cid="1iv0kp">导出ROI配置</pt>
+                                    <pd cid="KnZeE">
+                                        <p cid="1X3CaD">开启此开关后，可导出模块对应的ROI操作代码。</p>
+                                        <note id="GUID-0AF8EB41-B4E4-43FC-9E9A-B847B452B521">
+                                            <p cid="1eYsi">支持导出算子代码功能且含有ROI的模块支持此功能。</p>
+                                        </note>
+                                    </pd>
+                                </plentry>
+                            </parml></li>
+                        <li id="GUID-068DD476-F1DE-46FB-AE40-41EBB645C895">单击<uicontrol>导出</uicontrol>。</li>
+                        <li id="GUID-512EC618-DB18-46C4-BFF7-FC4CA4F6B06F">在<uicontrol>导出成功</uicontrol>提示框，单击<uicontrol>确定</uicontrol>，即可自动跳转至导出目录。<note id="GUID-5B2D87DB-1F96-4850-9183-0BB4F1F259DA">
+                                <ul id="UL_N4M_JYD_CCC">
+                                    <li id="GUID-0B94821F-6179-49D9-B6A1-0C1444DB571F">
+                                        <p cid="hdcD">对于需要使用模型文件的算子，因模型大小、算子接口规格不统一，在不做特殊化定制的情况下，模型文件不易导出。在导出算子代码生成的工程源码中，会将输入模型的内容预留出来，当您编译时，以error信息提示您填入模型文件路径或补充模型数据。</p>
+                                    </li>
+                                    <li id="GUID-3520BAEE-AD56-4F44-9650-929AF2880ECE">
+                                        <p cid="1zp3xS">导出代码工程的运行效果，可能会与实际的VM流程存在差异。导出的代码尽量在算子操作流程与VM保持一致，但因一些参数或实现细节的不一致，无法做到生成完全对等的源代码。</p>
+                                    </li>
+                                </ul>
+                            </note></li>
+                    </ol>
+                </li>
+                <li id="GUID-1B5EB74A-73A5-4FFF-B510-2A820B2242A5">
+                    <p cid="1b5nRx"><uicontrol>导入流程</uicontrol>：将已导出至本地的流程文件（.prc格式）导入至当前方案。</p>
+                    <note id="GUID-E2C870AB-37D7-41C4-8F31-A083F1AD9518">
+                        <p cid="qf1mN">导出流程操作，详见<xref cid="1BG8Yj" format="dita" href="GUID-63A93478-A768-46C4-B3C1-B81F0337F8EB#GUID-63A93478-A768-46C4-B3C1-B81F0337F8EB" />中提及的<uicontrol>流程导出</uicontrol>。</p>
+                    </note>
+                </li>
+                <li id="GUID-B29FD8FA-BB05-440E-B02E-B3A04F2A1C52">
+                    <p cid="ieYmm"><uicontrol>退出</uicontrol>：退出当前的<msgph varref="VM_ruanjian">软件</msgph>，退出时可选择保存方案后再退出或者直接退出。</p>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-5E2D7C5D-1298-4D66-BCAF-724A5CD34C91">
+            <title id="GUID-F1164502-E59A-4E58-8FA2-CB6D0260CF90">设置</title>
+            <ul id="UL_NSM_LYJ_CYB">
+                <li id="GUID-DC8D5A10-16FF-44D2-9450-8AE4EC770C08">
+                    <p cid="1HaWLF"><uicontrol>权限设置</uicontrol>：设置不同角色的<msgph varref="VM_ruanjian">软件</msgph>访问权限。详情参见<xref cid="1OU4MY" format="dita" href="GUID-8139D3B7-2437-4666-8A4D-F0A498F5FB79#GUID-8139D3B7-2437-4666-8A4D-F0A498F5FB79" />。</p>
+                </li>
+                <li id="GUID-C410A185-104D-4C2A-A87F-23B17624C6AB">
+                    <p cid="1LYzDr"><uicontrol>软件设置</uicontrol>：设置<msgph varref="VM_ruanjian">软件</msgph>系统的配置选项，包括<parmname cid="v2lYc">开机软件自启动</parmname>、<parmname cid="JOKDT">缓存步数设置</parmname>和<parmname cid="1zJEBX">模块最大数量</parmname>等。详情参见<xref cid="1tPWBC" format="dita" href="GUID-2FF21485-05C4-417C-B6C5-309C7F30113F#GUID-2FF21485-05C4-417C-B6C5-309C7F30113F" />。</p>
+                </li>
+                <li id="GUID-FFF80C61-2021-4B9D-83DF-032A5124B820">
+                    <p cid="puI7y"><uicontrol>方案设置</uicontrol>：设置方案相关配置选项，包括<parmname cid="JQjtB">方案管理</parmname>（方案自动切换设置）、<parmname cid="1CKYod">回调设置</parmname>和<parmname cid="1F2wSK">自动保存设置</parmname>。详情参见<xref cid="1eJMZ5" format="dita" href="GUID-73FCD903-1071-4E25-92A7-BA81B4B9377B#GUID-73FCD903-1071-4E25-92A7-BA81B4B9377B" />。</p>
+                </li>
+                <li id="GUID-45AB6C90-811C-4B58-BC96-6FF0C4F46EC8">
+                    <p cid="Opn9i"><uicontrol>运行策略</uicontrol>：设置<parmname cid="1tiXFJ">运行模式</parmname>和<parmname cid="apJxy">策略模式</parmname>。详情参见<xref cid="v122L" format="dita" href="GUID-D35FB77A-85F7-4642-907F-459DD275B854#GUID-D35FB77A-85F7-4642-907F-459DD275B854" />。</p>
+                </li>
+                <li id="GUID-EC4DC9CB-0ECE-4479-B0B5-3D5C0E0EA594">
+                    <p cid="1hPLON"><uicontrol>采集策略</uicontrol>：设置是否启用<uicontrol>大文件存图</uicontrol>功能。详情参见<xref cid="1IxL8n" format="dita" href="GUID-646FEC63-4450-4A4E-AAE2-CDB615843DFB#GUID-646FEC63-4450-4A4E-AAE2-CDB615843DFB" />。</p>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-867CAFC2-E136-4B5E-AF92-B16D165F28D6">
+            <title id="GUID-CDF39718-2513-4591-9FB8-1DBC36ECB04B">工具</title>
+            <p cid="2LDq67"><msgph varref="VM_ruanjian">软件</msgph>提供多种工具方便您进行标定、自定义模块和采集异常信息。</p>
+            <ul id="UL_KB4_FCK_CYB">
+                <!--这里的菜单选项名称是否要改待定-->
+                <li id="GUID-FDCEA72B-02BB-4419-9E2D-AA10F94D011C">
+                    <p cid="6XmSo"><parmname cid="EWepC">标定配置引导</parmname>：提供步骤式引导，帮助您快速完成静态标定、动态标定或映射标定的配置。详情参见<xref cid="8ozBv" format="dita" href="GUID-9D4AEEFC-ED21-437E-B20D-9DEB5C85288D#GUID-9D4AEEFC-ED21-437E-B20D-9DEB5C85288D" />。</p>
+                </li>
+                <li id="GUID-8EC1CB1B-8F4A-4B4C-8C3B-696074D32048">
+                    <p cid="1BMVXi"><parmname cid="1tBk18">标定板生成</parmname>：支持自定义标定信息，生成标定图像。详情参见<xref cid="25WJBT" format="dita" href="GUID-1CE8579D-D518-4CDA-8D32-1E45CE360E76#GUID-1CE8579D-D518-4CDA-8D32-1E45CE360E76" /></p>
+                </li>
+                <li id="GUID-1B838D95-8D66-4747-9B09-9BE397A2451B">
+                    <p cid="6zduP"><parmname cid="iiIz1">异常信息收集</parmname>：支持收集PC配置信息、<msgph varref="VMname_abbreviation">VM</msgph>版本信息、算子版本信息、dump和日志信息（<msgph varref="VMname_abbreviation">VM</msgph>软件日志、算子SDK日志、二次开发相关日志）。收集的信息可提供给技术支持进行问题排查。详情参见<xref cid="1QpKvg" format="dita" href="GUID-625CAEC6-B0E2-4D11-B82B-116CD11FF24A#GUID-625CAEC6-B0E2-4D11-B82B-116CD11FF24A" />。</p>
+                </li>
+                <li id="GUID-6B17C6D9-BEA7-448D-B38B-080BA7F78AC3">
+                    <p cid="kJh9j"><parmname cid="12Y2bJ">参数查找工具</parmname>：可查看方案中各个模块输入/输出参数和运行参数的当前值以及对应的算子参数名称。详情参见<xref cid="240Hkl" format="dita" href="GUID-664CEA92-A797-492E-BAF8-6CC7880C132B#GUID-664CEA92-A797-492E-BAF8-6CC7880C132B" />。</p>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-1850F41D-EAB7-4D94-A169-41EB16DCCEEB">
+            <title id="GUID-DFF4A238-CF56-4317-9217-9E777F9467CF">系统</title>
+            <ul id="UL_THY_B2L_CYB">
+                <li id="GUID-C69C24C0-EB48-4CCE-8589-F6B2BF99151A">
+                    <p cid="1zpN93"><uicontrol>日志</uicontrol>：查看<msgph varref="VM_ruanjian">软件</msgph>运行过程的日志信息。</p>
+                </li>
+                <li id="GUID-DB3301F6-730D-400A-B181-6C49C97ED989">
+                    <p cid="20XWiL"><uicontrol>通信管理</uicontrol>：配置<msgph varref="VM_ruanjian">软件</msgph>与通信设备、控制器设备等之间的数据传输和相关参数。详情参见<xref cid="24excQ" format="dita" href="GUID-678E97A4-FFD7-4E2A-A5FA-21CD93AB48BD#GUID-678E97A4-FFD7-4E2A-A5FA-21CD93AB48BD" />。</p>
+                </li>
+                <li id="GUID-7D514883-F9C1-44AA-82F0-A5FB441A430D">
+                    <p cid="1VZO4s"><uicontrol>相机管理</uicontrol>：添加和配置相机。详情参见<xref cid="1CtqSO" format="dita" href="GUID-1526E9AD-10BE-4190-B48D-CE9BD83597A2#GUID-1526E9AD-10BE-4190-B48D-CE9BD83597A2" />。</p>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-6FE453AA-4480-4835-8DCF-3DD476C388FE">
+            <title id="GUID-263C2BC2-60C4-4C06-BEF9-2F5FB1D24C68">帮助</title>
+            <ul id="UL_WW5_PFL_CYB">
+                <li id="GUID-29230168-1655-473E-8EA2-52183D71954B">
+                    <p cid="EXSVn"><uicontrol>语言</uicontrol>：切换<msgph varref="VM_ruanjian">软件</msgph>语言。</p>
+                </li>
+                <li id="GUID-D4F73F66-D7EA-492F-89E6-D304A09C00E0">
+                    <p cid="1ByV0p"><uicontrol>帮助文档</uicontrol>：查看<msgph varref="VM_ruanjian">软件</msgph>的帮助文档，了解并上手使用<msgph varref="VM_ruanjian">软件</msgph>。</p>
+                </li>
+                <li id="GUID-A1D7762F-D5CD-4336-9C0E-8D4F8EC79980"><uicontrol>帮助文档（在线）</uicontrol>：查看<msgph varref="VM_ruanjian">软件</msgph>的在线帮助文档。</li>
+                <li id="GUID-60425A7D-5AF0-4C9B-8C9F-4B1ACCAA031E">
+                    <p cid="9UWAv"><uicontrol>版本信息</uicontrol>：查看当前<msgph varref="VM_ruanjian">软件</msgph>版本、算子版本、支持的MVS客户端版本以及版权信息。</p>
+                </li>
+                <li id="GUID-62E4F71C-31F8-40C3-AEAF-935275E11DF2" ishcondition="Neutral=No">
+                    <p cid="1b7AV0"><uicontrol>更多支持</uicontrol>：可进入海康机器人官网。</p>
+                </li>
+                <li id="GUID-FFCF17FF-7AC3-46F4-820F-688D32F54C8E" ishcondition="Neutral=No">
+                    <p cid="1b7AV0"><uicontrol>V社区</uicontrol>：可进入海康机器人V社区。V社区为您提供机器视觉软硬件相关的资源工具、技术支持、学习交流、应用实践、活动竞赛等一站式服务，覆盖图像处理、AI算法、3D、深度学习、机器人导航、运动控制等热门领域及汽车、光伏、锂电、3C等热门行业，旨在打造面向开发者、合作伙伴、终端用户、技术爱好者和高校师生的互动交流平台。</p>
+                </li>
+                <li id="GUID-65D4893D-C061-4860-B3C8-D878EFCBC3C5">
+                    <p cid="TwhRY"><uicontrol>打开欢迎页</uicontrol>：打开<msgph varref="VM_ruanjian">软件</msgph>的启动引导页面。</p>
+                </li>
+            </ul>
+        </section>
+</conbody>
+</concept>

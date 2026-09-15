@@ -1,0 +1,451 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd"[]>
+<task id="GUID-30C8B121-D04F-4AAE-8731-04BFBCFD063A" xml:lang="zh-CN">
+    <title id="GUID-FD1A9F07-1C89-456F-A5AA-200105BF0B44">配置N点标定</title>
+    <shortdesc cid="kELDf">通过N点标定，您可以得到图像特征点和运动机构物理点之间转换关系。</shortdesc>
+    <taskbody cid="H8LOy">
+        <prereq id="GUID-7C057DB5-7D30-49FA-A0B4-4D2A9E405CB4">
+            <ul id="UL_JDL_RBM_LCC">
+                <li id="GUID-55168581-3FB8-438F-BF69-34C8A9816C7F">
+                    <p cid="1gFYwE">确保您已经完成相机参数和基准图配置。</p>
+                </li>
+                <li id="GUID-FA5B6A47-2D3E-4D20-8B0D-22C520CC78AE">
+                    <p cid="222lvi">确保您已获取多个一一对应的图像点和物理点。</p>
+                    <ul id="UL_IYS_JG5_FCC">
+                        <li id="GUID-BC30AEDD-74BE-4A61-B23B-39372726C2B8">
+                            <p cid="222lvi">图像点通过<xref cid="1b2PWN" format="dita" href="GUID-B6235D0A-B3F2-48E4-9F59-2A28687583C7#GUID-B6235D0A-B3F2-48E4-9F59-2A28687583C7" />和其他可实现精定位的工具获取。</p>
+                        </li>
+                        <li id="GUID-C123141A-144C-4010-8B6A-9CBBCF7133A5">
+                            <p cid="222lvi">物理点可通过通信工具<?oxy_delete author="liuqi65" timestamp="20240903T170436+0800" content="进行"?>获取。</p>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </prereq>
+        <steps id="GUID-7B8FB57A-B229-4656-81FE-4005BF7EF6CC">
+            <step id="GUID-77B77FD1-D133-4FAD-9BB0-C0F7C35E325D">
+                <cmd>进入标定配置窗口。您可通过以下2种方式打开该窗口。</cmd>
+                <info cid="dAOuR">
+                    <ul id="UL_FKL_MJK_W2C">
+                        <li id="GUID-9503C13F-2C17-4629-B88A-B73B46CD14C5">
+                            <p cid="MFntC">方式一：从方案编辑窗口进入。</p>
+                            <ol id="OL_G51_4JK_W2C">
+                                <li id="GUID-A58432A2-7784-4415-8B0E-3E137D77AC6B">
+                                    <p cid="1xDHD7">在<uicontrol>主界面</uicontrol>，单击<uicontrol>方案设定</uicontrol>进入<uicontrol>方案编辑</uicontrol>窗口。</p>
+                                </li>
+                                <li id="GUID-C4B27AFA-3D06-479B-A026-7D8B95B3C031">
+                                    <p cid="h6Yhd">在<uicontrol>工具</uicontrol>模块，单击右上角<uicontrol>快速标定</uicontrol>进入标定窗口。</p>
+                                </li>
+                            </ol>
+                        </li>
+                        <li id="GUID-FD13DA55-988F-4E17-A6A8-188378BCDA6D">
+                            <p cid="25QoA4">方式二：单击主界面菜单栏<menucascade>
+                                    <uicontrol>辅助工具</uicontrol>
+                                    <uicontrol>快速标定</uicontrol>
+                                </menucascade>进入标定窗口。</p>
+                        </li>
+                    </ul>
+                </info>
+            </step>
+            <step id="GUID-BA1494EC-7DAA-459F-97B8-6135873F1813">
+                <cmd>选择标定类型为<uicontrol>N点标定</uicontrol>并单击<uicontrol>下一步</uicontrol>。</cmd>
+                <info cid="188amC">
+                    <fig id="FIG_XSR_XG5_FCC">
+                        <title id="GUID-88F48628-873A-4D26-A550-E1171C76DE63">选择标定类型</title>
+                        <image href="GUID-C533413E-0140-4374-B3A6-999DCF031715" id="GUID-C533413E-0140-4374-B3A6-999DCF031715" width="1700" />
+                    </fig>
+                </info>
+            </step>
+            <step id="GUID-1DE79241-F6B1-4CB6-A049-647B632461D0">
+                <cmd>根据实际需求完成通信配置。</cmd>
+                <substeps id="SUBSTEPS_YZL_JKH_KCC">
+                    <substep id="GUID-0AF22581-27DE-484E-8D93-E3A842A41F80">
+                        <cmd>单击<uicontrol>通信设置</uicontrol>右侧的<uicontrol>跳转</uicontrol>，可进入<uicontrol>通信设置</uicontrol>窗口，进行通信参数配置。配置参数<?oxy_delete author="liuqi65" timestamp="20240903T170717+0800" content="具体"?>介绍请参见<xref cid="RBdsY" format="dita" href="GUID-8743D0F3-22C9-4CD8-B310-38F653DDD65F#GUID-8743D0F3-22C9-4CD8-B310-38F653DDD65F" />。配置完成后，返回<uicontrol>N点标定</uicontrol>界面。</cmd>
+                        <?oxy_insert_start author="liuqi65" timestamp="20240903T171221+0800"?>
+                        <info cid="XNHvJ">
+                            <note id="GUID-37E86330-C17B-4B00-AF19-401BA9954EFC">
+                                <p cid="2Gl7D4"><parmname cid="1xyvCB"><?oxy_insert_end?>N点<?oxy_insert_start author="liuqi65" timestamp="20240903T171221+0800"?>标定</parmname>功能仅支持使用<parmname cid="lICL1">TCP客户端</parmname>、<parmname cid="28Njpv">TCP服务器</parmname>和<parmname cid="2BG5C">UDP通信</parmname>。请根据实际情况设置通信方式。</p>
+                            </note>
+                        </info>
+                        <?oxy_insert_end?>
+                    </substep>
+                    <substep id="GUID-F9E74156-013B-44E8-B87F-69977F1FF293">
+                        <cmd>在<parmname cid="iwtBJ">通信设备</parmname>右侧的输入框，下拉选择<?oxy_insert_start author="liuqi65" timestamp="20240903T192304+0800"?>本次标定使用的<?oxy_insert_end?>通信<?oxy_insert_start author="liuqi65" timestamp="20240903T171103+0800"?>方式<?oxy_insert_end?><?oxy_delete author="liuqi65" timestamp="20240903T171102+0800" content="设备"?>。</cmd>
+                    </substep>
+                    <substep id="GUID-A653946D-540B-4F12-830D-D2B642CD28C7">
+                        <cmd>在<uicontrol>通信字符配置</uicontrol>，根据实际需求配置通信字符串，包括通信开始<?oxy_insert_start author="liuqi65" timestamp="20240903T192414+0800"?>信号<?oxy_insert_end?><?oxy_delete author="liuqi65" timestamp="20240903T192412+0800" content="字符"?>、<?oxy_insert_start author="liuqi65" timestamp="20240903T192417+0800"?>标定信号、<?oxy_insert_end?>通信结束<?oxy_delete author="liuqi65" timestamp="20240903T192434+0800" content="字符"?><?oxy_insert_start author="liuqi65" timestamp="20240903T192434+0800"?>信号<?oxy_insert_end?>、<?oxy_delete author="liuqi65" timestamp="20240903T192444+0800" content="标定字符、"?>分割符、<?oxy_delete author="liuqi65" timestamp="20240903T192447+0800" content="、"?>结束符、OK输出以及NG输出。</cmd>
+                        <info cid="Z8dy">
+                            <p cid="1bMTKQ">单击<uicontrol>开始信号</uicontrol>、<uicontrol>标定信号</uicontrol>和<uicontrol>结束信号</uicontrol>输入框中的<image href="GUID-06C55891-19ED-40C0-964F-FACF01854FB6" id="IMAGE_XYN_DQZ_XFC" outputclass="icon" />，可进入<uicontrol>编辑数据</uicontrol>窗口设置通信字符串。支持在通信字符串末尾添加换行符或回车符。</p>
+                            <fig id="FIG_QNJ_FRZ_XFC">
+                                <title id="GUID-4348A885-E6E9-48DE-9C40-ED58202359F9">设置通信字符串</title>
+                                <image href="GUID-0F4C844B-3397-40BE-93F2-8DA908258754" id="IMAGE_FJT_3RZ_XFC" width="1000" />
+                            </fig>
+                        </info>
+                    </substep>
+                    <substep id="GUID-D839CB8B-5382-4911-B816-F1B3C9707BA4">
+                        <cmd>配置完成后，单击<uicontrol>下一步</uicontrol>。</cmd>
+                    </substep>
+                </substeps>
+                <info cid="1CBRBh">
+                    <fig id="FIG_P2R_ZG5_FCC">
+                        <title id="GUID-F2494A3B-F62A-43EE-8CE0-DE65389DC5F1">N点标定<?oxy_comment_start author="yuanyue" timestamp="20240821T105949+0800" comment="图注命名需要更准确，避免重复  如标定模块XXX
+可参考风格指南图注章节"?>通信配置<?oxy_comment_end?></title>
+                        <image href="GUID-6676B71D-43B9-4CC2-956C-40E9B2E49BBD" id="IMAGE_B3N_WJH_KCC" width="1700" />
+                    </fig>
+                </info>
+            </step>
+            <step id="GUID-8869198A-430B-4411-B471-1CA2FD3FDFD0">
+                <cmd>配置标定相关参数，并<?oxy_insert_start author="liuqi65" timestamp="20240903T192526+0800"?>在当前窗口左下角<?oxy_insert_end?>单击<uicontrol><?oxy_insert_start author="liuqi65" timestamp="20240903T164420+0800"?>执行<?oxy_insert_end?><?oxy_delete author="liuqi65" timestamp="20240903T164418+0800" content="下一步"?></uicontrol><?oxy_insert_start author="liuqi65" timestamp="20240903T193018+0800"?>，进行N点标定<?oxy_insert_end?>。</cmd>
+                <info cid="1yu4p1">
+                    <?oxy_insert_start author="liuqi65" timestamp="20240903T192624+0800"?>
+                    <p cid="14Ief0">标定相关参数的说明具体如下：</p>
+                    <?oxy_insert_end?>
+                    <parml cid="1RC7Mw">
+                        <plentry id="GUID-330D9278-DE4C-46EE-9F54-932BC9DD4C02">
+                            <pt cid="yRMB6">机械臂移动参数</pt>
+                            <pd cid="BChQh">
+                                <parml cid="1qfwgm">
+                                    <plentry id="GUID-EDDFAEB8-13A7-4104-9297-71FDE5577E45">
+                                        <pt cid="1tAh11">平移次数</pt>
+                                        <pd cid="1RCLES">
+                                            <p cid="WCGtZ">设置平移运动的输入点数，只针对X/Y方向的平移，一般设置为9。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-F7F07634-4D1C-4C7C-8459-C96889C65E7C">
+                                        <pt cid="R6e26">旋转次数</pt>
+                                        <pd cid="14sU09">
+                                            <p cid="1biY3W">设置旋转运动的输入点数。当旋转轴与图像中心不共轴时，需设置该参数，一般设置为0。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-F9593316-4631-4F2F-8ED3-AA81F39D1E92">
+                                        <pt cid="fT1qb">编辑标定点</pt>
+                                        <pd cid="1pySWr">
+                                            <p cid="3Mnfj">单击<uicontrol>编辑</uicontrol>可查看并编辑各个点对应的图像坐标、物理坐标及角度。</p>
+                                            <note id="GUID-4833B424-0760-4F51-B1CC-0BF86416FFCE">
+                                                <p cid="3Mnfj"><parmname cid="1yoarV">标定点获取</parmname>选择手动输入时，需通过此处自定义或导入标定点的信息。</p>
+                                            </note>
+                                            <fig id="FIG_KPR_C4B_YFC">
+                                                <title id="GUID-287D3C1D-AD96-47D7-A61D-2DFD1D5EF116">编辑标定点</title>
+                                                <image href="GUID-F1E9F9FA-8161-4534-BD25-DAA22ACF5C7E" id="IMAGE_VM3_D4B_YFC" width="1000" />
+                                            </fig>
+                                            <p cid="g97hg">在<uicontrol>编辑标定点</uicontrol>窗口，您可以使用以下功能：</p>
+                                            <parml cid="25Xvzy">
+                                                <plentry id="GUID-085C2607-97FE-410F-8258-C809F44C2F1E">
+                                                  <pt cid="1miZcB">自定义</pt>
+                                                  <pd cid="1ZksST">
+                                                  <p cid="vNhZ0">单击数据输入框即可直接修改各个点的坐标。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-07218E1A-3010-4826-91DA-978517F4E2C8">
+                                                  <pt cid="UAQKw">导入</pt>
+                                                  <pd cid="aHmKA">
+                                                  <p cid="l8nv9">加载已有的点集对信息文件（txt格式）。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-9ECBB307-CAC9-4ABD-B504-02C0586F0D7C">
+                                                  <pt cid="1vWq1A">导出</pt>
+                                                  <pd cid="1VjaKm">
+                                                  <p cid="1ySZ5C">将当前显示的点集对信息导出到本地。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-34402CAB-1E63-4126-8C7F-ECA1DD1509C1">
+                                                  <pt cid="23ZR5W">清空</pt>
+                                                  <pd cid="1LKdbj">
+                                                  <p cid="2HNuOe">清空当前显示的所有点集对信息。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-00728594-64C8-4601-ABB7-C20EB6CC2400">
+                                                  <pt cid="1aBT4">删除指定点集对</pt>
+                                                  <pd cid="1eFuWX">
+                                                  <p cid="KwAit">在<uicontrol>操作</uicontrol>列，单击<image href="GUID-D451B116-37C3-493A-BFB9-AE040DBB1E86" id="IMAGE_XT2_K4B_YFC" outputclass="icon" />删除指定点集对信息。</p>
+                                                  </pd>
+                                                </plentry>
+                                            </parml>
+                                        </pd>
+                                    </plentry>
+                                </parml>
+                            </pd>
+                        </plentry>
+                        <plentry id="GUID-2A8FB906-5ABF-49EC-8DC5-1EA0F1D9042D">
+                            <pt cid="2JdzdJ">标定参数</pt>
+                            <pd cid="2ECS52">
+                                <p cid="1UmMzD">设置获取标定点的方式，可选<uicontrol>触发获取</uicontrol>和<uicontrol>手动输入</uicontrol>两种方式。一般推荐使用<uicontrol>触发获取</uicontrol>获取标定点数据。</p>
+                                <parml cid="1pJ4kk">
+                                    <plentry id="GUID-1EF96B68-B97E-4F95-8B21-807F0C975DC0">
+                                        <pt cid="1i7plH">触发获取</pt>
+                                        <pd cid="14oGp9">
+                                            <p cid="17SO6E">从视觉工具或外部通讯设备获取标定点数据。选择该方式时，还需设置以下参数。</p>
+                                            <parml cid="V1aL8">
+                                                <plentry id="GUID-148079A4-5C6D-4A87-B9DD-6227B2C0E0AC">
+                                                  <pt cid="vSJ1h">图像点X</pt>
+                                                  <pt cid="554Ai">图像点Y</pt>
+                                                  <pt cid="lB8q2">图像角度</pt>
+                                                  <pd cid="a6Mot">
+                                                  <p cid="45Ca1">可从已有工具的输出数据中订阅图像标定点的X、Y坐标以及角度信息。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-AAA4ABBC-58AE-427E-89EF-7F522EA2A8E1">
+                                                  <pt cid="U9Li7">物理点X</pt>
+                                                  <pt cid="1ugRCD">物理点Y</pt>
+                                                  <pt cid="vjE6T">物理角度</pt>
+                                                  <pd cid="fHDWP">
+                                                  <p cid="17AXto">可从<parmname cid="20keCL">相机图像</parmname>中订阅运动机构物理点X、Y坐标以及角度信息。</p>
+                                                  </pd>
+                                                </plentry>
+                                            </parml>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-130379AD-3895-4425-BC83-12B187998A54">
+                                        <pt cid="1jEQYJ">手动输入</pt>
+                                        <pd cid="1rTVoQ">
+                                            <p cid="1KwNAk">手动输入标定点数据。需通过<parmname cid="1ciKiv">编辑标定点</parmname>自定义或导入标定点的信息。</p>
+                                        </pd>
+                                    </plentry>
+                                </parml>
+                            </pd>
+                        </plentry>
+                        <plentry id="GUID-BD1703C4-9748-4C95-A026-AA5DABAEF7C9">
+                            <pt cid="oIYOV">物理坐标系参数</pt>
+                            <pd cid="1Eb80b">
+                                <p cid="soISI">设置以下参数自定义物理坐标系。</p>
+                                <note id="GUID-F4F4D4B1-3A65-4CFB-998B-8EC2130A8CE2">
+                                    <p cid="lUtF1">切换至<uicontrol>全部</uicontrol>视图，可配置<parmname cid="2lK7z">物理坐标系参数</parmname>。</p>
+                                </note>
+                                <parml cid="24t5iz">
+                                    <plentry id="GUID-8752AF44-7774-41FC-84F0-F822C0953AF0">
+                                        <pt cid="1EHEiI">基准点X</pt>
+                                        <pt cid="19kqVA">基准点Y</pt>
+                                        <pd cid="l1YTm">
+                                            <p cid="1ADq8y">设置基准点坐标。此处对应图像标定原点的物理点坐标，单位为mm。一般建议设置为（0，0）即可。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-08709AB7-D341-4CAB-BF47-61514489CC8D">
+                                        <pt cid="8uNnl">偏移X</pt>
+                                        <pt cid="1ZtzR6">偏移Y</pt>
+                                        <pd cid="MCzze">
+                                            <p cid="1UGvkZ">设置运动机构每次运动时在X/Y方向上的物理偏移量，可正可负，单位为mm。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-F3363A7F-CE2A-45A2-9ACE-AAE99A913B53">
+                                        <pt cid="y2C6G">移动优先</pt>
+                                        <pd cid="7R5PF">
+                                            <p cid="nOZzT">选择运动机构每次运行时优先偏移的方向。可选<parmname cid="UvqIH">X优先</parmname>和<parmname cid="FQCws">Y优先</parmname>。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-DF6B9B26-8F34-4E44-8B00-042E08FACF9E">
+                                        <pt cid="295aA2">换向移动次数</pt>
+                                        <pd cid="1eYbhx">
+                                            <p cid="kaWIO">设置运动机构每移动多少次转换一次方向。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-D997466C-3412-486B-B06A-3F780CB5303A">
+                                        <pt cid="IvDAx">基准角度</pt>
+                                        <pd cid="8Rqbp">
+                                            <p cid="1sGlJ8">设置运动机构旋转的初始角度。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-FE57985D-7DD8-4119-825A-8664454CDBD2">
+                                        <pt cid="QYKJS">角度偏移</pt>
+                                        <pd cid="k5Lar">
+                                            <p cid="1mJnnf">设置运动机构每次旋转的角度。</p>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-0ED953B8-87F6-4D78-AD50-167BA22312A9">
+                                        <pt cid="L08Ny">标定原点</pt>
+                                        <pd cid="1GiImE">
+                                            <p cid="tRcbJ">选取标定原点。一般设置成“4”，表示选择第4个点作为物理坐标系的原点。</p>
+                                        </pd>
+                                    </plentry>
+                                </parml>
+                            </pd>
+                        </plentry>
+                        <plentry id="GUID-B8914B7F-6CD0-45FA-95DF-2110D27BCB04">
+                            <pt cid="7u5oW">运行参数</pt>
+                            <pd cid="1DBHF0">
+                                <p cid="23Siis">设置<parmname cid="1lmeLW">相机模式</parmname>、<parmname cid="24VTB7">自由度</parmname>、<parmname cid="RJxcO">权重函数</parmname>等运行参数。</p>
+                                <note id="GUID-64E30627-F932-4FDA-B2B1-FC8568829FAE">
+                                    <p cid="10hZq">切换至<uicontrol>全部</uicontrol>视图，可配置<parmname cid="10b7hQ">运行参数</parmname>。</p>
+                                </note>
+                                <parml cid="1Hrn6W">
+                                    <plentry id="GUID-02CD2ED6-E939-49EA-8C76-543C9240BE4F">
+                                        <pt cid="1NeqJ5">相机模式</pt>
+                                        <pd cid="ejJKX">
+                                            <p cid="3Ap89">按现场实际情况选择相机模式。各选项的说明如下。</p>
+                                            <parml cid="8DpWr">
+                                                <plentry id="GUID-D1DFD55C-71FD-4E45-9405-5EAF8999C291">
+                                                  <pt cid="wZZ7s">相机静止上相机位</pt>
+                                                  <pd cid="2AOyNS">
+                                                  <p cid="1cMvNa">相机固定不动且在被测物上方。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-6347A379-040E-428B-A81C-FA0D26A516FE">
+                                                  <pt cid="1EyZK4">相机静止下相机位</pt>
+                                                  <pd cid="xScLn">
+                                                  <p cid="1Ng1gN">相机固定不动且在被测物下方。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-5FA21C55-A8E4-4821-B69C-F3745BE345D9">
+                                                  <pt cid="suaip">相机运动</pt>
+                                                  <pd cid="1YE41h">
+                                                  <p cid="2Bz3CW">相机跟随运动机构运动。默认选项。</p>
+                                                  </pd>
+                                                </plentry>
+                                            </parml>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-9D6D5BE7-D8B3-4B83-9E4A-7CD364F644F8">
+                                        <pt cid="Oy8qO">自由度</pt>
+                                        <pd cid="1RA3fL">
+                                            <p cid="1RNd4m">设置拟合单应矩阵时的自由度。</p>
+                                            <parml cid="j95vy">
+                                                <plentry id="GUID-798DF07A-AACB-4C22-9DC9-2E71932FBA9B">
+                                                  <pt cid="Sl1L2">缩放、旋转、纵横比、倾斜、平移及透射</pt>
+                                                  <pd cid="rS5Tz">
+                                                  <p cid="287ONz">默认选项。表示透视变换。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-F986C701-956D-4000-915B-78FA0831C9F5">
+                                                  <pt cid="1Ki8vR">缩放、旋转、纵横比、倾斜及平移</pt>
+                                                  <pd cid="29yjkL">
+                                                  <p cid="gQfIp">表示仿射变换。</p>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-2F5627CF-6426-4C21-A3FC-33BB78C23121">
+                                                  <pt cid="1xDXCe">缩放、旋转及平移</pt>
+                                                  <pd cid="192lNX">
+                                                  <p cid="1Qu1sw">表示相似性变换。</p>
+                                                  </pd>
+                                                </plentry>
+                                            </parml>
+                                            <note id="GUID-70FFC8D7-1CDB-4D1B-8E26-668E9CED3B8B">
+                                                <p cid="2AGHl">以上选项的自由度依次降低，且不同的自由度选项对图像拟合的影响有所差别，比如，当一个正方形经过透视变换后，可能会变成梯形；当同样一个正方形经过仿射变换后，可能会变成矩形；而当该正方形经过相似性变换后，虽然形状保持不变，但其大小会发生变化。</p>
+                                            </note>
+                                        </pd>
+                                    </plentry>
+                                    <plentry id="GUID-C70D8E8A-F2EA-431E-A18C-236B790B6A07">
+                                        <pt cid="Pr0ZX">权重函数</pt>
+                                        <pd cid="1JPaKn">
+                                            <p cid="MC2UO">设置权重函数。推荐使用默认选项。</p>
+                                            <parml cid="1xXcPY">
+                                                <plentry id="GUID-E03012BE-3D00-476A-B469-8B03220C0523">
+                                                  <pt cid="7nYNJ">最小二乘</pt>
+                                                  <pt cid="1Knk88">Huber</pt>
+                                                  <pt cid="1nI3Ve">Tukey</pt>
+                                                  <pd cid="TMDgW">
+                                                  <p cid="xj3Xe">通过最小二乘法、Huber、或Tukey函数求解物理坐标点和像素坐标点之间的投影变换关系。默认选项为<parmname cid="20hRZD">Tukey</parmname>。</p>
+                                                  <note id="GUID-2C2ED1A8-84A9-4528-B631-4C1E7897BE81">
+                                                  <ul id="UL_TTL_1TY_ZFC">
+                                                  <li id="GUID-6BB20BC3-EFC5-48EE-8B2E-DB3C2F537990">
+                                                  <p cid="q712m">选择<parmname cid="1zqnEa">Huber</parmname>或<parmname cid="WKsFm">Tukey</parmname>该函数后，还需设置<parmname cid="JciXo">权重系数</parmname>。默认权重系数为20。</p>
+                                                  </li>
+                                                  <li id="GUID-5AA7E432-F2D9-4C73-9917-C551E4DE50A9">
+                                                  <p cid="2GfvDo">以上三种拟合方式仅在权重的计算方式上存在差异，随着离群点数量增多以及离群距离增大，可逐次使用<parmname cid="7ikOM">最小二乘</parmname>、<parmname cid="7uTww">Huber</parmname>和<parmname cid="1QXqDY">Tukey</parmname>。</p>
+                                                  </li>
+                                                  </ul>
+                                                  </note>
+                                                  </pd>
+                                                </plentry>
+                                                <plentry id="GUID-6EEAC13B-B7D3-4038-AB8B-B90B5F551FA8">
+                                                  <pt cid="e4trn">Ransac</pt>
+                                                  <pd cid="23ou04">
+                                                  <p cid="1ErLWA">通过Ransac函数求解物理坐标点和像素坐标点之间的投影变换关系。选择<parmname cid="21RkNs">Ransac</parmname>，还需设置以下参数，推荐使用默认值。</p>
+                                                  <parml cid="1It2RN">
+                                                  <plentry id="GUID-20006A16-08C4-4B93-8620-2649CAA64EE1">
+                                                  <pt cid="lQjqx">距离阈值</pt>
+                                                  <pd cid="zpINQ">
+                                                  <p cid="hPhAF">表示用于判断是否剔除错误点的距离阈值。该值设置的越小，点集选取越严格。当点集精度不高时，可适当调高该阈值或适当降低采样率。默认值为30。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-98CE775A-E7EE-40C4-9DB9-8D9EB51D7D30">
+                                                  <pt cid="y7Syn">采样率</pt>
+                                                  <pd cid="1hEXyu">
+                                                  <p cid="11l3yV">设置标定数据的采样频率，可用于平衡计算效率和标定精度。默认值为60。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  </parml>
+                                                  </pd>
+                                                </plentry>
+                                            </parml>
+                                        </pd>
+                                    </plentry>
+                                </parml>
+                            </pd>
+                        </plentry>
+                    </parml>
+                    <?oxy_insert_start author="liuqi65" timestamp="20240903T164724+0800"?>
+                    <fig id="FIG_TDV_2GJ_PCC">
+                        <title id="GUID-C5D956BA-AE2A-4F2B-B3CE-335A846529F1"><?oxy_insert_end?>触发输入标定点<?oxy_insert_start author="liuqi65" timestamp="20240903T164724+0800"?>并执行标定过程</title>
+                        <?oxy_insert_end?>
+                        <image href="GUID-BC98ADEE-F369-4305-89E4-B39A4892DF11" id="IMAGE_CXB_GGJ_PCC" width="1700" />
+                        <?oxy_insert_start author="liuqi65" timestamp="20240903T164724+0800"?>
+                    </fig>
+                    <?oxy_insert_end?>
+                </info>
+            </step>
+            <step id="GUID-72118D55-7FF7-4E94-9DB6-91889064FEE2">
+                <cmd><?oxy_insert_start author="liuqi65" timestamp="20240903T164442+0800"?>标定成功后，单击<uicontrol>下一步</uicontrol>。<?oxy_insert_end?><?oxy_insert_start author="liuqi65" timestamp="20240903T164455+0800" type="split"?></cmd>
+            </step>
+            <step id="GUID-4F2D10F4-6364-447C-B97C-C493FE3105E7">
+                <cmd><?oxy_insert_end?>查看标定结果并生成标定文件。</cmd>
+                <info cid="1JEjVY">
+                    <p cid="d0dMj">客户端支持根据已设置的标定点数据，生成相应的标定文件。通过设置以下参数，您可以获取相应的标定文件。</p>
+                    <parml cid="1sXrGF">
+                        <plentry id="GUID-D1359C9D-4ADB-46E8-955E-CCE31566ACD1">
+                            <pt cid="13vrDq">生成标定文件</pt>
+                            <pd cid="2GXoV4">
+                                <p cid="1deFzH">单击<parmname cid="p240K">生成标定文件</parmname>按钮可将该模块生成的标定文件另存为一个新文件，<?oxy_delete author="liuqi65" timestamp="20240903T165923+0800" content="并"?>保存到本地。</p>
+                                <?oxy_insert_start author="liuqi65" timestamp="20240903T170039+0800"?>
+                                <note id="GUID-7F354110-40F4-4635-A8AF-FD7E51A14311">
+                                    <p cid="1DEa4P">当您开启<parmname cid="y5kzP">文件生成后更新</parmname>后，另存为的功能不再生效。所有标定结果将保存到指定路径下的标定文件中。</p>
+                                </note>
+                                <?oxy_insert_end?>
+                            </pd>
+                        </plentry>
+                        <plentry id="GUID-BB7A936E-508E-4BAA-B70F-201ABF4CD119">
+                            <pt cid="pnQPq">文件生成后更新</pt>
+                            <pd cid="JVtiZ">
+                                <p cid="1NHMac">开启该参数后，<?oxy_insert_start author="liuqi65" timestamp="20240903T170310+0800"?>当<?oxy_insert_end?>该模块进行新一轮标定时，<?oxy_delete author="liuqi65" timestamp="20240903T170317+0800" content="会将"?>新的标定结果<?oxy_insert_start author="liuqi65" timestamp="20240903T170320+0800"?>将同步<?oxy_insert_end?>更新到<parmname cid="2FLBEf">标定文件路径</parmname>处选择的标定文件中。<?oxy_delete author="liuqi65" timestamp="20240903T170331+0800" content="否则，标定文件不更新。"?></p>
+                            </pd>
+                        </plentry>
+                        <plentry id="GUID-B4BACE6B-B407-4CDF-8178-023A6B5A5A42">
+                            <pt cid="KtFoL">标定文件路径</pt>
+                            <pd cid="E0FE4">
+                                <p cid="1B1ib6">单击<image href="GUID-A67293D7-03B2-4F66-80BE-40ADC56B8280" id="IMAGE_IDX_HJR_XYB" outputclass="icon" />可自定义选择标定文件的存储路径。</p>
+                            </pd>
+                        </plentry>
+                    </parml>
+                    <?oxy_insert_start author="liuqi65" timestamp="20240903T165538+0800"?>
+                    <fig id="FIG_IFX_GHJ_PCC">
+                        <title id="GUID-7DC2F12F-7819-45DA-B387-4260CC423E06">查看N点标定结果</title>
+                        <?oxy_insert_end?>
+                        <image href="GUID-A6A1807D-C83F-41E9-ADD6-6A2BBA23218A" id="IMAGE_LWV_HHJ_PCC" width="1700" />
+                        <?oxy_insert_start author="liuqi65" timestamp="20240903T165538+0800"?>
+                    </fig>
+                    <?oxy_insert_end?>
+                </info>
+            </step>
+        </steps>
+        <postreq id="GUID-0C27E4F7-2E57-4294-A3CC-497FEFC9D1F3">
+            <p cid="1eOaXq">在进行N点标定的过程中，若出现标定失败或标定结果存在较大误差的情况，可按照以下方法排查标定失败或误差问题。</p>
+            <ul id="UL_EKH_KDR_XYB">
+                <li id="GUID-47B5A99B-CF54-4BC6-A2B2-D24B7BBC9D59">
+                    <p cid="1s15NE">平移误差较大时，需查看图像中的平移运动轨迹是否正常。通过图像点的X/Y方向位移轨迹是否互相平行来判断。若不平行，会导致标定误差增大。此时可查看不平行轨迹对应点的具体情况，可能是机构运动误差导致，也可能是前序模块输出存在误差导致。</p>
+                    <note id="GUID-49ADE00B-94E3-4998-963B-7634741AE146">
+                        <p cid="12oYEB">X轨迹和Y轨迹夹角可以不是90°，此时可能为相机非垂直拍摄，也可能机构本身X、Y并非垂直，该情况不会导致标定误差增加。</p>
+                    </note>
+                </li>
+                <li id="GUID-7C4EEDB4-C1A3-44A2-8B52-345100F0CA8A">
+                    <p cid="1HHT4j">旋转误差较大时，需查看旋转中心的位置是否合理。若旋转中心位置不正确，检查输入角度是否有误。</p>
+                    <ul id="UL_T23_D2R_XYB">
+                        <li id="GUID-9A700432-9A8A-4418-901D-BA56553DB622">
+                            <p cid="kZUwK">某些大半径场景，由于机构限制，需要较大的旋转半径，所以需要提高旋转中心的准确性。建议多旋转几次，增加旋转数据输入，可提高标定结果的准确性。</p>
+                        </li>
+                        <li id="GUID-B8EBA9C2-E7BC-4AC9-84B1-A91EF1D4EEDC">
+                            <p cid="1N0Nbw">小角度场景，为得到更准确的旋转中心，一般旋转角度不能太小，用于计算旋转中心的点不能太近。若旋转角度很小，可考虑多运动几次，多个点计算的旋转中心更加准确。</p>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </postreq>
+    </taskbody>
+</task>

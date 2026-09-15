@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fcfaf2" />
+    <title>炼金炉 · UI Direction Lab</title>
+    <link rel="stylesheet" href="/static/ui-demos.css?v=20260914-8" />
+  </head>
+  <body>
+    <canvas id="ambient-canvas" aria-hidden="true"></canvas>
+    <div class="lab-shell">
+      <header class="lab-topbar">
+        <a class="lab-brand" href="/" aria-label="返回炼金炉">
+          <span class="brand-symbol">◎</span>
+          <span><b>炼金炉</b><small>UI DIRECTION LAB</small></span>
+        </a>
+        <div class="lab-topbar-meta"><span>3 DIRECTIONS</span><i></i><span>FUNCTION-FIRST</span></div>
+        <a class="back-link" href="/">返回工作台 ↗</a>
+      </header>
+
+      <main class="lab-main">
+        <section class="lab-intro">
+          <div>
+            <p class="eyebrow">// PRODUCT INTERFACE STUDY / 2026—09</p>
+            <h1>让复杂的文档开发，<em>看起来更有秩序。</em></h1>
+            <p class="intro-copy">围绕需求分析、框架编辑、可视化预览和 XML 审核，探索三种不同的工作台气质。点击下方方向切换 Demo。</p>
+          </div>
+          <div class="intro-index"><span>SELECT A DIRECTION</span><strong id="direction-index">01</strong><small id="direction-name">OBSIDIAN ATELIER</small></div>
+        </section>
+
+        <nav class="direction-switcher" aria-label="UI 风格方向">
+          <button class="direction-button is-active" data-style="atelier"><span>01</span><b>Linen Atelier</b><small>明亮编辑工作室</small></button>
+          <button class="direction-button" data-style="signal"><span>02</span><b>Paper Signal</b><small>浅色文档工作台</small></button>
+          <button class="direction-button" data-style="archive"><span>03</span><b>Solar Archive</b><small>暖色流程档案馆</small></button>
+        </nav>
+
+        <section class="font-lab" aria-label="Linen Atelier 字体方案">
+          <div class="font-lab-head"><div><p class="eyebrow">TYPE STUDY / LINEN ATELIER</p><h2>选择标题的气质。</h2></div><span>点击字体卡片即时预览</span></div>
+          <div class="font-options">
+            <button class="font-option" data-font="ink"><span class="font-option-meta">A / 01</span><strong class="sample-ink">手绘笔触</strong><small>轻松、有温度，实验性较强</small></button>
+            <button class="font-option is-selected" data-font="kaiti"><span class="font-option-meta">B / 02 · 当前</span><strong class="sample-kaiti">东方楷意</strong><small>文气、优雅，适合技术内容</small></button>
+            <button class="font-option" data-font="song"><span class="font-option-meta">C / 03</span><strong class="sample-song">编辑宋体</strong><small>克制、出版物和杂志感</small></button>
+            <button class="font-option" data-font="pingfang"><span class="font-option-meta">D / 04</span><strong class="sample-pingfang">现代清晰</strong><small>简洁、利落，阅读效率最高</small></button>
+          </div>
+        </section>
+
+        <section class="palette-lab" aria-label="Linen Atelier 配色方案">
+          <div class="palette-lab-head"><div><p class="eyebrow">COLOR STUDY / LINEN ATELIER</p><h2>再看看不同的色温。</h2></div><span>点击方案即时预览</span></div>
+          <div class="palette-options">
+            <button class="palette-option is-selected" data-palette="apricot"><i class="swatches"><b></b><b></b><b></b></i><span><strong>杏仁纸张</strong><small>温暖、轻快、编辑感</small></span></button>
+            <button class="palette-option" data-palette="berry"><i class="swatches"><b></b><b></b><b></b></i><span><strong>莓果奶油</strong><small>柔和、活泼、有记忆点</small></span></button>
+            <button class="palette-option" data-palette="mint"><i class="swatches"><b></b><b></b><b></b></i><span><strong>柠檬薄荷</strong><small>清爽、明亮、科技感</small></span></button>
+            <button class="palette-option" data-palette="sky"><i class="swatches"><b></b><b></b><b></b></i><span><strong>晴空珊瑚</strong><small>通透、友好、低压力</small></span></button>
+          </div>
+        </section>
+
+        <section class="all-directions">
+          <div class="all-directions-head"><div><p class="eyebrow">ALL DIRECTIONS / OVERVIEW</p><h2>三套方案，一眼比较。</h2></div><span>点击卡片查看下方完整交互 Demo</span></div>
+          <div id="demo-gallery" class="demo-gallery"></div>
+        </section>
+
+        <section id="demo-stage" class="demo-stage style-atelier" aria-live="polite">
+          <div class="demo-toolbar">
+            <div class="toolbar-project"><span class="status-pulse"></span><b id="demo-project">CODESYS 运动控制手册</b><span class="toolbar-divider">/</span><span class="muted">框架编辑</span></div>
+            <div class="toolbar-actions"><button class="ghost-action" data-demo-action="save">保存版本</button><button class="solid-action" data-demo-action="generate">生成 Topic</button><button class="icon-action" data-demo-action="menu">···</button></div>
+          </div>
+          <div id="demo-content" class="demo-content"></div>
+          <div class="demo-toast" id="demo-toast" role="status"></div>
+        </section>
+
+        <section class="direction-notes">
+          <div class="note-label"><span>DESIGN NOTES</span><i></i></div>
+          <div class="note-copy"><h2 id="note-title">一个更像编辑器的 AI 工作台。</h2><p id="note-copy">让 AI 生成和人工审核成为两个清晰的动作，深色背景用于压低噪音，青绿色作为唯一的“可继续”信号。</p></div>
+          <div class="note-tags" id="note-tags"><span>AI FIRST</span><span>REVIEWABLE</span><span>LOCAL</span></div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/ui-demos.js?v=20260914-8"></script>
+  </body>
+</html>

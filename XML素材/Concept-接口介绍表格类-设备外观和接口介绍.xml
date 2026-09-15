@@ -1,0 +1,297 @@
+﻿<?xml version="1.0" encoding="utf-8"?><!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]><concept id="GUID-0007E23C-6BE9-4DB4-A8AB-233CE6EA1815" xml:lang="zh-CN">
+    <title id="GUID-77FAAF39-1609-48D2-B2EE-B0A7747112C3">设备外观和接口介绍</title>
+    <shortdesc cid="j0Q31">不同系列的可编程视觉控制器对应的外观、接口布局、硬件配置（内存、存储）和软件授权有所差异。</shortdesc>
+    
+    <conbody cid="WrJEH">
+        <p cid="2AOyfj">VCP设备外观及部件、接口功能说明如下图和下表所示。</p>
+        <fig id="FIG_GQ2_SLG_4JC">
+            <title id="GUID-D4110A38-3014-42B1-AE00-E61D50B88991">VCP 2000系列设备外观</title>
+            <image href="GUID-0795788E-ABD6-424B-B78A-B61DA6BD02E4" width="1000" id="IMAGE_P5S_QLG_4JC" />
+        </fig>
+        <table id="TABLE_INTERFACE_DESC" frame="all" rowsep="1" colsep="1">
+            <title id="GUID-9BFB9D05-C750-4A85-9344-F0A27F82BFD1">部件及接口功能说明</title>
+            <tgroup cols="4" cid="29dtYc">
+                <colspec colname="c1" colwidth="1.04*" cid="1BNul1" />
+                <colspec colname="c2" colwidth="1.02*" cid="1EYGjp" />
+                <colspec colname="c3" colwidth="1*" cid="11iWe1" />
+                <colspec colname="c4" colwidth="2.02*" cid="1DImdc" />
+                <thead cid="bK4cq">
+                    <row cid="2FlRIG">
+                        <entry cid="2KRCcV">
+                            <p cid="1e2gC8">序号</p>
+                        </entry>
+                        <entry cid="hhDqM">
+                            <p cid="18qyb1">丝印</p>
+                        </entry>
+                        <entry cid="sReIn">
+                            <p cid="1HYljb">接口</p>
+                        </entry>
+                        <entry cid="9HYOp">
+                            <p cid="1cQYOp">说明</p>
+                        </entry>
+                    </row>
+                </thead>
+                <tbody cid="BePWU">
+                    <row cid="1BcNUS">
+                        <entry cid="Mzt4m">
+                            <p cid="27qjhy">1</p>
+                        </entry>
+                        <entry cid="1I3lGh">
+                            <p cid="iIWI3">PWR</p>
+                        </entry>
+                        <entry cid="f9aGb">
+                            <p cid="26aZk7">电源开关/指示灯</p>
+                        </entry>
+                        <entry cid="U0Q1A">
+                            <p cid="1f9hBw">电源按钮，控制设备整机开关机。</p>
+                            <ul id="UL_TMX_Y4G_4JC">
+                                <li id="GUID-FB33E6C5-64D2-41B8-B70E-F0F48528A26D">
+                                    <p cid="1Xs0Bs">短按：开机，设备开机后绿灯常亮</p>
+                                </li>
+                                <li id="GUID-02AF4564-FFC1-42DD-80DA-6ACD80B5D2DE">
+                                    <p cid="2BOVBr">长按4s及以上：强制关机</p>
+                                </li>
+                            </ul>
+                        </entry>
+                    </row>
+                    <row cid="1nYXtD">
+                        <entry cid="ikUd3">
+                            <p cid="G401N">2</p>
+                        </entry>
+                        <entry cid="7bnkA">
+                            <p cid="20o2bU">HDD</p>
+                        </entry>
+                        <entry cid="L6Svb">
+                            <p cid="1Z3U5C">硬盘指示灯</p>
+                        </entry>
+                        <entry cid="1TR6ih">
+                            <p cid="1CF8KB">硬盘有数据交互时，红灯闪烁。</p>
+                        </entry>
+                    </row>
+                    <row cid="1D5iTC">
+                        <entry cid="1Br4MJ">
+                            <p cid="1B9xQX">3</p>
+                        </entry>
+                        <entry cid="V7hwE">
+                            <p cid="1W4rA2">ECAT1</p>
+                            <p cid="1l5LOX">ECAT2</p>
+                        </entry>
+                        <entry cid="hdVwi">
+                            <p cid="13435J">EtherCAT接口</p>
+                        </entry>
+                        <entry cid="1g5c92">
+                            <p cid="215UKs">千兆EtherCAT通信接口，支持以环网方式接入EtherCAT从站设备。</p>
+                        </entry>
+                    </row>
+                    <row cid="WViQb">
+                        <entry cid="uKJqu">
+                            <p cid="1Dd4Qf">4</p>
+                        </entry>
+                        <entry cid="guNuc">
+                            <p cid="5yzx7">LAN3</p>
+                        </entry>
+                        <entry cid="GfY9A" morerows="1">
+                            <p cid="12LIaA">以太网接口</p>
+                        </entry>
+                        <entry cid="wUIw4" morerows="1">
+                            <p cid="1a8AYb">千兆Ethernet通信接口，用于高速相机接入或维护设备接入。</p>
+                        </entry>
+                    </row>
+                    <row cid="1S6SNg">
+                        <entry cid="1UUJI1">
+                            <p cid="1Q7xbv">5</p>
+                        </entry>
+                        <entry cid="kXqif">
+                            <p cid="1pB93A">LAN4</p>
+                        </entry>
+                    </row>
+                    <row cid="1WQsRy">
+                        <entry cid="12Dnpt">
+                            <p cid="nkVfQ">6</p>
+                        </entry>
+                        <entry cid="1eimoc">
+                            <p cid="29SHbv">HDMI</p>
+                        </entry>
+                        <entry cid="1IN2ff">
+                            <p cid="PKpvd">HDMI接口</p>
+                        </entry>
+                        <entry cid="1L7xlC">
+                            <p cid="SQ3v">用于传输视频信号，可连接带有HDMI接口的显示器。</p>
+                        </entry>
+                    </row>
+                    <row cid="2DCnjZ">
+                        <entry cid="blsXw">
+                            <p cid="1sJ2TB">7</p>
+                        </entry>
+                        <entry cid="f0LL">
+                            <p cid="1xQ9mJ">VGA</p>
+                        </entry>
+                        <entry cid="QUxb5">
+                            <p cid="oFYHJ">VGA接口</p>
+                        </entry>
+                        <entry cid="11MHlH">
+                            <p cid="1H4BKx">D-sub15针VGA接口，用于传输视频信号，可连接带有VGA接口的显示器。</p>
+                        </entry>
+                    </row>
+                    <row cid="ZvTSY">
+                        <entry cid="1q6iR">
+                            <p cid="A504G">8</p>
+                        </entry>
+                        <entry cid="2CGsC1">
+                            <p cid="ySk1K">COM</p>
+                        </entry>
+                        <entry cid="1jwmaY">
+                            <p cid="2KFw7c">串口</p>
+                        </entry>
+                        <entry cid="1KeL1">
+                            <p cid="235RdB">默认为RS-485接口，可通过BIOS切换为RS-232或RS-422接口。</p>
+                            <p cid="1fx13">接口详细说明，请参见<xref href="GUID-A8887DA8-40B4-493B-90C8-BABA373F7AD6#GUID-A8887DA8-40B4-493B-90C8-BABA373F7AD6" format="dita" cid="1haJtc" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="RJDde">
+                        <entry cid="1hJQyO">
+                            <p cid="1TDQUT">9</p>
+                        </entry>
+                        <entry cid="MyhpO">
+                            <p cid="E4OjK">USB2.0</p>
+                        </entry>
+                        <entry cid="yavwb">
+                            <p cid="1rxnEM">USB2.0接口</p>
+                        </entry>
+                        <entry morerows="1" cid="droJ9">
+                            <p cid="1DKyfS">2路USB2.0和2路USB3.0传输数据接口，用于连接USB设备，支持即插即用，可随时连接或断开。</p>
+                        </entry>
+                    </row>
+                    <row cid="1D7YD0">
+                        <entry cid="16Ceq0">
+                            <p cid="2GaeM1">10</p>
+                        </entry>
+                        <entry cid="HZXyz">
+                            <p cid="16Bemw">USB3.0</p>
+                        </entry>
+                        <entry cid="GD85F">
+                            <p cid="1AT7Rc">USB3.0接口</p>
+                        </entry>
+                    </row>
+                    <row cid="KiQO8">
+                        <entry cid="239kgR">
+                            <p cid="1RRS2L">11</p>
+                        </entry>
+                        <entry cid="1sOm6j">
+                            <p cid="zd00q">0V</p>
+                            <p cid="2Hcv2N">24V</p>
+                        </entry>
+                        <entry cid="norHt">
+                            <p cid="6Aihp">电源接口</p>
+                        </entry>
+                        <entry cid="ZAfs6">
+                            <p cid="1VApwm">用于连接24 VDC电源，为设备供电。</p>
+                            <p cid="1VApwm">接口详细说明，请参见<xref href="GUID-9B43E25A-8FD9-4D8B-9AEF-129E130B5DF2#GUID-9B43E25A-8FD9-4D8B-9AEF-129E130B5DF2" format="dita" cid="16EjdW" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="1fUcqy">
+                        <entry cid="3l3oZ">
+                            <p cid="1P8Lft">12</p>
+                        </entry>
+                        <entry cid="1fnTI1">
+                            <p cid="287dGu">CH1~CH4</p>
+                        </entry>
+                        <entry cid="1acDdV">
+                            <p cid="cN54M">光源接口</p>
+                        </entry>
+                        <entry cid="tok7Y">
+                            <p cid="eTbgY">用于控制光源开关及亮度，支持4路24 V恒压光源。</p>
+                            <p cid="152lUc">板载连接器型号为JST SMR-03V-B（3pin，2.5 mm 间距），配套线缆插头型号：SMP-03V-BC。</p>
+                            <p cid="eTbgY">接口详细说明，请参见<xref href="GUID-007CD1D1-AC2C-4477-883B-A5732EDF6491#GUID-007CD1D1-AC2C-4477-883B-A5732EDF6491" format="dita" cid="1IX9Pk" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="EnAiY">
+                        <entry cid="1eEdjr">
+                            <p cid="1NOgzl">13</p>
+                        </entry>
+                        <entry cid="5SMXx">
+                            <p cid="27xlsx">SW</p>
+                        </entry>
+                        <entry cid="1wFCCs">
+                            <p cid="29ZM9I">远程开关接口</p>
+                        </entry>
+                        <entry cid="ArWUx">
+                            <p cid="efRhY">用于连接远端开关线，实现远距离控制设备开关机。一般使用按钮或按键方式来控制。</p>
+                            <ul id="UL_PLF_1Y3_FKC">
+                                <li id="GUID-5FA8B8D9-64E1-4B88-9370-2900B5496933">
+                                    <p cid="1Iro0b">短接后1秒内断开：触发整机开机</p>
+                                </li>
+                                <li id="GUID-65B48E84-FC79-4295-A6A9-40486447F519">
+                                    <p cid="TP4Xh">持续长接4秒及以上：触发强制关机</p>
+                                </li>
+                            </ul>
+                            <p cid="yKC4T">接口详细说明，请参见<xref href="GUID-F61E1E43-6360-468B-9464-99A95926A88B#GUID-F61E1E43-6360-468B-9464-99A95926A88B/GUID-57F0969C-2541-4413-9392-BF1375BC1230" format="dita" cid="1SopYO" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="1w3k6m">
+                        <entry cid="29KFAj">
+                            <p cid="1PEMCQ">14</p>
+                        </entry>
+                        <entry cid="H6BRB">
+                            <p cid="vDoth">S1/S2</p>
+                            <p cid="AgfWS">E1/E2</p>
+                        </entry>
+                        <entry cid="18fNRS">
+                            <p cid="V0vCI">低速IO接口</p>
+                        </entry>
+                        <entry cid="tUZgV">
+                            <p cid="1N2hme">4路光耦隔离IO接口（2路DI/2路DO），用于Windows VM和RT-Linux
+                                VM的开关机控制及工作状态反馈。</p>
+                            <ul id="UL_VMX_Y4G_4JC">
+                                <li id="GUID-8C4DA17B-AC25-40D0-B11C-55242C4D6865">
+                                    <p cid="298eYJ">S1：用于控制Windows VM的开机、关机</p>
+                                </li>
+                                <li id="GUID-1C6F2E8E-E5A7-497F-8BCF-6B558471B256">
+                                    <p cid="14EBNZ">S2：用于控制RT-Linux VM的开机、关机</p>
+                                </li>
+                                <li id="GUID-9E4CE14D-5C4E-4822-A195-51B556D56521">
+                                    <p cid="1PdM0k">E1：用于显示Windows VM的状态</p>
+                                </li>
+                                <li id="GUID-BA00685D-923E-4BF8-8C13-227BAC7F48B4">
+                                    <p cid="CTANO">E2：用于显示RT-Linux VM的状态</p>
+                                </li>
+                            </ul>
+                            <p cid="AHNw5">接口详细说明，请参见<xref href="GUID-F61E1E43-6360-468B-9464-99A95926A88B#GUID-F61E1E43-6360-468B-9464-99A95926A88B/GUID-CA4AC0EC-D35B-4A19-995D-0E53B96B7ACC" format="dita" cid="2Enb1P" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="a6kUa">
+                        <entry cid="29XFaa">
+                            <p cid="1sehW0">15</p>
+                        </entry>
+                        <entry cid="1JPeA7">
+                            <p cid="fyQiW">DI</p>
+                            <p cid="20X5Ve">DO</p>
+                        </entry>
+                        <entry cid="CMufO">
+                            <p cid="1x48zi">高速IO接口</p>
+                        </entry>
+                        <entry cid="QTkCW">
+                            <p cid="5vFfa">32路高速离散量IO接口（16路DI/16路DO），用于执行逻辑控制任务。</p>
+                            <p cid="5vFfa">接口详细说明，请参见<xref href="GUID-F61E1E43-6360-468B-9464-99A95926A88B#GUID-F61E1E43-6360-468B-9464-99A95926A88B/GUID-AC9FD55A-1C30-4B8A-BD7E-966F9FB0FE15" format="dita" cid="tI1ao" />。</p>
+                        </entry>
+                    </row>
+                </tbody>
+            </tgroup>
+        </table>
+        <note type="notice" id="GUID-88341405-3529-490D-AB74-C07160BD2E28">
+            <ul id="UL_ZPN_VBV_2KC">
+                <li id="GUID-7DDA7C20-2259-43A6-8620-D9153A890213">
+                    <p cid="1foNbD">HDMI接口和VGA接口支持同时独立显示输出，最大分辨率为1920 × 1080@60 Hz。</p>
+                </li>
+                <li id="GUID-724D7878-7A2C-46FC-B9ED-EBC67159B36B">
+                    <p cid="42l2a">部分设备支持通过以太网端口进行PoE供电，符合IEEE 802.3af协议规范。单端口最大输出功率15.4
+                        W，四路PoE端口合计最大输出功率25 W，多端口同时供电时请合理分配负载。</p>
+                </li>
+                <li id="GUID-E4D3F790-6CFD-4E8B-BBAC-74BCF92BC748">
+                    <p cid="3OAMl">光源接口单通道最大输出功率72 W，四路光源通道总输出功率上限同样为72 W。请勿多路光源同时满载使用，避免超出功率限制。</p>
+                </li>
+            </ul>
+        </note>
+    </conbody>
+    
+</concept>

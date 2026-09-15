@@ -1,0 +1,2254 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>
+<concept id="GUID-2A4AB1A9-99C6-4B48-9C63-63D58F3E95D9" xml:lang="zh-CN">
+    <title id="GUID-A23A3828-F094-4A34-B85C-84D66E6F8D89">VM3D模块结果_重复参数引用源</title>
+<shortdesc cid="1S0wOf"><!--VM3D中多个3D算法模块共用的结果参数，都统一从当前topic中引入。当前topic版本不对外发布。--></shortdesc>
+<conbody cid="1661Z8">
+        <section id="GUID-18EFDF1C-725A-44EB-9440-B738D782173E">
+            <title id="GUID-14CC4576-DBC5-4343-94CB-7C2BBCE84F2B">3D图像源</title>
+            <parml cid="2EW0UT">
+                <plentry id="GUID-13FFDE22-7C10-47F0-8388-DC98B68A73D0">
+                    <pt cid="CRvaf">立体图像数据</pt>
+                    <pd cid="w4kTD">
+                        <p cid="MWYV5">STEREOIMAGE型。3D立体图像数据。</p>
+                        <parml cid="179B3K">
+                            <plentry id="GUID-EB570E12-0A22-4FF2-AF0A-599BCDF5D30F">
+                                <pt cid="N4xdF">图像来源</pt>
+                                <pd cid="20BKMY">
+                                    <p cid="27pcEi">int型，0表示<msgph varref="MeasureSensor" />的图像数据，1表示RGB-D相机的图像数据。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-CE742C39-4D03-4292-9FFC-F6167CA6A4F1">
+                                <pt cid="20ny1c"><msgph varref="MeasureSensor" />深度图图像数据</pt>
+                                <pd cid="1GKSRW">
+                                    <parml cid="1Z8paQ">
+                                        <plentry id="GUID-90624FB6-BFE3-48CE-8CCC-49A51A3CFDA7">
+                                            <pt cid="mmwUS"><msgph varref="MeasureSensor" />深度图</pt>
+                                            <pd cid="fBOtm">
+                                                <p cid="1ZXBbe">image型（byte），表示<msgph varref="MeasureSensor" />深度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-3B101C60-2383-46AE-A31E-C833600CDD30">
+                                            <pt cid="ZmXnV"><msgph varref="MeasureSensor" />深度图宽</pt>
+                                            <pd cid="qocKz">
+                                                <p cid="13N1Qr">int型，表示<msgph varref="MeasureSensor" />深度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-E83D34AF-5030-46DD-80A3-5E7C3FA6F0C9">
+                                            <pt cid="1VBJLC"><msgph varref="MeasureSensor" />深度图高</pt>
+                                            <pd cid="3A2iM">
+                                                <p cid="1yRx9e">int型，表示<msgph varref="MeasureSensor" />深度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-0E6D498D-D309-457E-8B21-5C16DFB77567">
+                                            <pt cid="M1cf7"><msgph varref="MeasureSensor" />深度图像素格式</pt>
+                                            <pd cid="24qw3W">
+                                                <p cid="1dqC6O">int型，表示<msgph varref="MeasureSensor" />深度图的像素格式。一般为17825976，表示C16格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-F89D7FBD-93CE-459A-9404-B736D3D48C85">
+                                <pt cid="1NIkaa"><msgph varref="MeasureSensor" />亮度图像数据</pt>
+                                <pd cid="hh0BM">
+                                    <parml cid="gXK7R">
+                                        <plentry id="GUID-43518828-986C-4ED5-BC3A-1679F99B7E0B">
+                                            <pt cid="1A8qqN"><msgph varref="MeasureSensor" />亮度图</pt>
+                                            <pd cid="FTYcN">
+                                                <p cid="1mn52I">image型（byte），表示<msgph varref="MeasureSensor" />亮度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-BA845F32-9F08-412D-BEA0-AFE57160C95B">
+                                            <pt cid="186iOk"><msgph varref="MeasureSensor" />亮度图宽</pt>
+                                            <pd cid="1t3c8E">
+                                                <p cid="1uQCdG">int型，表示<msgph varref="MeasureSensor" />亮度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-49E155D9-1629-4CAB-800E-73DEE164E8B2">
+                                            <pt cid="2Gud4V"><msgph varref="MeasureSensor" />亮度图高</pt>
+                                            <pd cid="h82dh">
+                                                <p cid="1DbdF1">int型，表示<msgph varref="MeasureSensor" />亮度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-39B1D70D-3B46-4979-9BC0-2376C3D5DA84">
+                                            <pt cid="2MlnI"><msgph varref="MeasureSensor" />亮度图像素格式</pt>
+                                            <pd cid="26QZvj">
+                                                <p cid="NqAHq">int型，表示<msgph varref="MeasureSensor" />亮度图的像素格式。一般为17301505，表示MONO8格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-D237B690-7A78-4956-870D-7249CBA71FD4">
+                                <pt cid="nXUC8">RGBD深度图像数据</pt>
+                                <pd cid="2IZGT2">
+                                    <parml cid="kzix">
+                                        <plentry id="GUID-CA5CE970-5CE4-426B-B183-9CC642D3C3C7">
+                                            <pt cid="PEIXD">RGBD深度图</pt>
+                                            <pd cid="1n1FqR">
+                                                <p cid="1ossWS">image型（byte），表示RGB-D深度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-55CA62ED-B4BA-43ED-94E6-C03A50B9056B">
+                                            <pt cid="hfG2S">RGBD深度图宽</pt>
+                                            <pd cid="ma8WA">
+                                                <p cid="1d8O01">int型，表示RGB-D深度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-354670E8-DD93-4091-BD3B-0883A44A5044">
+                                            <pt cid="jKf4g">RGBD深度图高</pt>
+                                            <pd cid="40Ght">
+                                                <p cid="1jSffp">int型，表示RGB-D深度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-8EC6BD52-F315-4086-940D-D87C586AB9C7">
+                                            <pt cid="1VsCKi">RGBD深度图像素格式<!--缺少信息--></pt>
+                                            <pd cid="w9AjA">
+                                                <p cid="WE4jG">int型，表示RGB-D深度图的像素格式。一般为17825976，表示C16格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-EF6EFA1A-C05D-487F-9F2A-1C976FB7ED1C">
+                                <pt cid="1wozWV">Rgb图像数据</pt>
+                                <pd cid="1VDr6X">
+                                    <parml cid="22swzx">
+                                        <plentry id="GUID-4D32ED95-9D17-4C34-BA80-59AB9103696F">
+                                            <pt cid="277pxg">Rgb图</pt>
+                                            <pd cid="xPgmZ">
+                                                <p cid="RnrSG">image型（byte），表示RGB图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-88555A95-4C9C-499D-B5B5-0324C31BBDC2">
+                                            <pt cid="1qVDjy">Rgb图宽</pt>
+                                            <pd cid="E35sX">
+                                                <p cid="2EWyen">int型，表示RGB图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-33128631-7F18-43CC-B77A-37E2F84BD99D">
+                                            <pt cid="1e3zgS">Rgb图高</pt>
+                                            <pd cid="HIUH3">
+                                                <p cid="fSbeE">int型，表示RGB图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-5F2E129E-6AA3-4F6E-8277-AED4BF120D52">
+                                            <pt cid="1Q3D6r">Rgb图像素格式<!--缺少信息--></pt>
+                                            <pd cid="FgW4n">
+                                                <p cid="5RTWA">int型，表示RGB图的像素格式。一般为35127316，表示RGB8_Planar格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-070602CF-0F98-47B6-AF4F-E017301A263C">
+                                <pt cid="17AgZP">深度图属性</pt>
+                                <pd cid="LVGlI">
+                                    <parml cid="1uqQm0">
+                                        <plentry id="GUID-C355B68A-CB89-4B31-ADFF-597BDBA7C374">
+                                            <pt cid="yiTTt">X偏移</pt>
+                                            <pd cid="1grEGI">
+                                                <p cid="kJDMc">int型，即xoffset，表示深度图原点水平方向的偏移量。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-98F67F98-47D6-418D-BB50-EE4342AC4177">
+                                            <pt cid="1eKxc">Y偏移</pt>
+                                            <pd cid="1iQl8k">
+                                                <p cid="1JhH4q">int型，即yoffset，表示深度图原点垂直方向的偏移量。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-3722F02F-0EA3-4401-B441-EE6ACBD53F45">
+                                            <pt cid="fw546">Z偏移</pt>
+                                            <pd cid="23T731">
+                                                <p cid="1sejzN">int型，即zoffset，表示深度图原点Z方向的偏移量。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D54B67D9-3E83-422A-ACEE-F4D685A0EE34">
+                                            <pt cid="1QyWIL">X尺度</pt>
+                                            <pd cid="1biswk">
+                                                <p cid="WYqjN">float型，即xscale，表示点云到深度图转换的缩放系数（X方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D3B1A189-4760-4E32-A009-032B9E4F2588">
+                                            <pt cid="1XOu8g">Y尺度</pt>
+                                            <pd cid="m1wlV">
+                                                <p cid="3yZCG">float型，即yscale，表示点云到深度图转换的缩放系数（Y方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D62A4301-EA7C-4DC6-BD23-77792C5F4140">
+                                            <pt cid="Fx6MZ">Z尺度</pt>
+                                            <pd cid="185uY5">
+                                                <p cid="1CqYny">float型，即zscale，表示点云到深度图转换的缩放系数（Z方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-C3D1E569-344A-4FA7-A680-4AA54C9AA976">
+                                <pt cid="99MIX">RGBD相机内参</pt>
+                                <pd cid="ibAp2">
+                                    <p cid="1oRJxW">RGBDINNERPARAM型，RGB-D相机的内参。</p>
+                                    <parml cid="I1LxE">
+                                        <plentry id="GUID-0BEA22FD-AB41-4AE2-AC79-3F4D8B78CC8B">
+                                            <pt cid="Yyjio">深度图到RGB的变换</pt>
+                                            <pd cid="19Mx3B">
+                                                <p cid="O0OZY">Matrix4型，表示4×4变换矩阵，<parmname cid="2DSWwL">变换*（*表示0~15）</parmname>即该矩阵的16个值。</p>
+                                                <parml cid="20FcKr">
+                                                  <plentry id="GUID-0BC2D926-12AC-4D77-A984-5FAB4ADD5D41">
+                                                  <pt cid="ViGVG">深度图到RGB的变换*（*表示0~15）</pt>
+                                                  <pd cid="1QYNzo">
+                                                  <p cid="1zidyh">double型，分别表示4×4变换矩阵的16个值中的其中一个。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-11614092-241D-4FF0-A373-9E2783786D70">
+                                            <pt cid="27GOlZ">RGB相机内参矩阵</pt>
+                                            <pd cid="1JUwHw">
+                                                <p cid="O0OZY">Matrix3型，表示3×3内参矩阵，<parmname cid="2DSWwL">内参矩阵*（*表示0~8）</parmname>即该矩阵的9个值。</p>
+                                                <parml cid="29eIVm">
+                                                  <plentry id="GUID-DC126E37-8FCF-4632-892F-724C6282AAFA">
+                                                  <pt cid="SMaFH">RGB相机内参矩阵*（*表示0~8）</pt>
+                                                  <pd cid="WEzv5">
+                                                  <p cid="EOlxv">double型，分别表示3×3内参矩阵的9个值中的其中一个。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-98E69596-1D8B-4DEC-8400-9B9CAF988110">
+                                            <pt cid="sW3MB">RGB相机畸变系数</pt>
+                                            <pd cid="27O1xy">
+                                                <parml cid="3j1lv">
+                                                  <plentry id="GUID-A92320DE-13D8-4781-94BF-564570684E24">
+                                                  <pt cid="tEeIq">RGB相机畸变系数*（*表示0~4）</pt>
+                                                  <pd cid="189RrT">
+                                                  <p cid="19VXON">double型，分别表示RGB相机畸变系数5个值的其中一个，其中0、1、4为径向畸变系数，2、3为切向畸变系数。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-1F9DED77-0408-4935-A577-0E4A308B3250">
+                                            <pt cid="29CHdI">Depth相机畸变系数</pt>
+                                            <pd cid="1No3PP">
+                                                <parml cid="28m3mz">
+                                                  <plentry id="GUID-DC4F1B45-E8EA-46C7-AB31-40411FC2FE25">
+                                                  <pt cid="GD5f4">Depth相机畸变系数*（*表示0~4）</pt>
+                                                  <pd cid="2EgV4V">
+                                                  <p cid="19VXON">double型，分别表示Depth相机畸变系数5个值的其中一个，其中0、1、4为径向畸变系数，2、3为切向畸变系数。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-D0BAECFA-71A7-42B4-98E5-4FCB74D011D7">
+                    <pt cid="4FKoC">机器人视觉参数<!--缺少信息--></pt>
+                    <pd cid="TN1lO">
+                        <parml cid="1L5tCB">
+                            <plentry id="GUID-0014D76B-1815-4B73-98DA-7B20B053E02B">
+                                <pt cid="hSaQ0">相机标定标记</pt>
+                                <pd cid="iPJBt">
+                                    <p cid="11Nyjj" />
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-A1A665B7-7CD5-4BF5-B371-F0062CCD38F8">
+                                <pt cid="4tja0">RGB相机内参</pt>
+                                <pd cid="vSorQ">
+                                    <p cid="xT6dN" />
+                                    <parml cid="181r9d">
+                                        <plentry id="GUID-DA5609B5-11D6-4288-BE33-0981CC267158">
+                                            <pt cid="222Ox0">相机内参fx</pt>
+                                            <pd cid="2J8M7F" />
+                                        </plentry>
+                                        <plentry id="GUID-DC47276B-9228-4BBD-92F8-AF8809D0DA9C">
+                                            <pt cid="1bmwAM">相机内参fy</pt>
+                                            <pd cid="1Erbnl" />
+                                        </plentry>
+                                        <plentry id="GUID-B98D3C4E-A8E3-4EBC-9F17-33278BDC2AA3">
+                                            <pt cid="1P8AGk">相机内参cx</pt>
+                                            <pd cid="1tUi56" />
+                                        </plentry>
+                                        <plentry id="GUID-ABF6987C-E6F9-4FAE-B2F6-516F4EC3AF32">
+                                            <pt cid="1uvS5k">相机内参cy</pt>
+                                            <pd cid="13U1Gh" />
+                                        </plentry>
+                                        <plentry id="GUID-372E63E3-CB6A-4D87-A7B5-3E69596718D2">
+                                            <pt cid="WTJe0">相机畸变系数</pt>
+                                            <pd cid="rcP9L" />
+                                        </plentry>
+                                        <plentry id="GUID-2967032A-5062-4A5A-BF40-62AFD1C774F3">
+                                            <pt cid="1b6Wnk">相机畸变系数使能</pt>
+                                            <pd cid="ujWNG" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-F23C3324-E461-456B-95D9-494047B8BF72">
+                                <pt cid="jCpaZ">深度相机内参</pt>
+                                <pd cid="1lLUlj">
+                                    <p cid="1sRdbx" />
+                                    <parml cid="CE4ae">
+                                        <plentry id="GUID-6CC5402D-6DC1-4CAA-BF1D-B612DE3D4FA3">
+                                            <pt cid="ErGFF">深度相机内参fx</pt>
+                                            <pd cid="1MKX25" />
+                                        </plentry>
+                                        <plentry id="GUID-CDB53BAA-493E-4C15-B3CC-3439745CAFFF">
+                                            <pt cid="ujVml">深度相机内参fy</pt>
+                                            <pd cid="HLwpI" />
+                                        </plentry>
+                                        <plentry id="GUID-72ADD36C-E60C-44D6-8A24-6FFC0C96B776">
+                                            <pt cid="FfQCx">深度相机内参cx</pt>
+                                            <pd cid="lXIWq" />
+                                        </plentry>
+                                        <plentry id="GUID-77DD923E-E729-454A-8ADE-42ED5FB932B2">
+                                            <pt cid="t9rO7">深度相机内参cy</pt>
+                                            <pd cid="1Bh4iT" />
+                                        </plentry>
+                                        <plentry id="GUID-1A504A55-F3DF-4D1E-8E9F-0F0B4DB6FB71">
+                                            <pt cid="1w0HWf">深度相机畸变系数</pt>
+                                            <pd cid="2LEjs" />
+                                        </plentry>
+                                        <plentry id="GUID-B45EE10D-D012-4093-969F-0865566009CB">
+                                            <pt cid="v4L8X">深度相机畸变系数使能</pt>
+                                            <pd cid="mAVZO" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-8B2D69B9-A4B1-481D-B5B0-E6EDC138CCE9">
+                                <pt cid="c2Lrw">RGB相机分辨率</pt>
+                                <pd cid="TY8Ir">
+                                    <p cid="24kYvm" />
+                                    <parml cid="1sENys">
+                                        <plentry id="GUID-086E2A07-E71A-4BE1-8487-8E4D1AD9282A">
+                                            <pt cid="1u6Vsj">RGB相机分辨率宽度</pt>
+                                            <pd cid="25oonZ" />
+                                        </plentry>
+                                        <plentry id="GUID-32F6B098-A684-429B-8B0B-5BA7E33E1CE6">
+                                            <pt cid="5Ld0y">RGB相机分辨率高度</pt>
+                                            <pd cid="1H7CEL" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-D07E3FC3-B665-4D84-8A21-18171468E63F">
+                                <pt cid="nGiCa">深度相机分辨率</pt>
+                                <pd cid="1zhf66">
+                                    <p cid="24LuBk" />
+                                    <parml cid="FhZYC">
+                                        <plentry id="GUID-FC1E258A-634E-4FBB-BDC5-7C266E84135F">
+                                            <pt cid="1oDDug">深度相机分辨率宽度</pt>
+                                            <pd cid="1KCX4b" />
+                                        </plentry>
+                                        <plentry id="GUID-5B9CB2CE-7009-41EA-8944-23110F395DC1">
+                                            <pt cid="1cIk8z">深度相机分辨率高度</pt>
+                                            <pd cid="1jvJ6k" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-E96E91BA-F8E5-41D9-B5FF-6426ABAD5305">
+                                <pt cid="dZyGl">RGB相机到深度相机的变换</pt>
+                                <pd cid="1UqR1x">
+                                    <parml cid="15TAgZ">
+                                        <plentry id="GUID-61321103-34E7-4B6F-83DE-F56313397932">
+                                            <pt cid="1nysBF">RGB相机到深度相机的变换*（*表示0~15）</pt>
+                                            <pd cid="VEVpM" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-D30132F4-3AF2-4B6B-A0B0-6A159B37CFBD">
+                                <pt cid="TY2we">深度相机到RGB相机的变换</pt>
+                                <pd cid="13tp8w">
+                                    <p cid="jJ4f" />
+                                    <parml cid="g79o5">
+                                        <plentry id="GUID-BD91302A-4F86-4DC3-AB62-B5BBAFDABD27">
+                                            <pt cid="sMQwg">深度相机到RGB相机的变换*（*表示0~15）</pt>
+                                            <pd cid="1GV6QA" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-B11E1B18-63E5-4DD6-B495-6C0926B30E58">
+                                <pt cid="1PyUj8">多相机标定标记</pt>
+                                <pd cid="Q5rRt" />
+                            </plentry>
+                            <plentry id="GUID-291A738C-0B02-47FE-B11D-111F3E4988E4">
+                                <pt cid="1eBws7">到主RGB相机的变换</pt>
+                                <pd cid="1MmvWs">
+                                    <p cid="yQMwZ" />
+                                    <parml cid="18kwWM">
+                                        <plentry id="GUID-1383E726-79C8-434E-BDD8-CEB227636162">
+                                            <pt cid="RRfOl">到主RGB相机的变换*（*表示0~15）</pt>
+                                            <pd cid="2vBL9" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5463E303-1E65-4729-A865-63EEAC7570F3">
+                                <pt cid="18CSoa">到主深度相机的变换</pt>
+                                <pd cid="24ClPt">
+                                    <p cid="1Lxd5Y" />
+                                    <parml cid="yidO1">
+                                        <plentry id="GUID-CF3352EC-5C95-454E-B439-1D66E86E0797">
+                                            <pt cid="1fzrkl">到主深度相机的变换*（*表示0~15）</pt>
+                                            <pd cid="bKRNc" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-ED7B5E9F-B3D9-490E-9C8F-FF646ED3ACCB">
+                                <pt cid="1kHyz5">手眼标定标记</pt>
+                                <pd cid="aUDkA" />
+                            </plentry>
+                            <plentry id="GUID-054F5C61-D788-464B-8570-32FFCF059E43">
+                                <pt cid="1dJFRM">手眼标定类型</pt>
+                                <pd cid="f1wEZ" />
+                            </plentry>
+                            <plentry id="GUID-88EF4BF7-3016-4519-A0C0-2E69DC8D4147">
+                                <pt cid="oTLVd">机器人法兰到RGB相机的变换</pt>
+                                <pd cid="1GnVjN">
+                                    <p cid="1UZAys" />
+                                    <parml cid="1UZAsO">
+                                        <plentry id="GUID-B172DBF0-3675-469B-A7E9-9B288376AB2F">
+                                            <pt cid="Y76Ri">机器人法兰到RGB相机的变换*（*表示0~15）</pt>
+                                            <pd cid="R9qUi" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-4B56FB87-D269-430A-B4A7-B4FD9DC8BE10">
+                                <pt cid="IB2Z3">机器人到RGB相机的变换</pt>
+                                <pd cid="2Avn2z">
+                                    <p cid="1JWFzA" />
+                                    <parml cid="6nq2a">
+                                        <plentry id="GUID-A070A1F8-8C8F-4694-9701-D5AC7DC6C48B">
+                                            <pt cid="5MD">机器人到RGB相机的变换*（*表示0~15）</pt>
+                                            <pd cid="10qjmq" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-4F446985-D583-4A91-BAB9-3FF8E452412D">
+                                <pt cid="1rV4uD">RGB相机到机器人的变换</pt>
+                                <pd cid="1DzM4e">
+                                    <p cid="1DSNqt" />
+                                    <parml cid="1AB9Bp">
+                                        <plentry id="GUID-95DC6AAD-71FD-4338-8FB2-1CD12E04B65F">
+                                            <pt cid="2CTK6E">RGB相机到机器人的变换*（*表示0~15）</pt>
+                                            <pd cid="NAqkh" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-EEA85EFC-9319-4F71-A087-928A45CE501B">
+                                <pt cid="LViDz">机器人到深度相机的变换</pt>
+                                <pd cid="hYyes">
+                                    <p cid="1cbpCe" />
+                                    <parml cid="fSHOK">
+                                        <plentry id="GUID-FBC1DDFD-BCBD-43AE-98C1-F13DD71AB9D9">
+                                            <pt cid="skrfq">机器人到深度相机的变换*（*表示0~15）</pt>
+                                            <pd cid="1ZNYnq" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-28D90FEA-6AAD-47EC-8D75-817216D57A25">
+                                <pt cid="biqIA">深度相机到机器人的变换</pt>
+                                <pd cid="uhpRt">
+                                    <p cid="8snwP" />
+                                    <parml cid="16mBNp">
+                                        <plentry id="GUID-9BD21FB1-76EE-4E3A-BBB8-1A18831EEFC8">
+                                            <pt cid="1knvWp">深度相机到机器人的变换*（*表示0~15）</pt>
+                                            <pd cid="1CeQnd" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-4C5B6B9A-6193-410E-949B-9F0D46A98202">
+                                <pt cid="16H9RI">机器人法兰位姿</pt>
+                                <pd cid="2EORnV">
+                                    <p cid="1lvCIb" />
+                                    <parml cid="1h1zR7">
+                                        <plentry id="GUID-E8565BD0-F0F1-4FA5-A06A-6ED19FCCD611">
+                                            <pt cid="2CyQtT">机器人法兰位姿*（*表示0~15）</pt>
+                                            <pd cid="1wtXoK" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-22C4E3EF-ABB7-4AF0-9B8F-4556161721BB">
+                                <pt cid="27GY2J">工作台/基准面标记</pt>
+                                <pd cid="2GjwRl">
+                                    <parml cid="1D26NP">
+                                        <plentry id="GUID-FD2F40AA-1D35-4DA9-87ED-4AD6213970E6">
+                                            <pt cid="14bsxp">工作台/基准面标记*（*表示0~15）</pt>
+                                            <pd cid="18pCUb" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-ACB8818B-7781-43F8-B6E3-CC4FFD979830">
+                                <pt cid="2AZJ8D">工作台到RGB相机变换</pt>
+                                <pd cid="KdpMB">
+                                    <p cid="2v5yw" />
+                                    <parml cid="7Lj1k">
+                                        <plentry id="GUID-363198A5-B96F-4DDF-9B49-CB9C46C7ADCB">
+                                            <pt cid="ChgVg">工作台到RGB相机变换*（*表示0~15）</pt>
+                                            <pd cid="7yH0u" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-4A476920-43DD-4716-A767-C1E9B1ABE19E">
+                                <pt cid="26as89">RGB相机到工作台变换</pt>
+                                <pd cid="VoiYw">
+                                    <p cid="kBjsP" />
+                                    <parml cid="1N78EO">
+                                        <plentry id="GUID-B388C4FF-30C2-4DC9-AEF1-540293CCC335">
+                                            <pt cid="EyVWB">RGB相机到工作台变换*（*表示0~15）</pt>
+                                            <pd cid="vkGmU" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-73D25380-31E4-435E-BD83-38969C498EF7">
+                                <pt cid="1Nkjcw">工作台到深度相机变换</pt>
+                                <pd cid="9147J">
+                                    <p cid="O2e3X" />
+                                    <parml cid="2GWEm3">
+                                        <plentry id="GUID-063BE2C4-714B-4D0A-A6FE-37E3B8193CD5">
+                                            <pt cid="sqKaE">工作台到深度相机变换*（*表示0~15）</pt>
+                                            <pd cid="1yjtaq" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-F99D1075-33E4-4C92-9204-DA0DF9D9CC5F">
+                                <pt cid="IH2YJ">深度相机到工作台变换</pt>
+                                <pd cid="1WjTmF">
+                                    <p cid="Q7rWA" />
+                                    <parml cid="6rpBX">
+                                        <plentry id="GUID-920C35EA-7B6F-4448-8A38-0AD77117BEF5">
+                                            <pt cid="1LrJCJ">深度相机到工作台变换*（*表示0~15）</pt>
+                                            <pd cid="6wG9j" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-631865ED-E85E-44BC-A66F-4D34B83FD91A">
+                                <pt cid="1aGA5G">工作台到机器人变换</pt>
+                                <pd cid="AT5T6">
+                                    <p cid="1MLXmC" />
+                                    <parml cid="1btSda">
+                                        <plentry id="GUID-8E4A0E96-5C8D-4F8C-AD33-5A3D1496F3FD">
+                                            <pt cid="1OFDkX">工作台到机器人变换*（*表示0~15）</pt>
+                                            <pd cid="2H40FU" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-F8F68AE7-9BC2-4053-A0C1-51FB111E606F">
+                                <pt cid="VC5kW">机器人到工作台变换</pt>
+                                <pd cid="1ToERb">
+                                    <p cid="1yHiI4" />
+                                    <parml cid="Tmci3">
+                                        <plentry id="GUID-7D8EE23B-BC55-4517-B880-DC34307D8653">
+                                            <pt cid="qDar8">机器人到工作台变换*（*表示0~15）</pt>
+                                            <pd cid="Y72Jf" />
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-379CDD34-C765-4799-9E14-661B6180550C">
+            <title id="GUID-FB59068C-BC0A-45EE-AE90-0E47569CB61A">CAD转点云</title>
+            <parml cid="1WSSou">
+                <plentry id="GUID-F2D23316-FAEC-4856-8A59-3EDB7C2B9536">
+                    <pt cid="UN7GQ">输出点云数据</pt>
+                    <pd cid="i08wD">
+                        <p cid="n5Qeg">POINTCLOUD型，输出的点云数据。</p>
+                        <parml cid="1LVvqh">
+                            <plentry id="GUID-7CEAE859-6241-4006-BE28-B2E105321587">
+                                <pt cid="1EzCxt">输出点云容量</pt>
+                                <pd cid="SSgvE">
+                                    <p cid="1Lhw4W">int型，表示输出的点云的容量。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-1C8F4A31-278B-44B4-8EC5-CEA8078AF491">
+                                <pt cid="24Udnv">输出点云点数</pt>
+                                <pd cid="1zPwHK">
+                                    <p cid="1gLt9Y">int型，表示输出的点云中包含的点的总数。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-0E07C8CE-FFD2-4D57-96F1-3F332E505B18">
+                                <pt cid="qAvW7">输出法向量点数</pt>
+                                <pd cid="JHFoB">
+                                    <p cid="1slvlv">int型，表示输出的点云中包含的法向量点的总数。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-393B9B3C-654D-45D8-A9F7-48B6756F6D8B">
+                                <pt cid="23xMmA">输出rgb数据点数</pt>
+                                <pd cid="1Yqtkn">
+                                    <p cid="1LqUKO">int型，表示输出的点云中包含的rgb数据点的总数。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-29A59A6C-6559-46B5-9811-D2A492BBC421">
+                                <pt cid="2C4vrH">输出拓展信息</pt>
+                                <pd cid="1NtbrX">
+                                    <p cid="z2ZRv">PCDEXTINF型，点云数据的扩展信息。</p>
+                                    <parml cid="ul3p6">
+                                        <plentry id="GUID-4B2B5F7D-C31D-4FA7-99FB-AE5BFD2EC274">
+                                            <pt cid="1tD1mb">输出拓展信息数据</pt>
+                                            <pd cid="ihKyR">
+                                                <parml cid="1K78kt">
+                                                  <plentry id="GUID-4BF434F3-E727-4225-AAE2-9C211B8D47BA">
+                                                  <pt cid="2HJSQE">输出坐标系类型</pt>
+                                                  <pd cid="sQBXV">
+                                                  <p cid="1M2NlS">int型，表示输出点云坐标系的类型，1表示RGB相机坐标系，2表示深度图相机坐标系，3表示机器人坐标系，4表示工作台坐标系，5表示物体自身坐标系，6表示自定义坐标系。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-0726EFBC-E4F3-4473-84F5-1CC2B32639F6">
+                                                  <pt cid="2Eb2a">输出尺寸标记</pt>
+                                                  <pd cid="16xLpj">
+                                                  <p cid="19lhRZ">int型，表示是否输出点云尺寸，0表示不输出，1表示输出。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-F215AEA7-AFE6-477F-9C0F-248554086C15">
+                                                  <pt cid="UhPUZ">输出长度</pt>
+                                                  <pd cid="1Su7PQ">
+                                                  <p cid="i7bIu">float型，表示点云的长度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-78410091-F1A9-4804-AB36-307B3B31A40E">
+                                                  <pt cid="oSMDw">输出宽度</pt>
+                                                  <pd cid="rv2Ts">
+                                                  <p cid="1KU0bh">float型，表示点云的宽度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-01081EFE-7916-46FE-BFB9-A77E08351E06">
+                                                  <pt cid="16Utfb">输出高度标记</pt>
+                                                  <pd cid="1InB5R">
+                                                  <p cid="1pzWmn">int型，表示是否输出高度，0表示不输出，1表示输出。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-41F09C84-8B9C-4855-BAA8-23D6423C143C">
+                                                  <pt cid="ty6ut">输出高度</pt>
+                                                  <pd cid="1e85rC">
+                                                  <p cid="1np5XG">float型，表示点云的高度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-FD91099B-4453-40FC-B2D4-C5894D416F19">
+                                                  <pt cid="2BGEKt">输出面积标记</pt>
+                                                  <pd cid="k3lx9">
+                                                  <p cid="2GIdcB">int型，表示是否输出点云面积，0表示不输出，1表示输出。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-C8E79662-A6E4-421F-8666-338B8EFE070C">
+                                                  <pt cid="OTDJo">输出点云面积</pt>
+                                                  <pd cid="1Gjked">
+                                                  <p cid="11teT1">float型，表示点云的面积。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-E0763757-3321-444A-A104-D28930C71879">
+                                                  <pt cid="HMVco">输出密度标记</pt>
+                                                  <pd cid="BDXvY">
+                                                  <p cid="1WXoF5">int型，表示是否输出点云密度，0表示不输出，1表示输出。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-EAA0403B-EC70-4A43-8B4C-BE530FEBEDFB">
+                                                  <pt cid="1WTH9I">输出点云密度</pt>
+                                                  <pd cid="1zjkrK">
+                                                  <p cid="PR7p0">float型，表示点云的密度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-7D1F81A2-31A1-4ED9-A8CF-EB3D0E0E3A4F">
+                                                  <pt cid="1chHzP">输出体积标记</pt>
+                                                  <pd cid="SqwTQ">
+                                                  <p cid="1LukvE">int型，表示是否点云体积，0表示不输出，1表示输出。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-9BBFD958-DD04-433F-9919-E53107047D96">
+                                                  <pt cid="k5EZ9">输出体积</pt>
+                                                  <pd cid="2CWSFw">
+                                                  <p cid="1QXE37">float型，表示点云的体积。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-5F23A93F-DB86-417C-9EA4-AB5478DC040C">
+                                            <pt cid="1dinb3">输出中心点标记<!--缺少信息--></pt>
+                                            <pd cid="32Ysn">
+                                                <p cid="eStFl">int型，表示是否输出点云中心点，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-6162997E-D7BC-4F61-9FA0-3B08AF4D85B6">
+                                            <pt cid="1XUuUH">输出中心点</pt>
+                                            <pd cid="tAONx">
+                                                <parml cid="Z3AcV">
+                                                  <plentry id="GUID-9686B3EB-DC5E-44D8-9C63-71E3FAF340D8">
+                                                  <pt cid="54gVT">输出中心点x</pt>
+                                                  <pd cid="26PuKd">
+                                                  <p cid="1cdwCG">float型，表示点云中心点的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-F24E252A-BA75-4862-9241-62F7DF8D74A0">
+                                                  <pt cid="17qjVT">输出中心点y</pt>
+                                                  <pd cid="1ZKW9n">
+                                                  <p cid="217AMZ">float型，表示点云中心点的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-2D02DF0A-154E-412F-8769-53F6E18E2397">
+                                                  <pt cid="1aTczh">输出中心点z</pt>
+                                                  <pd cid="1xHYJw">
+                                                  <p cid="ot5L1">float型，表示点云中心点的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-27503B12-FAD0-482A-8C68-A9774B85641A">
+                                            <pt cid="flXtd">输出凸包标记</pt>
+                                            <pd cid="1FHngn">
+                                                <p cid="y9nGE">int型，表示是否输出点云凸包，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-9E0607E6-7837-45F7-BBD2-254D7F991F4E">
+                                            <pt cid="qoWM8">凸包</pt>
+                                            <pd cid="27Pi9U">
+                                                <parml cid="1CZbK3">
+                                                  <plentry id="GUID-76DDCD3C-6663-4EF0-A79F-75963FF751C1">
+                                                  <pt cid="sv2bj">输出凸包点</pt>
+                                                  <pd cid="1siN1h">
+                                                  <parml cid="PpGuy">
+                                                  <plentry id="GUID-A4A8F1D5-0E66-46F3-8787-D04B62D81655">
+                                                  <pt cid="1ivI0v">输出凸包点x</pt>
+                                                  <pd cid="1S19u8">
+                                                  <p cid="1z71Fq">float型，表示点云凸包点的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-CA1493C5-FC22-4A1B-BAA7-749ACEB4CDA9">
+                                                  <pt cid="zQOXj">输出凸包点y</pt>
+                                                  <pd cid="1JALwk">
+                                                  <p cid="19uGsS">float型，表示点云凸包点的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-EB886887-C8C5-47E9-A0C2-F17E4EEB4BFF">
+                                                  <pt cid="dOYCI">输出凸包点z</pt>
+                                                  <pd cid="1hzTr3">
+                                                  <p cid="18knBj">float型，表示点云凸包点的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  </parml>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-029C304C-352B-4870-9879-0C6B67784F9D">
+                                                  <pt cid="1XYgQA">输出凸包点数</pt>
+                                                  <pd cid="3xj5M">
+                                                  <p cid="18ccKI">int型，表示点云凸包点的总数。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-B6CA90F4-0C45-4BFA-8CDF-A3F5137CA750">
+                                            <pt cid="22kTMV">输出外接矩标记</pt>
+                                            <pd cid="1oSVwo">
+                                                <p cid="lrOgC">int型，表示是否输出点云外接矩形，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-9E0EBFEC-373D-4901-BBA8-4C8D30F04B92">
+                                            <pt cid="8KwyM">输出外接矩角点</pt>
+                                            <pd cid="B2lNf">
+                                                <parml cid="Reqbm">
+                                                  <plentry id="GUID-029153AD-386C-431D-998B-9F1D3FC308FD">
+                                                  <pt cid="2GjpWA">输出外接矩角点x</pt>
+                                                  <pd cid="2GcaR0">
+                                                  <p cid="wHWs">float型，表示点云外接矩形角点的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-11529D79-5E0F-45E0-93B7-8B6872B2FA87">
+                                                  <pt cid="bIQji">输出外接矩角点y</pt>
+                                                  <pd cid="XRj36">
+                                                  <p cid="1zlDai">float型，表示点云外接矩形角点的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-E7B1D831-52FB-4713-9D9B-CB3F6D035366">
+                                                  <pt cid="1DiUZy">输出外接矩角点z</pt>
+                                                  <pd cid="18spBH">
+                                                  <p cid="1w2HPk">float型，表示点云外接矩形角点的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-09B442A5-1E17-4263-B9AC-7E28385FB5EA">
+                                            <pt cid="WHMLj">输出矩形度标记</pt>
+                                            <pd cid="bviB6">
+                                                <p cid="17j0A2">int型，表示是否输出点云矩形度，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-8A25EA48-6374-427A-B384-3A43DEA5EC7A">
+                                            <pt cid="1UulYT">输出矩形度</pt>
+                                            <pd cid="mWHat">
+                                                <p cid="m5CUb">float型，表示点云外接矩形与点云平面的比值。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-7C0207DF-A089-4E05-B370-B80C9581D2D9">
+                                            <pt cid="ayCl0">输出平面标记</pt>
+                                            <pd cid="1NPKX2">
+                                                <p cid="278LZU">int型，表示是否输出点云平面，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-4B2DA2EE-1694-4A85-BC5B-A9D9A378FE8A">
+                                            <pt cid="1fjeAR">输出平面方程</pt>
+                                            <pd cid="1kOBap">
+                                                <p cid="tGyz0">PLANE3D型，输出的平面方程。</p>
+                                                <parml cid="Q7gfM">
+                                                  <plentry id="GUID-859AE891-7426-4BED-BAEF-8922F522BC40">
+                                                  <pt cid="1vGWSi">输出平面方程a</pt>
+                                                  <pd cid="1ChU8T">
+                                                  <p cid="RBUEJ">float型，表示平面方程系数A的值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-703866AE-81CC-45DA-B0D0-96CA6138C4CE">
+                                                  <pt cid="Rsgld">输出平面方程b</pt>
+                                                  <pd cid="1DtWg5">
+                                                  <p cid="1hFPt8">float型，表示平面方程系数B的值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-678971E1-2375-42D5-A929-114D2D43111E">
+                                                  <pt cid="fRtSt">输出平面方程c</pt>
+                                                  <pd cid="5Tka9">
+                                                  <p cid="1Ztbt5">float型，表示平面方程系数C的值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-C0E52C36-773A-48AE-A69C-A5F00FBF5E20">
+                                                  <pt cid="2F4cRF">输出平面方程d</pt>
+                                                  <pd cid="1ImsOR">
+                                                  <p cid="1FQVcq">float型，表示平面方程系数D的值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-8E71EE5B-3FAA-41BD-AE06-47784FBDA6E8">
+                                            <pt cid="2GzF1E">输出法向量标记</pt>
+                                            <pd cid="iPpFR">
+                                                <p cid="H4GKv">int型，表示是否输出点云法向量，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-1E37887E-3772-420D-B699-DE8010045F36">
+                                            <pt cid="YrDuT">输出法向量</pt>
+                                            <pd cid="13t0Q7">
+                                                <parml cid="27Ljdu">
+                                                  <plentry id="GUID-4AA17D21-5263-4AEC-A9AC-FC9A336A8FD7">
+                                                  <pt cid="1owbLa">输出法向量x</pt>
+                                                  <pd cid="UimVy">
+                                                  <p cid="1QGKF8">float型，表示法向量的x值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-7BF5D391-7C2F-4FDA-A7C2-EBB2AF4BAEFB">
+                                                  <pt cid="1m3FS7">输出法向量y</pt>
+                                                  <pd cid="P9fkM">
+                                                  <p cid="ZGulP">float型，表示法向量的y值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-92C63789-6C96-44F7-A420-5DE78BBD6F6E">
+                                                  <pt cid="2C0VEL">输出法向量z</pt>
+                                                  <pd cid="242zSK">
+                                                  <p cid="2fDCv">float型，表示法向量的z值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-098C121D-370F-475D-B698-C56A1EC1CCFC">
+                                            <pt cid="bHAaL">输出坐标范围标记</pt>
+                                            <pd cid="LTJYd">
+                                                <p cid="1WNVpe">int型，表示是否输出点云坐标范围，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-61BF5357-F14A-4078-9E7E-5C1E41B95093">
+                                            <pt cid="ezsRj">输出坐标范围</pt>
+                                            <pd cid="bkwJ2">
+                                                <p cid="CiyLH">BOX3D型，包围盒的大小范围。</p>
+                                                <parml cid="16zZpp">
+                                                  <plentry id="GUID-18FE69C5-80B4-4CA2-9712-96A83A0FAAF2">
+                                                  <pt cid="2IR0wg">输出坐标范围Min_x</pt>
+                                                  <pd cid="Cu6wq">
+                                                  <p cid="1WhKox">float型，表示点云x坐标最小值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-8242D412-6430-4711-BFDD-FFDFFF576EB9">
+                                                  <pt cid="iC9Bk">输出坐标范围Min_y</pt>
+                                                  <pd cid="1bJqGH">
+                                                  <p cid="4goca">float型，表示点云y坐标最小值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-8F9449A5-600C-4597-82FE-756F1B492AE1">
+                                                  <pt cid="2Fpgc">输出坐标范围Min_z</pt>
+                                                  <pd cid="28V7QM">
+                                                  <p cid="2HdGES">float型，表示点云z坐标最小值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-74BD051E-EE4F-4ACD-8312-760F0A7253B6">
+                                                  <pt cid="3YvWL">输出坐标范围Max_x</pt>
+                                                  <pd cid="1ccmh9">
+                                                  <p cid="kuctt">float型，表示点云x坐标最大值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-BADC01BF-112B-4659-B19D-70E0BB2043C6">
+                                                  <pt cid="2EWc57">输出坐标范围Max_y</pt>
+                                                  <pd cid="1Gy5Qu">
+                                                  <p cid="1f4MOr">float型，表示点云y坐标最大值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-49524FC3-EDD9-4F66-ACBF-841B234BB52E">
+                                                  <pt cid="24UhD3">输出坐标范围Max_z</pt>
+                                                  <pd cid="afe9c">
+                                                  <p cid="1U3dHC">float型，表示点云z坐标最大值。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-03749B5C-4779-433E-AE36-291252215D89">
+                                            <pt cid="27XZju">输出包围盒标记</pt>
+                                            <pd cid="2BG4w1">
+                                                <p cid="coES4">int型，表示是否输出点云包围盒，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-30B337E0-5FE3-4E5E-9CDE-802360DE688C">
+                                            <pt cid="1Xxzl">输出包围盒角点</pt>
+                                            <pd cid="1dqAwI">
+                                                <parml cid="VIfKX">
+                                                  <plentry id="GUID-EE59831E-EABE-4F18-A558-524C66526429">
+                                                  <pt cid="a1bGo">输出包围盒角点x</pt>
+                                                  <pd cid="1niyWd">
+                                                  <p cid="1TX8rS">float型，表示点云包围盒角点的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-5C8E510C-81ED-42EF-8DBF-9E1A03E3FF7A">
+                                                  <pt cid="15LfNo">输出包围盒角点y</pt>
+                                                  <pd cid="1iteVa">
+                                                  <p cid="1UEPxU">float型，表示点云包围盒角点的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-B108C998-C649-4939-B385-837B53DC5949">
+                                                  <pt cid="1IuIqK">输出包围盒角点z</pt>
+                                                  <pd cid="6FQF2">
+                                                  <p cid="1EWe6G">float型，表示点云包围盒角点的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-4622EFCA-2209-492B-9C0F-11AD53CC765D">
+                                            <pt cid="1wghfw">输出内切圆标记</pt>
+                                            <pd cid="1GZyQ5">
+                                                <p cid="6caqN">int型，表示是否输出点云内切圆，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-0E4D74A6-06DA-4452-B60B-22474B6C9BCA">
+                                            <pt cid="1tiIxV">内切圆</pt>
+                                            <pd cid="HgQhi">
+                                                <parml cid="1ZnCu5">
+                                                  <plentry id="GUID-A2C8A728-A838-44A6-B77E-113478A5C734">
+                                                  <pt cid="Xhbgk">输出内切圆心</pt>
+                                                  <pd cid="2BSN3c">
+                                                  <parml cid="1tmwE5">
+                                                  <plentry id="GUID-E4A4819D-68E7-4BD5-97E5-D37A05FB73E6">
+                                                  <pt cid="aajCh">输出内切圆心x</pt>
+                                                  <pd cid="ffOkx">
+                                                  <p cid="21gs3K">float型，表示点云内切圆圆心的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-E7A0C8F6-EE27-43C2-A7F4-892AD6F7C5E9">
+                                                  <pt cid="g9zYp">输出内切圆心y</pt>
+                                                  <pd cid="lgj58">
+                                                  <p cid="22CtSi">float型，表示点云内切圆圆心的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-67ECF68A-939B-412A-9920-5F520F8B9820">
+                                                  <pt cid="10K4tm">输出内切圆心z</pt>
+                                                  <pd cid="FHshA">
+                                                  <p cid="NY8oI">float型，表示点云内切圆圆心的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  </parml>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-CF9385ED-3695-42C0-B976-48E06928BD04">
+                                                  <pt cid="2E9k9o">输出内切圆长轴</pt>
+                                                  <pd cid="XyVug">
+                                                  <p cid="22ZUUj">float型，表示点云内切圆圆心的长轴长度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-20B94938-77E3-4A63-8144-785396953F17">
+                                                  <pt cid="lYhtw">输出内切圆短轴</pt>
+                                                  <pd cid="1BNbIV">
+                                                  <p cid="iretT">float型，表示点云内切圆圆心的短轴长度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-9D6E0040-8565-42F4-A1B9-172412702728">
+                                            <pt cid="cwibT">输出外接圆标记</pt>
+                                            <pd cid="kQIK">
+                                                <p cid="D5h8f">int型，表示是否输出点云外接圆，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-2CB280E5-48DE-491A-AF07-4E58317D2648">
+                                            <pt cid="22V1SZ">外接圆</pt>
+                                            <pd cid="1IlcF4">
+                                                <parml cid="9hD7C">
+                                                  <plentry id="GUID-5A01B32F-97E0-4B62-AD03-8C5450A92202">
+                                                  <pt cid="1jL2E">输出外接圆心</pt>
+                                                  <pd cid="R9Ydd">
+                                                  <parml cid="ZXMR6">
+                                                  <plentry id="GUID-62509991-D0E1-4383-BE95-D60D4D465FB7">
+                                                  <pt cid="1zxlBM">输出外接圆心x</pt>
+                                                  <pd cid="170TrY">
+                                                  <p cid="DPlRA">float型，表示点云外接圆圆心的x坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-E7111D6A-BEDF-43D2-946D-436BEB7897DD">
+                                                  <pt cid="EmoSr">输出外接圆心y</pt>
+                                                  <pd cid="27D7Pe">
+                                                  <p cid="NuIlN">float型，表示点云外接圆圆心的y坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-4E7540BB-9DCF-48AB-8DDE-B4603C67C65F">
+                                                  <pt cid="1nmGc8">输出外接圆心z</pt>
+                                                  <pd cid="ejPB2">
+                                                  <p cid="hBJm2">float型，表示点云外接圆圆心的z坐标。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                  </parml>
+                                                  </pd>
+                                                  </plentry>
+                                                  <plentry id="GUID-6BC0044B-E7F6-43B2-AD62-61A2168E5BF0">
+                                                  <pt cid="jGTkA">输出外接圆半径</pt>
+                                                  <pd cid="2EMwkS">
+                                                  <p cid="1g3Pc0">float型，表示点云外接圆的半径长度。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-5E709047-AEB6-410A-920C-738549E00E9C">
+                                            <pt cid="1beedn">输出位姿标记</pt>
+                                            <pd cid="DkdVp">
+                                                <p cid="2FHry4">int型，表示是否输出点云位姿，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-0F42354D-6BF0-44B7-84AB-B24AFF7C3A44">
+                                            <pt cid="22sihX">输出位姿</pt>
+                                            <pd cid="Ki56N">
+                                                <p cid="O0OZY">Matrix4型，表示4×4位姿矩阵，<parmname cid="2DSWwL">输出位姿*（*表示0~15）</parmname>即该矩阵的16个值。</p>
+                                                <parml cid="2HSKSx">
+                                                  <plentry id="GUID-E92CEEA2-9E54-4DE0-BF0A-8AFA2EA53E5D">
+                                                  <pt cid="2ATIMj">输出位姿*（*表示0~15）</pt>
+                                                  <pd cid="29fUmh">
+                                                  <p cid="1zidyh">double型，分别表示4×4位姿矩阵的16个值中的其中一个。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-E23FD8A7-4A2B-495F-B628-907D5D0F63E3">
+                                            <pt cid="nOtcr">输出类别标记</pt>
+                                            <pd cid="q3mge">
+                                                <p cid="g65NE">int型，表示是否输出点云类别，0表示不输出，1表示输出。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-80B09D6F-0E10-43C5-94D9-1C3E216F6D45">
+                                            <pt cid="1q4Wwn">所属类别</pt>
+                                            <pd cid="kvmve">
+                                                <p cid="1UDR7a">int型，为深度学习模型自定义内容。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D290B204-CF75-422C-AE18-6C608CCFA9EE">
+                                            <pt cid="1g1Kw7">输出量纲标记</pt>
+                                            <pd cid="lJ6NR">
+                                                <p cid="1G5vUY">int型，表示是否进行过量纲变换，0表示未进行过，1表示进行过。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-1B6A18F5-3584-45C3-AE9C-FAA88C8DFE16">
+                                            <pt cid="ddFoc">输出缩放系数</pt>
+                                            <pd cid="1sxsfB">
+                                                <p cid="1b1fWY">float型，表示点云的量纲转换系数。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-762EA963-9F8A-45C8-B252-67F42CC2B4CA">
+            <title id="GUID-AD35B4B1-ECB0-492D-BE23-AFA4FEEE1DC3">尺度匹配-深度图</title>
+            <parml cid="aW1qA">
+                <plentry id="GUID-E9270D02-BDBA-4399-A763-2B58EAABC805">
+                    <pt cid="rPWQy">3D变换矩阵</pt>
+                    <pd cid="1q6zyL">
+                        <p cid="O0OZY">Matrix4型，表示4×4变换矩阵，<parmname cid="2DSWwL">矩阵*（*表示0~15）</parmname>即该矩阵的16个值。</p>
+                        <parml cid="29j21O">
+                            <plentry id="GUID-2CA3C968-2934-417B-BA80-EABC99438C1E">
+                                <pt cid="tC3TD">矩阵*（*表示0~15）</pt>
+                                <pd cid="1s91m4">
+                                    <p cid="1zidyh">double型，分别表示4×4变换矩阵的16个值中的其中一个。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-F23ECBE6-1D7D-4E5C-95A7-3215CCF5E0F3">
+                    <pt cid="1uAcOP">采样掩膜图</pt>
+                    <pd cid="mq4ms">
+                        <p cid="2Jycr0">image型，表示采样掩膜图。</p>
+                        <parml cid="112GAc">
+                            <plentry id="GUID-6CB24064-FAA0-4A88-8FB8-84181FBEC00E">
+                                <pt cid="1uU8II">输出图像数据</pt>
+                                <pd cid="WtucH">
+                                    <p cid="IFwJ3">binary型，表示输出的掩膜图像数据。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-3E60B90C-5421-4D50-B4F1-C9A2558D52A5">
+                                <pt cid="1ERa59">输出图像宽度</pt>
+                                <pd cid="mqEg3">
+                                    <p cid="AmbbC">int型，表示掩膜图像的宽度。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-18C704CD-E674-46DF-B107-AC41238B71C2">
+                                <pt cid="1ZQKym">输出图像高度</pt>
+                                <pd cid="2A2elX">
+                                    <p cid="1SloeB">int型，表示掩膜图像的高度。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-2E628C0C-9734-48D5-9108-552ED7240626">
+                                <pt cid="sWNkV">输出图像像素格式</pt>
+                                <pd cid="1v3ZFj">
+                                    <p cid="SH0Vu">int型，表示掩膜图像的像素格式。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-A5DAEC26-55BA-449E-9EAB-A37CC4E20292">
+            <title id="GUID-D118D762-72DC-4899-BC70-F648E9B6055D">平面检测-深度图</title>
+            <parml cid="PC55e">
+                <plentry id="GUID-CFAC9E49-6BA2-4E17-8A75-4F92C9E67785">
+                    <pt cid="1qsV7j">参数式平面方程</pt>
+                    <pd cid="1ZlqjF">
+                        <p cid="3yHf6">PLANE3D型，输出的参数式平面方程。</p>
+                        <parml cid="28t7ep">
+                            <plentry id="GUID-235E092F-1A0D-4B29-8990-2E4C58EE9153">
+                                <pt cid="KYXLU">平面方程系数A</pt>
+                                <pd cid="DOSqY">
+                                    <p cid="15MK0m">float型，表示平面方程中系数A的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-BFB412BE-0C2F-4DC1-9ECC-4CE571AAEF75">
+                                <pt cid="1z5Hbn">平面方程系数B</pt>
+                                <pd cid="1WukMO">
+                                    <p cid="13WKWt">float型，表示平面方程中系数B的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-0D78694D-7AA1-4AD0-BBDE-3BCA03F0264C">
+                                <pt cid="14nS5K">平面方程系数C</pt>
+                                <pd cid="UOdlt">
+                                    <p cid="27LldA">float型，表示平面方程中系数C的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-E483A9F2-BFF4-4C4F-BFE8-0246739344BB">
+                                <pt cid="1HG0bc">平面方程系数D</pt>
+                                <pd cid="1Eeenv">
+                                    <p cid="B6iQH">float型，表示平面方程中系数D的值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-0E827517-F2A0-4A23-A737-EC16AA73105A">
+                    <pt cid="22JeW1">点法式平面方程</pt>
+                    <pd cid="1LnzjJ">
+                        <p cid="2D1zeq">PLANE3D型，输出的点法式平面方程。</p>
+                        <parml cid="158O6W">
+                            <plentry id="GUID-8C0BBD61-58A0-4512-B647-3F5AF44E4F16">
+                                <pt cid="MHmZE">平面点</pt>
+                                <pd cid="2G5WaW">
+                                    <p cid="9em72">POINT3D型。</p>
+                                    <parml cid="C7p2i">
+                                        <plentry id="GUID-4613B7B6-97D9-4CD2-9104-64BBEB0A3929">
+                                            <pt cid="JKWRo">平面点X</pt>
+                                            <pt cid="1q76ij">平面点Y</pt>
+                                            <pt cid="2B8Bub">平面点Z</pt>
+                                            <pd cid="1EIw38">
+                                                <p cid="1zhvc3">float型，点法式平面方程中平面上一点的X/Y/Z坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-419AEE74-37D8-4AEE-921B-9CEB123370FE">
+                                <pt cid="iq24Y">法向量</pt>
+                                <pd cid="1FCC1r">
+                                    <p cid="2LJKPP">POINT3D型。</p>
+                                    <parml cid="1yX5Vk">
+                                        <plentry id="GUID-606A88EA-7158-4108-812C-5F6ED08664AD">
+                                            <pt cid="1THqnZ">法向量X</pt>
+                                            <pt cid="XxZpn">法向量Y</pt>
+                                            <pt cid="1e1xfm">法向量Z</pt>
+                                            <pd cid="EV92w">
+                                                <p cid="1uvdts">float型，点法式平面方程中，垂直于平面的非零向量在X/Y/Z轴的分量。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-18D953E6-3080-4851-96D6-4A57C5CACEA9">
+                    <pt cid="UGlf8">3D变换矩阵信息</pt>
+                    <pd cid="1yuoga">
+                        <p cid="2HsCSn">string型，3D变换矩阵的字符串信息。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-38053E66-6E50-4C1A-A462-D5FDAB10D0A3">
+                    <pt cid="1LjZKf">3D变换向量</pt>
+                    <pd cid="1XMZDg">
+                        <parml cid="2AXFIc">
+                            <plentry id="GUID-5D02C682-3F7D-4BE6-8C72-9CBAC9B9D9AA">
+                                <pt cid="1nVicU">X方向平移</pt>
+                                <pt cid="1vSkKx">Y方向平移</pt>
+                                <pt cid="1R9Mag">Z方向平移</pt>
+                                <pd cid="2I99mQ">
+                                    <p cid="2UlbQ">float型，旋转向量在X/Y/Z三个方向的平移距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-769E6D20-BA5D-479B-BCE0-373511FCA328">
+                                <pt cid="61FXx">绕X轴旋转角度</pt>
+                                <pt cid="1d4Sty">绕Y轴旋转角度</pt>
+                                <pt cid="1Zn8ur">绕Z轴旋转角度</pt>
+                                <pd cid="1Suhb8">
+                                    <p cid="19TSiz">float型，旋转向量绕X/Y/Z轴的旋转角度。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-1157B4A7-EFC3-4747-BDF5-30E772E6989C">
+                    <pt cid="JCKBo">平面方程</pt>
+                    <pd cid="1hmwMC">
+                        <!--fjp备注：V2.3.0开始已废弃，拆分为参数式平面方程和点法向平面方程-->
+                        <p cid="1xv63H">PLANE3D型，输出的平面方程。</p>
+                        <parml cid="28t7ep">
+                            <plentry id="GUID-63AACDD9-BE5F-479C-8AE1-AC3D090058DE">
+                                <pt cid="KYXLU">平面方程系数A</pt>
+                                <pd cid="DOSqY">
+                                    <p cid="15MK0m">float型，表示平面方程中系数A的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-7EC2483D-4B85-407B-867F-869520BC41B9">
+                                <pt cid="1z5Hbn">平面方程系数B</pt>
+                                <pd cid="1WukMO">
+                                    <p cid="13WKWt">float型，表示平面方程中系数B的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-EE06F482-90C9-46FE-B0B9-5E64BB433542">
+                                <pt cid="14nS5K">平面方程系数C</pt>
+                                <pd cid="UOdlt">
+                                    <p cid="27LldA">float型，表示平面方程中系数C的值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5A98D858-292C-4E80-B678-15FBD0905CC2">
+                                <pt cid="1HG0bc">平面方程系数D</pt>
+                                <pd cid="1Eeenv">
+                                    <p cid="B6iQH">float型，表示平面方程中系数D的值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-F7359ECA-0250-4B43-822A-4E6ABB9B5E45">
+                    <pt cid="TNE2w">平面检测状态</pt>
+                    <pd cid="h9YOh">
+                        <p cid="laVtY">int型，0表示未检测到平面，1表示检测到平面。</p>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-DCFCFCE8-20AA-4CBA-9B06-7D308AAF2D49">
+            <title id="GUID-18B0AC54-8980-4548-A1A2-3C881CABF2B1">统计测量-深度图</title>
+            <parml cid="1Wh5ZU">
+                <plentry id="GUID-0C19A3E5-D047-4247-87C6-2E7C2B3A9D14">
+                    <pt cid="gqqeG">区域状态</pt>
+                    <pd cid="1A0CCc">
+                        <p cid="2Kk1OM">int型，标识每个ROI是否符合判断条件，0代表不符合；1代表符合。输出为一维数组，分别对应每个ROI的状态。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-585F6035-4651-47FD-A344-4166F4AEF0EF">
+                    <pt cid="wMkBA">测量区域数量</pt>
+                    <pd cid="19x1ni">
+                        <p cid="1vE5yX">int型，表示ROI的数量。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-3B2E0ADE-29AD-4648-81CE-5D0B7755215D">
+                    <pt cid="LG5Ac">总点数</pt>
+                    <pd cid="4duj4">
+                        <p cid="6vpSP">int型，表示每个ROI内的点数量，如“10;15”，则表示第一个ROI中包含10个点，第二个ROI中包含15个点。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-AC55A6B4-753B-46B3-A1AA-981F02F678D8">
+                    <pt cid="iSbAa">有效点数</pt>
+                    <pd cid="gwEKm">
+                        <p cid="BGVFR">int型，表示每个ROI内的有效点数量，如“10;15”，则表示第一个ROI中包含10个有效点，第二个ROI中包含15个有效点。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-CA5EDC90-B0A6-46B9-A22C-2A3F89ABD337">
+                    <pt cid="8i6J8">X最小值</pt>
+                    <pd cid="1tCcuW">
+                        <p cid="17I9zp">float型，表示每个ROI中点数的X坐标的最小值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-B9B6E9EE-9206-45F1-B54A-6ABD14E6A212">
+                    <pt cid="14bRTc">X分位值</pt>
+                    <pd cid="1GQ4IL">
+                        <p cid="bTuSk">float型，表示每个ROI中点数的X坐标的目标分位值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-030C7BFB-2F67-4DE8-B0D6-530A1408F5D7">
+                    <pt cid="FzA4R">X最大值</pt>
+                    <pd cid="1claAQ">
+                        <p cid="1Q1zdH">float型，表示每个ROI中点数的X坐标的最大值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-C7D7DAB4-E344-4B19-8E6D-BA073815D443">
+                    <pt cid="1uHw8j">X均值</pt>
+                    <pd cid="3DY0b">
+                        <p cid="24y01h">float型，表示每个ROI中点数的X坐标的平均值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-9D5FC729-4517-402F-8B2E-819096EE4127">
+                    <pt cid="GeBy1">Y最小值</pt>
+                    <pd cid="wDkl8">
+                        <p cid="2Dpwxx">float型，表示每个ROI中点数的Y坐标的最小值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-88CD3747-10DC-4968-9A6D-0E2F0934FC5A">
+                    <pt cid="nUxBc">Y分位值</pt>
+                    <pd cid="1Ba9ij">
+                        <p cid="1Prq5e">float型，表示每个ROI中点数的Y坐标的目标分位值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-7149A672-2D8B-498B-A4D9-707CB4349ABD">
+                    <pt cid="ERAiy">Y最大值</pt>
+                    <pd cid="1ZlYTN">
+                        <p cid="z1OEs">float型，表示每个ROI中点数的Y坐标的最大值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-89CE1369-F9B5-4D8B-A29B-86D458520990">
+                    <pt cid="1E3i4z">Y均值</pt>
+                    <pd cid="btLvV">
+                        <p cid="TWzPW">float型，表示每个ROI中点数的Y坐标的平均值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-CE874FF3-8F94-4D02-BD7D-BF1FFA3FFFD6">
+                    <pt cid="22YUuX">Z最小值</pt>
+                    <pd cid="3RrE4">
+                        <p cid="1IlZkG">float型，表示每个ROI中点数的Z坐标的最小值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-8E3DC18F-D620-441D-9E87-CBE5CD76FC4A">
+                    <pt cid="1wKZAq">Z分位值</pt>
+                    <pd cid="1FROSR">
+                        <p cid="u2xoO">float型，表示每个ROI中点数的Z坐标的目标分位值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-FE341009-9EC6-4153-98E9-3CFE9E5F4179">
+                    <pt cid="LEHPg">Z最大值</pt>
+                    <pd cid="pNAJ5">
+                        <p cid="1a6iXX">float型，表示每个ROI中点数的Z坐标的最大值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-51258BBB-0A23-4F71-B73A-B4CE6DF76170">
+                    <pt cid="IRR0z">Z均值</pt>
+                    <pd cid="12icFO">
+                        <p cid="1Avsxv">float型，表示每个ROI中点数的Z坐标的平均值，单位μm。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-55C6C26B-29FD-4862-9740-741A8045A764">
+                    <pt cid="1nRGHi">点云质心点坐标</pt>
+                    <pd cid="1ZVXSg">
+                        <parml cid="hu2L1">
+                            <plentry id="GUID-4DFF6FAC-C8AC-4FCB-8E96-B052DD0E51B5">
+                                <pt cid="1VzXma">质心x坐标</pt>
+                                <pd cid="Vt73b">
+                                    <p cid="XXZAv">float型，代表质心点的x坐标。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-BABB7468-8C17-48D5-94C5-E99FA171C833">
+                                <pt cid="BX2d0">质心y坐标</pt>
+                                <pd cid="2LhjS">
+                                    <p cid="pAdH4">float型，代表质心点的y坐标。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5C676FA3-33E9-4FFC-B10E-7DAA5521A68E">
+                                <pt cid="1sRMIf">质心z坐标</pt>
+                                <pd cid="8VvlA">
+                                    <p cid="BwX3a">float型，代表质心点的z坐标。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-18456F96-D783-4473-AA32-5F1F7533E9B8">
+                    <pt cid="1K3HvB">Z最小值点坐标</pt>
+                    <pd cid="1A3pPo">
+                        <parml cid="1dLlHZ">
+                            <plentry id="GUID-6AC9213D-EFAE-405F-B457-24AE1F92CAC7">
+                                <pt cid="LSDxB">Z最小值点X坐标</pt>
+                                <pd cid="1LBDl1">
+                                    <p cid="APcQo">float型，代表Z最小值处点的X坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-6A48BDEB-8C06-4A06-82F0-D0CC92382245">
+                                <pt cid="1PBuLU">Z最小值点Y坐标</pt>
+                                <pd cid="1ii5bW">
+                                    <p cid="1K0WRC">float型，代表Z最小值处点的Y坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-C9E316FC-6A94-468F-804D-E943C305497D">
+                                <pt cid="1bcs3Y">Z最小值点Z坐标</pt>
+                                <pd cid="2K6DkT">
+                                    <p cid="1CJ3KM">float型，代表Z最小值处点的Z坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-9E2D889F-461C-4637-A6AB-C0F772C99FF0">
+                    <pt cid="wN4p3">Z分位值点坐标</pt>
+                    <pd cid="6wCbs">
+                        <parml cid="19EgBc">
+                            <plentry id="GUID-36ECFE39-9089-49AB-98B4-68F1D527B408">
+                                <pt cid="PesXa">Z分位值点X坐标</pt>
+                                <pd cid="BIHsU">
+                                    <p cid="242npO">float型，代表Z分位值处点的X坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-CE24C5BB-EC2C-49E4-940D-17F8F1E401B4">
+                                <pt cid="qqd5O">Z分位值点Y坐标</pt>
+                                <pd cid="1o1Yp9">
+                                    <p cid="52rtl">float型，代表Z分位值处点的Y坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-0931FE30-945D-41FB-A650-1E22D1DC993C">
+                                <pt cid="1YYvVP">Z分位值点Z坐标</pt>
+                                <pd cid="eMNWr">
+                                    <p cid="74xBs">float型，代表Z分位值处点的Z坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-D4B6720C-E817-4F3C-913B-7A18B271AC81">
+                    <pt cid="1ttmlt">Z最大值点坐标</pt>
+                    <pd cid="1ctvJW">
+                        <parml cid="2J9qow">
+                            <plentry id="GUID-6B1C5459-51D7-4D1C-AFFB-22E67FB43785">
+                                <pt cid="a2ile">Z最大值点X坐标</pt>
+                                <pd cid="RsjlR">
+                                    <p cid="wAPfL">float型，代表Z最大值处点的X坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5B765BA6-2E72-428D-91C6-736F06F82A36">
+                                <pt cid="1lg9wm">Z最大值点Y坐标</pt>
+                                <pd cid="oSXVR">
+                                    <p cid="9hA7u">float型，代表Z最大值处点的Y坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-AE4D4A29-E02A-45C8-9E77-3B01EEE69673">
+                                <pt cid="1OphOO">Z最大值点Z坐标</pt>
+                                <pd cid="12k7YR">
+                                    <p cid="VD1oj">float型，代表Z最大值处点的Z坐标均值，单位um。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-52E9E23D-2A84-4851-97B2-C78B3D21699C">
+            <title id="GUID-B724EFBF-EC88-46D0-A627-593ED7C1521F">点面统计-深度图</title>
+            <parml cid="27iDxi">
+                <plentry id="GUID-4BADAFE5-E948-45F9-B362-40D5EFE86B37">
+                    <pt cid="1R6uFM">有效点数</pt>
+                    <pd cid="2B4yob">
+                        <p cid="Y9s7O">int型，表示每个ROI内的有效点数量，如“10;15”，则表示第一个ROI中包含10个有效点，第二个ROI中包含15个有效点。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-14F62909-327E-474A-BF83-DE863A78A86A">
+                    <pt cid="23576g">总点数</pt>
+                    <pd cid="2Bo75u">
+                        <p cid="bcCsU">int型，表示每个ROI内的点数量，如“10;15”，则表示第一个ROI中包含10个点，第二个ROI中包含15个点。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-98AAB18D-508F-4A17-AEDA-1796B916A524">
+                    <pt cid="PTJB4">均值</pt>
+                    <pd cid="1omZav">
+                        <p cid="J7KEL">float型，表示ROI内点的深度平均值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-63C07E37-A162-4009-9206-9FE3126AED18">
+                    <pt cid="nsT1R">最小值</pt>
+                    <pd cid="1Cay59">
+                        <p cid="ZhtIp">float型，表示ROI内点的深度最小值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-32CCEA12-3964-4D9F-8A9E-FBD29E1FA2DD">
+                    <pt cid="23aTLt">最大值</pt>
+                    <pd cid="AUDsg">
+                        <p cid="iLziQ">float型，表示ROI内点的深度最大值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-AFFBB0F2-AEE1-4ACE-B8B9-22113C9760E1">
+                    <pt cid="29uw2h">中值</pt>
+                    <pd cid="1WFLcs">
+                        <p cid="nsmRd">float型，表示ROI内点的深度中值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-971EFEBB-706B-4590-B5B7-129902C822B4">
+                    <pt cid="sT3MU">极差</pt>
+                    <pd cid="4ZNH3">
+                        <p cid="1rmI4s">float型，表示ROI内点的深度值极差。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-C215153F-7979-484A-AD00-4D0B61EDC7B5">
+                    <pt cid="vxVH9">平滑最小值</pt>
+                    <pd cid="4nLT4">
+                        <p cid="1Iadp6">float型，表示用作平均运算输出的点的深度最小值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-8E5A1125-325E-444D-8E8A-49EC8E697EE4">
+                    <pt cid="1ThCLn">平滑最大值</pt>
+                    <pd cid="o9G7J">
+                        <p cid="1u3IBF">float型，表示用作平均运算输出的点的深度最大值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-EB77095A-BD8E-4571-83EC-DBEE22FA7415">
+                    <pt cid="1tVVbm">平滑中值</pt>
+                    <pd cid="Tl3Q0">
+                        <p cid="13wzeT">float型，表示用作平均运算输出的点的深度中值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-A66D66FD-6773-4789-A2B1-C09A77351AB5">
+                    <pt cid="34V5C">平滑极差</pt>
+                    <pd cid="Ew3Jy">
+                        <p cid="28Novl">float型，表示用作平均运算输出的点的深度值极差。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-A2EA0D61-F2ED-46F4-801F-A7C4D091C386">
+                    <pt cid="1SicWL">负向最大值点</pt>
+                    <pd cid="IdNUV">
+                        <parml cid="1Sj9UC">
+                            <plentry id="GUID-A4492767-4556-4581-A871-513C0C1057B6">
+                                <pt cid="HoDwY">X</pt>
+                                <pd cid="Tdy9F">
+                                    <p cid="sEA14">float型，表示负方向下X坐标的最大值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-DD1BD853-EF05-4ABC-B3A4-10AEFD86DA38">
+                                <pt cid="1oLpJA">Y</pt>
+                                <pd cid="Lhwv6">
+                                    <p cid="2FiE0a">float型，表示负方向下Y坐标的最大值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-E8C871A3-0C6E-4475-8290-C1846523C8F4">
+                    <pt cid="1efYb4">正向最大值点</pt>
+                    <pd cid="1alBtX">
+                        <parml cid="1U2Sve">
+                            <plentry id="GUID-6F52B764-0BB3-4751-BBAE-7EF3ACDEF9CA">
+                                <pt cid="1ACsQ6">X</pt>
+                                <pd cid="1n1Dwq">
+                                    <p cid="1C7Wh">float型，表示正方向下X坐标的最大值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-FD0735AA-29EA-4771-BB6C-3D7CFFEEC130">
+                                <pt cid="2CXRd4">Y</pt>
+                                <pd cid="Ck3Vi">
+                                    <p cid="5L2Tl">float型，表示正方向下Y坐标的最大值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-F56B57A8-C7A1-48C1-93E3-74166D05473A">
+                    <pt cid="2CVVNy">分位值点</pt>
+                    <pd cid="1SlnlE">
+                        <parml cid="2KJoEb">
+                            <plentry id="GUID-D93646D1-26B4-4E33-AE41-C109F80CB707">
+                                <pt cid="WBJy6">X</pt>
+                                <pd cid="1PHKah">
+                                    <p cid="LaTUn">float型，表示分位值点的X坐标值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-68F837D5-1B60-4564-95BE-D488CE68719B">
+                                <pt cid="1PTOdJ">Y</pt>
+                                <pd cid="1Qycte">
+                                    <p cid="2HMkqo">float型，表示分位值点的Y坐标值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-99F8C45A-B189-4B88-A682-DE886FD0249B">
+            <title id="GUID-9060B413-EBC5-4D4B-B666-EA1012BED8E3">单点跳动-深度图</title>
+            <parml cid="1A5RY3">
+                <plentry id="GUID-F1F92CA9-F0FB-459B-B4EB-0797C1CCBC5D">
+                    <pt cid="2KD6Y2">极差深度图</pt>
+                    <pd cid="10N3th">
+                        <parml cid="1Crheu">
+                            <plentry id="GUID-28A98DDE-5042-4E49-B2D2-B37F0926DB90">
+                                <pt cid="1DuBm">图像来源</pt>
+                                <pd cid="kGY0E">
+                                    <p cid="27pcEi">int型，0表示<msgph varref="MeasureSensor" />的图像数据，1表示RGBD图像数据。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-6EF4B3BD-6C04-4B3A-8903-BC4731143CF6">
+                                <pt cid="YxYpO"><msgph varref="MeasureSensor" />深度图像数据</pt>
+                                <pd cid="24disW">
+                                    <parml cid="iMMIG">
+                                        <plentry id="GUID-3D80A496-C780-4A0A-A842-7952C9FE978C">
+                                            <pt cid="1kRjcB"><msgph varref="MeasureSensor" />深度图</pt>
+                                            <pd cid="1rKiqF">
+                                                <p cid="1ZXBbe">image型，表示<msgph varref="MeasureSensor" />深度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-A15F318D-1D3D-481F-A1DD-FA6E9D1C112C">
+                                            <pt cid="1I4mHt"><msgph varref="MeasureSensor" />深度图宽</pt>
+                                            <pd cid="1WyLeN">
+                                                <p cid="13N1Qr">int型，表示<msgph varref="MeasureSensor" />深度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-EB575388-A2C9-4F73-ADB8-D2E94148252C">
+                                            <pt cid="KEUsC"><msgph varref="MeasureSensor" />深度图高</pt>
+                                            <pd cid="1jZlN0">
+                                                <p cid="1yRx9e">int型，表示<msgph varref="MeasureSensor" />深度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-EA16C765-D0BF-4EFF-851E-EAA2EE62994A">
+                                            <pt cid="1hsWQn"><msgph varref="MeasureSensor" />深度图像素格式</pt>
+                                            <pd cid="r9Hsd">
+                                                <p cid="1dqC6O">int型，表示<msgph varref="MeasureSensor" />深度图的像素格式。一般为17825976，表示MONO16格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-DE7EF8E5-991D-4BB3-A0C9-C7BA194D68C0">
+                                <pt cid="Z9k9A"><msgph varref="MeasureSensor" />亮度图像数据</pt>
+                                <pd cid="1UMWOe">
+                                    <parml cid="1Fh7Ry">
+                                        <plentry id="GUID-098F8E24-09B4-41D0-BC15-1D8BE728AE0A">
+                                            <pt cid="1UGtvK"><msgph varref="MeasureSensor" />亮度图</pt>
+                                            <pd cid="DaWR1">
+                                                <p cid="1mn52I">image型，表示<msgph varref="MeasureSensor" />亮度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-454637D4-144D-46A6-AA39-31F5C4319053">
+                                            <pt cid="1Gx8q5"><msgph varref="MeasureSensor" />亮度图宽</pt>
+                                            <pd cid="wyNKM">
+                                                <p cid="1uQCdG">int型，表示<msgph varref="MeasureSensor" />亮度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-653F626C-F67E-4CA5-B1AB-89D9B978E1CF">
+                                            <pt cid="QjhqY"><msgph varref="MeasureSensor" />亮度图高</pt>
+                                            <pd cid="U8ZFp">
+                                                <p cid="1DbdF1">int型，表示<msgph varref="MeasureSensor" />亮度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-CC950FFA-0D2F-44E5-828F-808449C0742D">
+                                            <pt cid="45JRc"><msgph varref="MeasureSensor" />亮度图像素格式</pt>
+                                            <pd cid="245Lwt">
+                                                <p cid="NqAHq">int型，表示<msgph varref="MeasureSensor" />亮度图的像素格式。一般为17301505，表示MONO8格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-4CEE4E29-2005-4AFC-93B5-24DAD9669A50">
+                                <pt cid="3RHve">RGBD深度图像数据</pt>
+                                <pd cid="1EUbSD">
+                                    <parml cid="Idhw9">
+                                        <plentry id="GUID-64C9205E-2357-4AFD-A98B-45C53A6D2B3C">
+                                            <pt cid="IvjzX">RGBD深度图</pt>
+                                            <pd cid="1obWqZ">
+                                                <p cid="1ossWS">image型，表示RGBD深度图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-DCFE149A-9B38-4E15-8D44-A00B41C99E04">
+                                            <pt cid="dhmJn">RGBD深度图宽</pt>
+                                            <pd cid="1UArrD">
+                                                <p cid="1d8O01">int型，表示RGBD深度图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-2C0AE15B-2867-4116-8434-7586B72A51EE">
+                                            <pt cid="1dRePI">RGBD深度图高</pt>
+                                            <pd cid="qUdtJ">
+                                                <p cid="1jSffp">int型，表示RGBD深度图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D766C133-1E2E-4F5A-8383-1FFF3EFCE565">
+                                            <pt cid="1oFszr">RGBD深度图像素格式</pt>
+                                            <pd cid="1kjMe9">
+                                                <p cid="WE4jG">int型，表示RGBD深度图的像素格式。一般为MONO16格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-84A12D14-D9F9-40D6-9E16-F58FEDA11020">
+                                <pt cid="2JMe5j">Rgb图像数据</pt>
+                                <pd cid="14erea">
+                                    <parml cid="gjxGU">
+                                        <plentry id="GUID-4BBE6475-FB34-46C5-98F3-9D07D413049B">
+                                            <pt cid="uQj65">RGB图</pt>
+                                            <pd cid="2H84hs">
+                                                <p cid="RnrSG">image型，表示RGB图的图像数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-AB0E960B-D06B-4870-B42D-DC2722F690DA">
+                                            <pt cid="20ibt0">RGB图宽</pt>
+                                            <pd cid="ak2rb">
+                                                <p cid="2EWyen">int型，表示RGB图的宽度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-C6026CD9-DF67-4E8A-80F9-A4664F07DDA5">
+                                            <pt cid="19dQ8K">RGB图高</pt>
+                                            <pd cid="Y82i4">
+                                                <p cid="fSbeE">int型，表示RGB图的高度。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-8922F6CF-DA46-4822-A6A7-28EF1888192E">
+                                            <pt cid="qJeU9">RGB图像素格式</pt>
+                                            <pd cid="2Hwj61">
+                                                <p cid="5RTWA">int型，表示RGB图的像素格式。一般为RGB8_Planar格式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-6A59025F-6EF2-442F-BD9B-8BC7BC94E907">
+                                <pt cid="1ler7D">深度图属性</pt>
+                                <pd cid="14Vz64">
+                                    <parml cid="x3WYM">
+                                        <plentry id="GUID-287AE915-6812-4BB5-AA69-2DECCBC73F0F">
+                                            <pt cid="2HFBPq">X偏移</pt>
+                                            <pd cid="1Pa9SR">
+                                                <p cid="kJDMc">int型，即xoffset，表示深度图和x轴的距离。数值越大，深度图离x轴越远。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-75D4AAB0-1C30-45B5-891C-7976CE6EE80D">
+                                            <pt cid="JWq9g">Y偏移</pt>
+                                            <pd cid="4ozZZ">
+                                                <p cid="1JhH4q">int型，即yoffset，表示深度图和y轴的距离。数值越大，深度图离y轴越远。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-20B346E1-5867-4AF4-ABDA-2C620C571086">
+                                            <pt cid="20YPQu">Z偏移</pt>
+                                            <pd cid="1TQ7ZW">
+                                                <p cid="1sejzN">int型，即zoffset，表示深度图和z轴的距离。数值越大，深度图离z轴越远。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-EA5D57E5-ECDE-4747-8C9E-4E76E93C3F16">
+                                            <pt cid="ev4Mc">X尺度</pt>
+                                            <pd cid="Vx89y">
+                                                <p cid="WYqjN">float型，即xscale，表示点云到深度图转换的缩放系数（X方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-17E24CB5-BBE9-455E-9FC4-FAA67675081F">
+                                            <pt cid="cVKtD">Y尺度</pt>
+                                            <pd cid="zR4Lk">
+                                                <p cid="3yZCG">float型，即yscale，表示点云到深度图转换的缩放系数（Y方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-7CDE2388-628B-44A0-AD4A-AE383CC19427">
+                                            <pt cid="1E2beq">Z尺度</pt>
+                                            <pd cid="qxace">
+                                                <p cid="1CqYny">float型，即zscale，表示点云到深度图转换的缩放系数（Z方向）。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-C2281FBB-8B74-4ED4-9BCE-D918B6E32D15">
+                                <pt cid="15rz3D">RGBD相机内参</pt>
+                                <pd cid="DheZa">
+                                    <p cid="1v5s0d">RGBDINNERPARAM型，RGB-D相机的内参</p>
+                                    <parml cid="23ziqs">
+                                        <plentry id="GUID-044BE3A2-6D79-4B18-BE8A-B24A71D861FE">
+                                            <pt cid="21RFzo">深度图到RGB的变换</pt>
+                                            <pd cid="2KMSyj">
+                                                <p cid="O0OZY">Matrix4型，表示4×4变换矩阵，<parmname cid="2DSWwL">变换*（*表示0~15）</parmname>即该矩阵的16个值。</p>
+                                                <parml cid="Pc2Gk">
+                                                  <plentry id="GUID-51851A52-ED6C-479C-AE69-C0B1A726065A">
+                                                  <pt cid="26pR19">深度图到RGB的变换*（*表示0~15）</pt>
+                                                  <pd cid="aDBZb">
+                                                  <p cid="1zidyh">double型，分别表示4×4变换矩阵的16个值中的其中一个。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-77DC182A-72D5-4FD1-B396-F94D86BE7CBF">
+                                            <pt cid="2XeEH">RGB相机内参矩阵</pt>
+                                            <pd cid="UwFjh">
+                                                <p cid="O0OZY">Matrix3型，表示3×3内参矩阵，<parmname cid="2DSWwL">内参矩阵*（*表示0~8）</parmname>即该矩阵的9个值。</p>
+                                                <parml cid="1oftB2">
+                                                  <plentry id="GUID-72385575-3853-4267-8E38-4ED1D52F67F5">
+                                                  <pt cid="uRvoZ">RGB相机内参矩阵*（*表示0~8）</pt>
+                                                  <pd cid="1qdrob">
+                                                  <p cid="EOlxv">double型，分别表示3×3内参矩阵的9个值中的其中一个。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-57B2234B-9DFC-4A77-BC6E-37A331DAE6B9">
+                                            <pt cid="OAwy4">RGB相机畸变系数</pt>
+                                            <pd cid="1IDHS2">
+                                                <p cid="DQZ3B">ARRAY5型，RGB相机的畸变系数。</p>
+                                                <parml cid="1ZkNUU">
+                                                  <plentry id="GUID-A30E7A63-5BEA-4F41-B9C2-0ED2FAF9399C">
+                                                  <pt cid="2IVMsC">RGB相机畸变系数*（*表示0~4）</pt>
+                                                  <pd cid="21ysMS">
+                                                  <p cid="19VXON">double型，分别表示RGB相机畸变系数5个值的其中一个，其中0、1、4为径向畸变系数，2、3为切向畸变系数。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-AFE71905-6E20-43E1-8E3D-4E65FE5F520D">
+                                            <pt cid="1YGJ2O">Depth相机畸变系数</pt>
+                                            <pd cid="DrUwr">
+                                                <p cid="1F95UD">ARRAY5型，Depth相机的畸变系数。</p>
+                                                <parml cid="1jQtQI">
+                                                  <plentry id="GUID-CFB185BF-FA0B-4518-ACBD-9D94C27F6BD7">
+                                                  <pt cid="25VZoG">Depth相机畸变系数*（*表示0~4）</pt>
+                                                  <pd cid="pwWWD">
+                                                  <p cid="19VXON">double型，分别表示Depth相机畸变系数5个值的其中一个，其中0、1、4为径向畸变系数，2、3为切向畸变系数。</p>
+                                                  </pd>
+                                                  </plentry>
+                                                </parml>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-E2C3BCAE-D03F-4CD0-AC53-300A57E455BF">
+            <title id="GUID-187271AF-8538-4B17-9A64-40F76AA2321A">点线测量-深度图</title>
+            <parml cid="PjnHy">
+                <plentry id="GUID-CF6F05C3-83B7-4867-B8F1-DAEA0B6FF0AB">
+                    <pt cid="20A7K4">测量结果数量</pt>
+                    <pd cid="5pWTC">
+                        <p cid="cUkNp">int型，表示模块输出的测量结果数量。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-91C84E18-BAC4-4EB8-92AF-32E361CFD4C9">
+                    <pt cid="1WJLxr">结果状态</pt>
+                    <pd cid="1lgQ38">
+                        <p cid="1BzqpO">int型，标识每个测量结果是否符合判断条件，0代表不符合；1代表符合。输出为一维数组，分别对应每一个测量结果。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-E04DAA48-5F24-4CFD-A065-85DE422C2D08">
+                    <pt cid="2HTCRw">距离</pt>
+                    <pd cid="4EcNH">
+                        <p cid="21B2qD">float型，表示垂线段的长度（单位：μm）。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-85962894-8CD2-47EC-9E51-2D7D06B1EA9B">
+                    <pt cid="2GKHLM">X轴距离</pt>
+                    <pd cid="135T32">
+                        <p cid="23ZoIx">float型，表示欧氏距离在x轴上的分量（单位：μm）。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-CDBC431C-8B38-4BFB-924B-8F5925A8540C">
+                    <pt cid="19l1GM">Y轴距离</pt>
+                    <pd cid="1qCgPP">
+                        <p cid="1012Pi">float型，表示欧氏距离在y轴上的分量（单位：μm）。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-387F5AF1-7AC6-4CC6-AAC7-2D0E92A880FD">
+                    <pt cid="vvlYk">Z轴距离</pt>
+                    <pd cid="1KQPEj">
+                        <p cid="2DxnLe">float型，表示欧氏距离在z轴上的分量（单位：μm）。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-0774B57A-6C30-45D7-A37B-B4725B14F3A8">
+                    <pt cid="1MCreq">垂线</pt>
+                    <pd cid="2HzYXh">
+                        <parml cid="29o4IN">
+                            <plentry id="GUID-7F38E17D-B934-47A1-BED6-2898BE6A5A22">
+                                <pt cid="1kbl4X">起点</pt>
+                                <pd cid="1oRdBX">
+                                    <parml cid="1hKdsw">
+                                        <plentry id="GUID-7CE9AD61-53B3-431C-ACD3-DBB1611B57A1">
+                                            <pt cid="qGOis">起点X</pt>
+                                            <pd cid="16cBVV">
+                                                <p cid="qvumK">float型，表示垂线段起点的X坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-BDA46ACD-F747-4D2C-826A-B9854E8321F8">
+                                            <pt cid="1FXYsw">起点Y</pt>
+                                            <pd cid="KJhHt">
+                                                <p cid="1ja8ro">float型，表示垂线段起点的Y坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-6055C8FE-9C68-47BF-A8CB-788C66903AF7">
+                                            <pt cid="17KQmW">起点Z</pt>
+                                            <pd cid="1enIZQ">
+                                                <p cid="2KEUO3">float型，表示垂线段起点的Z坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-83AE3BCC-D947-4862-99D1-CC0DD0B329BF">
+                                <pt cid="UIE3v">终点</pt>
+                                <pd cid="hxWwL">
+                                    <parml cid="1RXZXr">
+                                        <plentry id="GUID-5D7F1E43-47BD-4EA9-819B-8F94D3609376">
+                                            <pt cid="G1v7L">终点X</pt>
+                                            <pd cid="Zve56">
+                                                <p cid="ueadI">float型，表示垂线段终点的X坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-8513BE3A-6418-4CB9-ABD4-93BD11DF9751">
+                                            <pt cid="1GkhDU">终点Y</pt>
+                                            <pd cid="1yChRe">
+                                                <p cid="PcVV">float型，表示垂线段终点的Y坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-028F5246-5192-4639-8FE6-A7EA3C5B3975">
+                                            <pt cid="jyXP9">终点Z</pt>
+                                            <pd cid="1kl57j">
+                                                <p cid="1Ik3h7">float型，表示垂线段终点的Z坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-B331E2C7-84C9-4534-B03E-AE77B81926C0">
+                    <pt cid="17eYEI">起点坐标</pt>
+                    <pd cid="GVT6D">
+                        <p cid="21VoAo">float型，表示垂线段起点的坐标。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-826DD202-010E-423D-B0FC-D9F82BD56F31">
+                    <pt cid="1md0jV">终点坐标</pt>
+                    <pd cid="28BVjp">
+                        <p cid="1KYTmB">float型，表示垂线段终点的坐标，即垂足坐标。</p>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-F41E59D9-B2D9-4BDC-89FB-D0C1DEECC504">
+            <title id="GUID-0173F371-A8C3-4A43-BE71-2BCA26A69964">直线标定</title>
+            <parml cid="1RokIe">
+                <plentry id="GUID-BE872E08-788D-4A53-9C30-FC553C008525">
+                    <pt cid="1BYi8E">坐标转换信息</pt>
+                    <pd cid="1h1zqF">
+                        <parml cid="29vD10">
+                            <plentry id="GUID-7CBF879A-7ED8-4D2D-BF58-C30B8863335E">
+                                <pt cid="1bP2Ck">x方向的平移</pt>
+                                <pd cid="BsWFs">
+                                    <p cid="1jvLqN">double型，表示传感器坐标系转换为世界坐标系，需要沿x轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-BACC8061-7436-4CAF-B8E6-162E4607B873">
+                                <pt cid="YyBkx">y方向的平移</pt>
+                                <pd cid="19bp92">
+                                    <p cid="nPp6s">double型，表示传感器坐标系转换为世界坐标系，需要沿y轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-49632483-99A2-40E9-AC56-EC47B5B9C84B">
+                                <pt cid="7mBBu">z方向的平移</pt>
+                                <pd cid="1fcg2C">
+                                    <p cid="1q9K0M">double型，表示传感器坐标系转换为世界坐标系，需要沿z轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-80C6400D-CCBC-4AF5-8F49-0AD44C07A8B5">
+                                <pt cid="77avn">绕x旋转角度</pt>
+                                <pd cid="1zcqlN">
+                                    <p cid="Zi2O5">double型，表示传感器坐标系转换为世界坐标系，需要绕x轴旋转的角度。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-9AE0E07D-886C-4DFE-8950-A2CE1BC391EC">
+                                <pt cid="tmqLT">绕y旋转角度</pt>
+                                <pd cid="1PDjHm">
+                                    <p cid="QXIkJ">double型，表示传感器坐标系转换为世界坐标系，需要绕y轴旋转的角度。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-E1F885FF-E30F-47DD-80A0-F9C27341749B">
+                                <pt cid="10ly8D">绕z旋转角度</pt>
+                                <pd cid="1LAl7V">
+                                    <p cid="qn5Pv">double型，表示传感器坐标系转换为世界坐标系，需要绕z轴旋转的角度。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-2FCA1A95-BD70-4E94-86C2-5E2CADDE651E">
+                    <pt cid="1X1v7F">z方向放大比例</pt>
+                    <pd cid="I0MZW">
+                        <p cid="KS4K2">double型，表示从传感器坐标系转换为世界坐标系，z轴坐标的缩放比例。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-6D49D893-43EC-40D4-9443-726285207D49">
+                    <pt cid="ygZVA">z方向修正系数</pt>
+                    <pd cid="1xZohx">
+                        <p cid="1ESjBa">double型，表示从传感器坐标系转换为世界坐标系，z轴坐标的缩放比例。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-54AC2873-C592-42EC-82F5-06D4989DF600">
+                    <pt cid="EqtAT">扫描速度</pt>
+                    <pd cid="RiZR3">
+                        <p cid="4CLTM">float型，表示传感器扫描的速度。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-E66A870E-6B49-4133-B6E3-917501A0CC2F">
+                    <pt cid="2LCrZn">标定误差</pt>
+                    <pd cid="2AgrAE">
+                        <p cid="sHFXX">float型，表示标定过程中，标定测量值与真实值间的差异。</p>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-B78DFC30-9B53-4DC6-9DD7-7DD86B9D7A50">
+            <title id="GUID-2DA10940-D62C-4048-A83A-B1C27563C2E1">坐标系构建</title>
+            <parml cid="VyZCK">
+                <plentry id="GUID-90D9EF4F-9A1B-48D2-AD1C-5A07D958AF5C">
+                    <pt cid="7XzTw">3D变换矩阵</pt>
+                    <pd cid="1nBPHg">
+                        <p cid="20KBIV" />
+                        <parml cid="2JnpMe">
+                            <plentry id="GUID-50410476-685A-4A16-9F17-C4FA8BF7F7A6">
+                                <pt cid="2Jqmqq">矩阵*（*表示0~15）</pt>
+                                <pd cid="WDSZs" />
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-FB384F7C-DD3E-4686-9D73-22F49D93280D">
+            <title id="GUID-C18222D9-30C4-4D98-B50E-5E7F33F00665">系统变换-深度图</title>
+            <parml cid="1br1Kn">
+                <plentry id="GUID-B95C1461-7C80-4A2A-B352-191251A3CC9F">
+                    <pt cid="11hoLp">系统标定数据</pt>
+                    <pd cid="1R15HT">
+                        <parml cid="qgcZY">
+                            <plentry id="GUID-00596EDC-9982-47F6-B174-55CA5F13AEB9">
+                                <pt cid="qQAEE">系统tx</pt>
+                                <pd cid="2CYvnA">
+                                    <p cid="1z3ENc">float型，传感器坐标系转换为系统坐标系，需要沿x轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5FA9D249-A665-40B3-BDE3-C7014CD42A98">
+                                <pt cid="1C9cJi">系统ty</pt>
+                                <pd cid="iNDJe">
+                                    <p cid="1zYWI2">float型，传感器坐标系转换为系统坐标系，需要沿y轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-71DD0B20-9F3B-4BC5-A1C1-625648338F44">
+                                <pt cid="81rDY">系统tz</pt>
+                                <pd cid="1td3YO">
+                                    <p cid="1BaUjO">float型，传感器坐标系转换为系统坐标系，需要沿z轴移动的距离。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-81DDFB99-7E27-47D4-B977-9C127E5D4C43">
+                                <pt cid="GyKlG">系统rx</pt>
+                                <pd cid="1bSajx">
+                                    <p cid="ZiIV3">float型，传感器坐标系转换为系统坐标系，需要绕x轴旋转的角度（欧拉角）。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-A684D39D-4F4F-4BE9-8204-7200044A1B4E">
+                                <pt cid="29h1G2">系统ry</pt>
+                                <pd cid="jwYw6">
+                                    <p cid="2EHCa3">float型，传感器坐标系转换为系统坐标系，需要绕y轴旋转的角度（欧拉角）。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-A9992F19-6032-4D1C-AEC5-829CEFC92F00">
+                                <pt cid="29CgPZ">系统rz</pt>
+                                <pd cid="1OnEsg">
+                                    <p cid="VQBbY">float型，传感器坐标系转换为系统坐标系，需要绕z轴旋转的角度（欧拉角）。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-A07A0754-DE34-4CF7-B749-D590B8820518">
+                                <pt cid="FyAut">系统zratio</pt>
+                                <pd cid="Qyx7d">
+                                    <p cid="1b7826">float型，传感器坐标系转换为系统坐标系，z轴坐标的缩放比例。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-5C921734-E0EC-4081-9B7A-BF75EB0F7AFA">
+            <title id="GUID-9E68C89E-3477-4E27-8470-85A81798F8A5">点云降采样</title>
+            <parml cid="2GUQ1Y">
+                <plentry id="GUID-28FC1F14-192F-4423-B299-F19ACA6794FD">
+                    <pt cid="2KaGiF">点云簇数量</pt>
+                    <pd cid="1vxFi4">
+                        <p cid="1IQQRB">int型，表示输出的点云簇的个数。</p>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-42E90D62-4FF6-4E6E-86B3-086504D5410F">
+            <title id="GUID-2D22C4D9-8AFE-4064-B374-CE79346F1B3A">3D点集</title>
+            <parml cid="8nUGh">
+                <plentry id="GUID-CBF263C3-71AD-46EE-82D0-C58DFD4A5F6A">
+                    <pt cid="1kYG0q">点数</pt>
+                    <pd cid="WHS0L">int型，表示输出“点”的数量。</pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-0280A073-B9F7-4445-AAA7-B70B3C6B05FC">
+            <title id="GUID-686F6ECD-0591-4C10-8BED-B56E15B856F7">匹配-轮廓图</title>
+            <parml cid="18RFzs">
+                <plentry id="GUID-FDD5711E-39CA-4B8D-8B48-F2267CAA9FF8">
+                    <pt cid="1GjYy7">旋转平移矩阵</pt>
+                    <pd cid="BGMmw">
+                        <parml cid="274qjd">
+                            <plentry id="GUID-3D73F5D2-0E6F-47E2-9245-BFE0CC1DCFB5">
+                                <pt cid="vUfw0">旋转平移矩阵*（*代表0~8）</pt>
+                                <pd cid="1GO1Aq">
+                                    <p cid="1LjSNO">double型，分别代表3×3平移矩阵中的每一个数值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-1692E60D-2C53-4DF9-BE0C-4A8EADC8B678">
+                    <pt cid="1DkYGZ">特征点</pt>
+                    <pd cid="1z20zp">
+                        <parml cid="DUI5N">
+                            <plentry id="GUID-59945662-FD77-4FAD-8D87-96A30267BD50">
+                                <pt cid="6wd1Q">特征点X</pt>
+                                <pd cid="1AT7s8">
+                                    <p cid="cylax">float型，代表图像提取到的特征点X坐标值。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-A9469CBD-0F6E-4F92-93E7-6A6A2BC25ABE">
+                                <pt cid="6wd1Q">特征点Y</pt>
+                                <pd cid="1AT7s8">
+                                    <p cid="cylax">float型，代表图像提取到的特征点Y坐标值。</p>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-2D80A165-7C9C-4967-81CF-F9FD098F8F43">
+                    <pt cid="1J62un">特征点Z值</pt>
+                    <pd cid="Er34k">
+                        <p cid="16mgd4">float型，代表图像提取到的特征点深度值。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-AF999831-BAB5-448D-B512-78E090049469">
+                    <pt cid="1EvFMT">特征物理点</pt>
+                    <pd cid="gNxOZ">
+                        <parml cid="ctAe2">
+                            <plentry id="GUID-AF00F774-7434-49DE-83DA-932420BE032E">
+                                <pt cid="1ZvXgK">特征物理点X</pt>
+                                <pd cid="1GDP0q">
+                                    <p cid="1VtJhY">float型，代表图像特征点所对应的物理点的X坐标。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-ABE87D81-AAA3-4C17-85F6-266A46592E05">
+                                <pt cid="7IBXK">特征物理点Z</pt>
+                                <pd cid="1UVQ8A">
+                                    <p cid="1mj4Gk">float型，代表图像特征点所对应的物理点的Y坐标。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-CBA59AB2-2787-4985-BC8B-439312585ED4">
+                                <pt cid="jMDye">特征物理点Z</pt>
+                                <pd cid="1wTDqw">float型，代表图像特征点所对应的物理点的Z坐标。</pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-913BCF85-84AC-4A91-BACA-6551D632D60D">
+                    <pt cid="1ltRjh">ROI圆</pt>
+                    <pd cid="JqVGF">
+                        <parml cid="x0dQN">
+                            <plentry id="GUID-1EB3567C-B50D-4FC6-BE9A-199D6BE1F0AE">
+                                <pt cid="EX9n2">检测圆半径</pt>
+                                <pd cid="1TEr6w">
+                                    <p cid="1PVs6A">float型，代表检测圆的半径。</p>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-B0872DCD-B62E-4AA9-A570-0D1265CDD351">
+                                <pt cid="1dvrG9">检测圆中心点</pt>
+                                <pd cid="ZcubE">
+                                    <parml cid="16z6Y9">
+                                        <plentry id="GUID-BAEC8911-E55E-4621-A7F7-4546CABE1BA7">
+                                            <pt cid="jsZOd">检测圆中心X</pt>
+                                            <pd cid="157Udv">
+                                                <p cid="1u3ZcB">float型，代表检测圆中心点的X坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-809C71D1-5E44-42D3-A3EE-9414124EE877">
+                                            <pt cid="Fo3EI">检测圆中心Y</pt>
+                                            <pd cid="E7Gdp">
+                                                <p cid="1u3ZcB">float型，代表检测圆中心点的Y坐标。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+    </conbody>
+</concept>

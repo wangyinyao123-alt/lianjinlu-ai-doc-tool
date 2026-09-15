@@ -1,0 +1,837 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>
+<concept id="GUID-47D6E9F2-350B-4E03-906B-C8688E447979" xml:lang="zh-CN">
+    <title id="GUID-AEDAC421-1CD9-4A75-82BF-7E78DECAFD87">V2.4.0</title>
+<shortdesc cid="1tn64D">V2.4.0基于<ph ishcondition="Neutral=No">VM</ph><ph ishcondition="Neutral=Yes">机器视觉算法开发平台</ph> V4.4.0维护版本开发，发布于<ph ishcondition="Region=China">2026年2月</ph>。该版本更新要点如下。</shortdesc>
+<conbody cid="1SFFFd">
+        <section id="GUID-939DA14D-F7CD-4AD4-9A42-6A665866C0D8" ishcondition="Neutral=No">
+            <title id="GUID-BD010FAB-7D87-4231-8EDE-B2704AB8CBB7">兼容性更新</title>
+            <p cid="1CVHHP">该版本新支持<msgph varref="StructuredLightSensor" />和<msgph varref="RGBDSensorCamera" />。</p>
+        </section>
+        <section id="GUID-1890BC45-046A-4570-A9D1-748CD9001DE9">
+            <title id="GUID-0C77F32A-E5D3-4C85-837C-94A723BF8BC0">功能新增</title>
+            <ul id="UL_IMS_JPC_D3C">
+                <li id="GUID-DF7F5085-0E37-44AB-A55E-E0CF26011AE6">
+                    <p cid="1AlBww">该版本新增如下模块。</p>
+                    <table colsep="1" frame="all" id="TABLE_CT2_X1L_ZHC" rowsep="1">
+                        <title id="GUID-4A3F0D74-800A-41EC-92D9-9ABB5505DB0E">新增模块</title>
+                        <tgroup cid="17kRzS" cols="3">
+                            <colspec cid="UTQK5" colname="c1" colnum="1" colwidth="1.0*" />
+                            <colspec cid="Afe5h" colname="c2" colnum="2" colwidth="1.0*" />
+                            <colspec cid="2GJUrn" colname="c3" colnum="3" colwidth="3.0*" />
+                            <thead cid="275l9Q">
+                                <row cid="1W1OND">
+                                    <entry cid="1upowm">
+                                        <p cid="1xRivC">类别</p>
+                                    </entry>
+                                    <entry cid="mpTmL">
+                                        <p cid="159XJL">模块名称</p>
+                                    </entry>
+                                    <entry cid="1etpnU">
+                                        <p cid="1ejtBB">功能描述</p>
+                                    </entry>
+                                </row>
+                            </thead>
+                            <tbody cid="1HmJpE">
+                                <row cid="6J1UI">
+                                    <entry cid="1vJGh5">
+                                        <p cid="1vIZWu"><xref cid="X0NMk" format="dita" href="GUID-7482832D-4473-4AA7-BF1B-4DDE3AA02E4B#GUID-7482832D-4473-4AA7-BF1B-4DDE3AA02E4B" /></p>
+                                    </entry>
+                                    <entry cid="1kQIBz">
+                                        <p cid="XbgEQ"><xref cid="9LUaT" format="dita" href="GUID-728D3477-0EAF-46DE-A1DE-F12F74A53D82#GUID-728D3477-0EAF-46DE-A1DE-F12F74A53D82" /></p>
+                                    </entry>
+                                    <entry cid="1hMDI2">
+                                        <p cid="WJ05i">用于基于模型轮廓数据，调整输入轮廓姿态，进而实现测量区域位置的位置跟随。</p>
+                                    </entry>
+                                </row>
+                                <row cid="5zug2">
+                                    <entry cid="1cKmoU" morerows="3">
+                                        <p cid="6mJO2"><xref cid="1WeZOz" format="dita" href="GUID-C10F7E28-16BD-4484-AF4D-75877FCE2F6C#GUID-C10F7E28-16BD-4484-AF4D-75877FCE2F6C" /></p>
+                                    </entry>
+                                    <entry cid="pHXKC">
+                                        <p cid="27GIeQ"><xref cid="8XUT2" format="dita" href="GUID-FC7F7246-A3E9-4B88-B589-96AA05F6F6A7#GUID-FC7F7246-A3E9-4B88-B589-96AA05F6F6A7" /></p>
+                                    </entry>
+                                    <entry cid="1ZYFmz">
+                                        <p cid="GFQUH">用于双设备对射测量厚度场景。基于沉孔标定块建立传感器和系统坐标系的位姿变换关系。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1seKd1">
+                                    <entry cid="1ANYQp">
+                                        <p cid="YQphf"><xref cid="1tX2xv" format="dita" href="GUID-B4BFD44D-00BE-4D2D-A84A-845C9DAB412D#GUID-B4BFD44D-00BE-4D2D-A84A-845C9DAB412D" /></p>
+                                    </entry>
+                                    <entry cid="1YARgE">
+                                        <p cid="1oNSgh">根据特征点在机器人基坐标系和轮廓传感器坐标系下的坐标，计算机器人和轮廓传感器的手眼关系。</p>
+                                    </entry>
+                                </row>
+                                <row cid="2FcXvX">
+                                    <entry cid="1oxfSG">
+                                        <p cid="25Y0uI"><xref cid="2B4jRO" format="dita" href="GUID-25137BBA-221C-4BF4-9CF7-2232C0F88AA2#GUID-25137BBA-221C-4BF4-9CF7-2232C0F88AA2" /></p>
+                                    </entry>
+                                    <entry cid="23j7yr">
+                                        <p cid="lDZ2t">通过双梯形台标定块实现相邻相机的两两标定，进而实现并排多相机的坐标系统，适用于多相机并排拼接场景。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1pzeGJ">
+                                    <entry cid="nDuRG">
+                                        <p cid="1ojbFv"><xref cid="pR2uh" format="dita" href="GUID-B3432DFF-4222-473C-8FEC-26127412E330#GUID-B3432DFF-4222-473C-8FEC-26127412E330" /></p>
+                                    </entry>
+                                    <entry cid="ZAGAf">
+                                        <p cid="LlamM">通过扫描工件角点信息，创建传感器坐标系和系统坐标系的变换关系。</p>
+                                    </entry>
+                                </row>
+                                <row cid="qX3ed">
+                                    <entry cid="22l7fM">
+                                        <p cid="1ARC3d"><xref cid="2BlJKU" format="dita" href="GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD#GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD" /></p>
+                                    </entry>
+                                    <entry cid="17hTDK">
+                                        <p cid="16GEJc"><xref cid="2KVT7m" format="dita" href="GUID-6348E841-AF32-485F-9AE0-6D92A0DDBB26#GUID-6348E841-AF32-485F-9AE0-6D92A0DDBB26" /></p>
+                                    </entry>
+                                    <entry cid="10MFYJ">
+                                        <p cid="p7ctV">基于输入数据和参考深度图，识别和删除输入图像中的重复数据，适用于模型比对场景。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1yOaSI">
+                                    <entry cid="26y0HK" morerows="2">
+                                        <p cid="2E5j0D"><xref cid="LymFp" format="dita" href="GUID-F52BF925-3125-4E5A-A589-D945648E6B2A#GUID-F52BF925-3125-4E5A-A589-D945648E6B2A" /></p>
+                                    </entry>
+                                    <entry cid="23io1y">
+                                        <p cid="v8krn"><xref cid="lAEFN" format="dita" href="GUID-ED72D95E-51FF-4B87-A548-D2DE8111078C#GUID-ED72D95E-51FF-4B87-A548-D2DE8111078C" /></p>
+                                    </entry>
+                                    <entry cid="cx74m">
+                                        <p cid="18ETp0">用于平滑深度图中物体轮廓的边缘，去除边缘的毛刺。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1eEPs8">
+                                    <entry cid="23io1y">
+                                        <p cid="XQRM3"><xref cid="wVZ47" format="dita" href="GUID-351DF4DF-DBA5-4386-A295-F490F15FAF9A" /></p>
+                                    </entry>
+                                    <entry cid="cx74m">
+                                        <p cid="1nEAF1">用于去除扫描过程中，光平面刚进入物体时的产生的深度数据翘曲现象。可根据进出位置和翘曲程度，将无效的深度数据去除。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1oWG8s">
+                                    <entry cid="1LgQYm">
+                                        <p cid="1rhmwx"><xref cid="J6oG" format="dita" href="GUID-39EC516E-5044-494B-8852-96062C446E65#GUID-39EC516E-5044-494B-8852-96062C446E65" /></p>
+                                    </entry>
+                                    <entry cid="wuVlJ">
+                                        <p cid="4J6xC">用于检测深度图中存在高低差的区域，并针对性调整RGB或亮度图中的亮度，使具有一定高度差的区域对比更加明显。</p>
+                                    </entry>
+                                </row>
+                                <row cid="gAD40">
+                                    <entry cid="1Fkgms">
+                                        <p cid="NTy3Z"><xref cid="1mHqxm" format="dita" href="GUID-4346D250-960A-4E20-9A41-941520760A93" /></p>
+                                    </entry>
+                                    <entry cid="piYOJ">
+                                        <p cid="jnuqj"><xref cid="Cyutd" format="dita" href="GUID-E5FC4195-61F1-474D-8384-070C094377D3#GUID-E5FC4195-61F1-474D-8384-070C094377D3" /></p>
+                                    </entry>
+                                    <entry cid="N5bH2">
+                                        <p cid="1mNKNa">可对轮廓有效数据与几何拟合曲线或模型轮廓进行差分，获取相应的残差图，常用于检测缺陷或者异常区域。</p>
+                                    </entry>
+                                </row>
+                                <row cid="2I0AoO">
+                                    <entry cid="1btUMM" morerows="2">
+                                        <p cid="13AWdp"><xref cid="TiLWl" format="dita" href="GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB#GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB" /></p>
+                                    </entry>
+                                    <entry cid="1l1Big">
+                                        <p cid="wWQv0"><xref cid="1lHWOb" format="dita" href="GUID-359F238A-AC43-4B4F-83E8-C9C51DE93B9A#GUID-359F238A-AC43-4B4F-83E8-C9C51DE93B9A" /></p>
+                                    </entry>
+                                    <entry cid="Q9J25">
+                                        <p cid="lWOaz">将指定行范围的轮廓点云投影到XOZ平面，从而转换为灰度图。</p>
+                                    </entry>
+                                </row>
+                                <row cid="F1Q5z">
+                                    <entry cid="1l1Big">
+                                        <p cid="QwTe9"><xref cid="7MoXf" format="dita" href="GUID-EE93EF27-9568-45CA-AABA-594DC2FC14F5#GUID-EE93EF27-9568-45CA-AABA-594DC2FC14F5" /></p>
+                                    </entry>
+                                    <entry cid="Q9J25">
+                                        <p cid="4dlyK">将<msgph varref="MeasureSensor" />格式深度图转换至机器人坐标系下的点云数据。</p>
+                                    </entry>
+                                </row>
+                                <row cid="R4kDK">
+                                    <entry cid="1l1Big">
+                                        <p cid="1qu2EK"><xref cid="1XtE0k" format="dita" href="GUID-A297DDE0-895C-4A10-8397-0762F34FCF1E#GUID-A297DDE0-895C-4A10-8397-0762F34FCF1E" /></p>
+                                    </entry>
+                                    <entry cid="Q9J25">
+                                        <p cid="d2i7C">可将灰度图像中的点、矩形等2D几何基元的像素坐标转换为对应的物理坐标，以供后续物理尺寸测量、定位、抓取等操作使用。</p>
+                                    </entry>
+                                </row>
+                                <row cid="13EniQ">
+                                    <entry cid="1btUMM" morerows="1">
+                                        <p cid="rS73x"><xref cid="1Vc9O8" format="dita" href="GUID-C010452F-2EDE-424B-8140-DACB7C82359E#GUID-C010452F-2EDE-424B-8140-DACB7C82359E" /></p>
+                                    </entry>
+                                    <entry cid="1l1Big">
+                                        <p cid="X5uIm"><xref cid="15S0EL" format="dita" href="GUID-DCCFD3C9-597D-401B-9414-C390CC689EF7" /></p>
+                                    </entry>
+                                    <entry cid="Q9J25">
+                                        <p cid="14z1XX">用于将3D点集拟合成3D直线。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1vx4Qe">
+                                    <entry cid="1l1Big">
+                                        <p cid="22yZ9w"><xref cid="1AJViI" format="dita" href="GUID-36D4F0DD-AB9E-479A-BFCF-8A6DD0ED969A#GUID-36D4F0DD-AB9E-479A-BFCF-8A6DD0ED969A" /></p>
+                                    </entry>
+                                    <entry cid="Q9J25">
+                                        <p cid="KIGXu">基于固定特征构建新的特征，常用于无法稳定检测目标特征的场景。</p>
+                                    </entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </li>
+                <li id="GUID-207180F8-BDA1-4D94-9453-0039A0F89D75">
+                    <p cid="kMD5J">该版本新增<xref cid="H1klQ" format="dita" href="GUID-7DC61295-7AB3-46B8-8C3F-DC061246EEEC#GUID-7DC61295-7AB3-46B8-8C3F-DC061246EEEC" />，用于实现3D应用中常见的测量和定位引导需求。</p>
+                    <table id="TABLE_URM_NPC_D3C">                        
+                        <tgroup cid="16ILA1" cols="2">
+                            <colspec cid="UTQK5" colname="c1" colnum="1" colwidth="1.0*" />
+                            <colspec cid="UTQK5" colname="c1" colnum="1" colwidth="3.0*" />
+                            <thead cid="kKwth">
+                                <row cid="1gaja5">
+                                    <entry cid="N7Ykj">
+                                        <p cid="16J4UF">工具名</p>
+                                    </entry>
+                                    <entry cid="1HC35r">
+                                        <p cid="1ejtBB">功能描述</p>
+                                    </entry>
+                                </row>
+                            </thead>
+                            <tbody cid="1gVgr9">
+                                <row cid="1pTXf1">
+                                    <entry cid="pOIsc">
+                                        <p cid="fCuMa"><xref cid="95ekC" format="dita" href="GUID-E6519512-EE81-4386-9ECB-CCA5C829A239#GUID-E6519512-EE81-4386-9ECB-CCA5C829A239" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="OIhpc">可将深度图进行二值化处理并提取Blob，常用于缺陷检测场景的后处理阶段。</p>
+                                    </entry>
+                                </row>
+                                <row cid="bd583">
+                                    <entry cid="pOIsc">
+                                        <p cid="1ZTIls"><xref cid="1WO0o9" format="dita" href="GUID-B720018D-7DA3-4C0C-8208-5C1179E1999A#GUID-B720018D-7DA3-4C0C-8208-5C1179E1999A" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="2ChRrT">用于插针检测场景。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1qMLd2">
+                                    <entry cid="pOIsc">
+                                        <p cid="2DTncH"><xref cid="ga9xa" format="dita" href="GUID-618644A9-4DDA-42E5-9FC7-F645F45681A4#GUID-618644A9-4DDA-42E5-9FC7-F645F45681A4" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="T5Ssn">用于提取深度图特征点进行基准面高度测量。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1lwKnj">
+                                    <entry cid="pOIsc">
+                                        <p cid="wzSRn"><xref cid="1lUIfu" format="dita" href="GUID-CEEC26EB-7DFC-42A9-AA78-57AC482C474D#GUID-CEEC26EB-7DFC-42A9-AA78-57AC482C474D" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="SJ5rl">用于提取轮廓特征点进行宽度和高度测量。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1QrO79">
+                                    <entry cid="pOIsc">
+                                        <p cid="1QMWjF"><xref cid="k2DWx" format="dita" href="GUID-2DDE04A3-3DAD-48CF-971A-43AD99758695#GUID-2DDE04A3-3DAD-48CF-971A-43AD99758695" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="1MuCAS">根据平面检测的ROI信息将深度图坐标系调整到指定基准面。</p>
+                                    </entry>
+                                </row>
+                                <row cid="qK9BR">
+                                    <entry cid="pOIsc">
+                                        <p cid="7Ir27"><xref cid="LJoFN" format="dita" href="GUID-5A8DC4B1-F228-477F-835A-04F2C281CAA5#GUID-5A8DC4B1-F228-477F-835A-04F2C281CAA5" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="1MQaul">根据深度值范围生成二值化掩膜图，结合形态学处理再截取得到深度图。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1SeqwQ">
+                                    <entry cid="pOIsc">
+                                        <p cid="n7p3t"><xref cid="1kTgpr" format="dita" href="GUID-6A813399-E517-4507-BD33-DE007B3AD0DD#GUID-6A813399-E517-4507-BD33-DE007B3AD0DD" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="13V2VX">根据手动绘制的路径截取轮廓图，常用于轮廓缺陷检测和测量前的数据预处理。 </p>
+                                    </entry>
+                                </row>
+                                <row cid="2K4ijX">
+                                    <entry cid="pOIsc">
+                                        <p cid="19ZwHs"><xref cid="1k1FZg" format="dita" href="GUID-B4A9A994-233E-4F51-89E5-38DD029C0173#GUID-B4A9A994-233E-4F51-89E5-38DD029C0173" /></p>
+                                    </entry>
+                                    <entry cid="18aN74">
+                                        <p cid="JjE4z">通过消除深度图在扫描方向上因规律振动产生的波浪纹理，从而改善深度图质量。</p>
+                                    </entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-88FF32B3-C4D1-47F8-A346-1ABE76DBFAD6">
+            <title id="GUID-872083D5-C9A1-4035-B7EA-E96E055D9599">功能更新</title>
+            <ul id="UL_DMK_T3B_D3C">
+                <li id="GUID-93AC3B45-A771-4EB7-B962-8FDE95E57225">
+                    <p cid="Wp3Q0">3D模块功能更新。</p>
+                    <table colsep="1" frame="all" id="TABLE_I1G_BHV_C3C" rowsep="1">
+                        <title id="GUID-8628EBF1-7DC7-4E36-9B12-1535CE51EF1F">3D模块更新</title>
+                        <tgroup cid="rSy2g" cols="3">
+                            <colspec cid="1CQrB6" colname="c1" colnum="1" colwidth="1.0*" />
+                            <colspec cid="SpuWf" colname="c2" colnum="2" colwidth="1.0*" />
+                            <colspec cid="1MYk7W" colname="c3" colnum="3" colwidth="3.0*" />
+                            <thead cid="1esWKB">
+                                <row cid="Awa4T">
+                                    <entry cid="2F7UfE">
+                                        <p cid="1xRivC">类别</p>
+                                    </entry>
+                                    <entry cid="BMweY">
+                                        <p cid="159XJL">模块名称</p>
+                                    </entry>
+                                    <entry cid="29RJkP">
+                                        <p cid="1ejtBB">功能更新</p>
+                                    </entry>
+                                </row>
+                            </thead>
+                            <tbody cid="1mgq5j">
+                                <row cid="115kJI">
+                                    <entry cid="BmCtM" morerows="4">
+                                        <p cid="1zoEPr"><xref cid="1Vow3l" format="dita" href="GUID-AFF8E49B-CF51-4D33-8929-A39F026F873C#GUID-AFF8E49B-CF51-4D33-8929-A39F026F873C" /></p>
+                                    </entry>
+                                    <entry cid="2HBIe4">
+                                        <p cid="1w2Q3J"><xref cid="1gEpyP" format="dita" href="GUID-4FC9B9A9-AC8B-48B9-BDAD-7DD283E790A8#GUID-4FC9B9A9-AC8B-48B9-BDAD-7DD283E790A8" /></p>
+                                    </entry>
+                                    <entry cid="86kVW">
+                                        <p cid="1RYi3y">支持订阅图像文件夹。</p>
+                                    </entry>
+                                </row>
+                                <row cid="hKhBw">
+                                    <entry cid="2HBIe4">
+                                        <p cid="3r8qH"><xref cid="ljR8n" format="dita" href="GUID-9F80FD6F-B911-40DC-B8CE-0DA16BDB1470#GUID-9F80FD6F-B911-40DC-B8CE-0DA16BDB1470" /></p>
+                                    </entry>
+                                    <entry cid="86kVW">
+                                        <p cid="1TPQul">支持重置存图图像名称的序号。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1EfrGr">
+                                    <entry cid="1LaB0X">
+                                        <p cid="1MhiRv"><xref cid="1cyskN" format="dita" href="GUID-069499E9-69D5-494E-AE7F-F887C2C02A1C#GUID-069499E9-69D5-494E-AE7F-F887C2C02A1C" /></p>
+                                    </entry>
+                                    <entry cid="WQvOa">
+                                        <p cid="1WHvZY">提供各类型数据下的常用相机属性名。</p>
+                                    </entry>
+                                </row>
+                                <row cid="PNnbm">
+                                    <entry cid="tTlfo">
+                                        <p cid="2AUfGf"><xref cid="1kGyKw" format="dita" href="GUID-9A9A2954-4496-49EA-882A-C0AAD0173785#GUID-9A9A2954-4496-49EA-882A-C0AAD0173785" /></p>
+                                    </entry>
+                                    <entry cid="1ZgrCh">
+                                        <p cid="2ETop4">支持添加文件夹、将添加的图像保存到方案。</p>
+                                    </entry>
+                                </row>
+                                <row cid="Z7KBq">
+                                    <entry cid="HIDun">
+                                        <p cid="29RcKj"><xref cid="1v2Eja" format="dita" href="GUID-3ADE7922-66E5-4FE5-BA70-DBBA19BC83F7#GUID-3ADE7922-66E5-4FE5-BA70-DBBA19BC83F7" /></p>
+                                    </entry>
+                                    <entry cid="1tPp05">
+                                        <p cid="7KmBr">支持多种点云格式数据（PLY，CSV和STL），支持添加文件夹和将添加的模型保存到方案。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1RBQWQ">
+                                    <entry cid="1Es5kH" morerows="3">
+                                        <p cid="26hov5"><xref cid="1b8Zpn" format="dita" href="GUID-7482832D-4473-4AA7-BF1B-4DDE3AA02E4B#GUID-7482832D-4473-4AA7-BF1B-4DDE3AA02E4B" /></p>
+                                    </entry>
+                                    <entry cid="HIDun">
+                                        <p cid="1VEcGN"><xref cid="2JwwXo" format="dita" href="GUID-76A08313-0F09-47E4-B554-B4833071712F#GUID-76A08313-0F09-47E4-B554-B4833071712F" /></p>
+                                    </entry>
+                                    <entry cid="1tPp05">
+                                        <p cid="1vzrR7">在建模时，新增点云建模功能，增加<parmname cid="1LDKRn">特征类型</parmname>和<parmname cid="WlCjE">法向量窗口大小</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="2AfoHf">
+                                    <entry cid="HIDun">
+                                        <p cid="1bU6hS"><xref cid="1L2nYQ" format="dita" href="GUID-33C70583-3829-4C83-AF93-7EA9375426E6#GUID-33C70583-3829-4C83-AF93-7EA9375426E6" /></p>
+                                    </entry>
+                                    <entry cid="1tPp05">
+                                        <p cid="1KWnxE">输出结果中新增<parmname cid="YpmxZ">正向最大值点</parmname>和<parmname cid="1Nzu3f">负向最大值点</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="sekFy">
+                                    <entry cid="1E2MIj">
+                                        <p cid="1XN1JY"><xref cid="zhYKj" format="dita" href="GUID-031CD3FF-E9B3-42C0-B2E7-728417EFD384#GUID-031CD3FF-E9B3-42C0-B2E7-728417EFD384" /></p>
+                                    </entry>
+                                    <entry cid="1ruMD8">
+                                        <ul id="UL_AT2_GQL_ZHC">
+                                            <li id="GUID-09736250-B6A3-4F5D-A6CD-FF2E21E15A32">
+                                                <p cid="1LlsGc">新增<parmname cid="1CpP4v">过滤使能</parmname>，用于过滤无效特征。</p>
+                                            </li>
+                                            <li id="GUID-CEDE2446-50F0-4B53-8229-9A1CE05CEE53">
+                                                <p cid="1VG6CM">修改原有<parmname cid="KFVh">高级参数</parmname>为<parmname cid="1wYAKg">滤波参数</parmname>和<parmname cid="1TU7Ti">拟合参数</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="3sL6s">
+                                    <entry cid="HIDun">
+                                        <p cid="WmCb5"><xref cid="b4X3W" format="dita" href="GUID-668A9BAD-1F64-4640-AE91-DEC7C8674FA3#GUID-668A9BAD-1F64-4640-AE91-DEC7C8674FA3" /></p>
+                                    </entry>
+                                    <entry cid="1tPp05">
+                                        <ul id="UL_SGD_4QL_ZHC">
+                                            <li id="GUID-3267F6AE-1432-4779-9BEE-5D4B354CA53A">
+                                                <p cid="1vCsM1">支持查找<uicontrol>对称轴</uicontrol>。</p>
+                                            </li>
+                                            <li id="GUID-4BB4E310-2CED-455B-872A-BA99FCEFB3FB">
+                                                <p cid="1XS8UQ">运行参数中新增<parmname cid="1aGUmm">角度容忍度</parmname>和<parmname cid="ppECF">完整度</parmname>。</p>
+                                            </li>
+                                            <li id="GUID-119AD12B-6801-4A1E-98BE-65285F42035A">
+                                                <p cid="FCFev"><parmname cid="1jvXZo">偏离容忍度</parmname>参数修改为<parmname cid="JioKd">距离容忍度
+                                                  </parmname>。</p>
+                                            </li>
+                                            <li id="GUID-7413AE56-61E3-41A8-918C-EE4EC4BA2900">
+                                                <p cid="15F5eh">模块结果中新增<parmname cid="8cWrS">完整度</parmname>和<parmname cid="8IdKz">对称轴</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1SNLqb">
+                                    <entry cid="zr9HO" morerows="8">
+                                        <p cid="1uUux"><xref cid="1XZDKC" format="dita" href="GUID-EB4C1050-AB54-4AC8-8DCD-2FB215037AF0#GUID-EB4C1050-AB54-4AC8-8DCD-2FB215037AF0" /></p>
+                                    </entry>
+                                    <entry cid="CnDBT">
+                                        <p cid="6l2ai"><xref cid="1VZC4M" format="dita" href="GUID-C7944310-C9A7-4EAD-B018-D4F2353C726F#GUID-C7944310-C9A7-4EAD-B018-D4F2353C726F" /></p>
+                                    </entry>
+                                    <entry cid="zEAzX">
+                                        <ul id="UL_FQ4_BRL_ZHC">
+                                            <li id="GUID-9DB5E8D3-3180-4EE6-8C32-0AF40B312C22">
+                                                <p cid="2GBEKt">运行参数中新增<parmname cid="1HYSkK">异常剔除阈值</parmname>和<parmname cid="1Ej42W">标准差均值</parmname>。</p>
+                                            </li>
+                                            <li id="GUID-DC545C24-25A7-479F-BD3D-12BE7C1FCD1C">
+                                                <p cid="19y3AH">输出结果中新增<parmname cid="24wiAA">最大标准差</parmname>和<parmname cid="1esoXk">平均标准差</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="2HQ4b">
+                                    <entry cid="zaWc1">
+                                        <p cid="1rs4Gh"><xref cid="14jAuX" format="dita" href="GUID-B009812F-8BE1-4BEB-9EB3-A66616F5C799#GUID-B009812F-8BE1-4BEB-9EB3-A66616F5C799" /></p>
+                                    </entry>
+                                    <entry cid="296dYo">
+                                        <p cid="MOpne">新增<parmname cid="1FOrUV">行号配置</parmname>和<parmname cid="bDprs">配对模式</parmname>，分别用于设置指定范围内的数据统计和设置统计时的测量模式。</p>
+                                    </entry>
+                                </row>
+                                <row cid="NjjPM">
+                                    <entry cid="NQxim">
+                                        <p cid="1KqwFh"><xref cid="1kedbu" format="dita" href="GUID-4F050A02-0EF4-4D30-8BA1-110069E1D463#GUID-4F050A02-0EF4-4D30-8BA1-110069E1D463" /></p>
+                                    </entry>
+                                    <entry cid="GkESn">
+                                        <p cid="1g2VgE">支持测量点点距离、点线距离、点面距离、线圆距离、线线角度类型的特征。</p>
+                                        <ul id="UL_OW5_JHC_13C">
+                                            <li id="GUID-89C89954-616D-4845-BECD-5A7EB759F58F">
+                                                <p cid="2J6clM">针对每类特征提供对应的运行参数。</p>
+                                            </li>
+                                            <li id="GUID-A6F0F9E8-EE34-4F1C-B13A-C9F046A0DE46">
+                                                <p cid="27Omgh">模块输出中新增<parmname cid="1SNUpn">特征最小值</parmname>、<parmname cid="upum7">特征最大值</parmname>和<parmname cid="qRLJB">行数</parmname>。<parmname cid="1CfMeB">特征点Z值</parmname>更改为<parmname cid="WBjl2">特征值</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1yyUXQ">
+                                    <entry cid="1v0dzJ">
+                                        <p cid="scagS"><xref cid="YDxbU" format="dita" href="GUID-DF9F162B-FC69-4A16-BFCF-BE0988229BF8#GUID-DF9F162B-FC69-4A16-BFCF-BE0988229BF8" /></p>
+                                    </entry>
+                                    <entry cid="2238dI">
+                                        <p cid="2JmXLE">输出结果中新增<parmname cid="5mpnM">带符号均值</parmname>、<parmname cid="TPQtU">正向点均值</parmname>和<parmname cid="1q3lg3">负向点均值</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="ofT0Q">
+                                    <entry cid="Upl98">
+                                        <p cid="DUlyP"><xref cid="1tojmL" format="dita" href="GUID-3F7A4391-15DF-4B09-9D83-2306D160B5B7#GUID-3F7A4391-15DF-4B09-9D83-2306D160B5B7" /></p>
+                                    </entry>
+                                    <entry cid="1iUOWV">
+                                        <p cid="23Fyot">输出结果新增<parmname cid="25WRfv">模型转换3D点集</parmname>，代表经过3D位姿变换后的3D点位置。</p>
+                                    </entry>
+                                </row>
+                                <row cid="XdWhR">
+                                    <entry cid="1Yij7n">
+                                        <p cid="1cedEg"><xref cid="HveUO" format="dita" href="GUID-0A3CE3EB-73DB-4135-BEDF-6DDAF049B00A#GUID-0A3CE3EB-73DB-4135-BEDF-6DDAF049B00A" /></p>
+                                    </entry>
+                                    <entry cid="1ghDuD">
+                                        <ul id="UL_WGC_STL_ZHC">
+                                            <li id="GUID-4CF5D24F-3E32-4A9E-8D80-78A68A186889">
+                                                <p cid="GmqrE">运行参数新增<parmname cid="1vtCBn">基准类型</parmname>，可选择基于<parmname cid="1Jxhg4">基准深度图值</parmname>或<parmname cid="1Xcj9W">基准面</parmname>。</p>
+                                            </li>
+                                            <li id="GUID-661424FB-85E4-4675-ACE8-9783F0AD4514">
+                                                <p cid="s531">输出结果新增<parmname cid="UygPs">测量结果数量</parmname>、<parmname cid="1gnbmC">正向体积</parmname>、<parmname cid="a1Oy0">负向体积</parmname>、<parmname cid="11UW7A">绝对体积</parmname>等结果。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1cnIXI">
+                                    <entry cid="BTfOb">
+                                        <p cid="22FlAG"><xref cid="1y7oW8" format="dita" href="GUID-E57287D2-C2A8-4E1B-AD1B-F0F35F20B744#GUID-E57287D2-C2A8-4E1B-AD1B-F0F35F20B744" /></p>
+                                    </entry>
+                                    <entry cid="11nuVB">
+                                        <p cid="21h2Mv">支持计算点云的密度属性。</p>
+                                    </entry>
+                                </row>
+                                <row cid="lp97e">
+                                    <entry cid="OtWKi">
+                                        <p cid="hPXV"><xref cid="1BuH5m" format="dita" href="GUID-E9F5463E-254D-4044-9141-EC6E7BB017F5#GUID-E9F5463E-254D-4044-9141-EC6E7BB017F5" /></p>
+                                    </entry>
+                                    <entry cid="3vE8J">
+                                        <p cid="1mqjfY">新增<parmname cid="1CkADR">行号配置</parmname>，可设置指定范围内数据进行测量。</p>
+                                    </entry>
+                                </row>
+                                <row cid="Wmzpi">
+                                    <entry cid="1a9MjN">
+                                        <p cid="12dzLJ"><xref cid="1nusYA" format="dita" href="GUID-296C8A59-F78A-46BA-9FFA-6219867B1911#GUID-296C8A59-F78A-46BA-9FFA-6219867B1911" /></p>
+                                    </entry>
+                                    <entry cid="2JDobS">
+                                        <ul id="UL_EZX_LHB_D3C">
+                                            <li id="GUID-662F4DFE-17B3-4D26-98A8-9718A9638DB9">
+                                                <p cid="1JjqDR">支持<parmname cid="1FOrUV">行号配置</parmname>，可设置特定范围进行检测。</p>
+                                            </li>
+                                            <li id="GUID-CE808D42-F47B-4EEC-A167-DF56810FBD65">
+                                                <p cid="RrEOW">调整<parmname cid="1kOEEO">运行参数</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1HMClq">
+                                    <entry cid="23WoD6" morerows="1">
+                                        <p cid="22jtId"><xref cid="1sfMRB" format="dita" href="GUID-C10F7E28-16BD-4484-AF4D-75877FCE2F6C#GUID-C10F7E28-16BD-4484-AF4D-75877FCE2F6C" /></p>
+                                    </entry>
+                                    <entry cid="H2Dvl">
+                                        <p cid="1yhSnq"><xref cid="1BCi7U" format="dita" href="GUID-E3860609-20F3-4245-9A0F-52E4B1E10587#GUID-E3860609-20F3-4245-9A0F-52E4B1E10587" /></p>
+                                    </entry>
+                                    <entry cid="2KsoQU">
+                                        <ul id="UL_X4Q_3JC_13C">
+                                            <li id="GUID-761C9FCA-751A-4605-9A3D-385D5D10428A">
+                                                <p cid="2FTbJs">支持配置ROI。</p>
+                                            </li>
+                                            <li id="GUID-4AB8CE2F-FE55-4455-9381-AC665DA6DB4A">
+                                                <p cid="2Dv4et">输出结果新增<parmname cid="11vZwv">标定块坐标系到传感器坐标系变换矩阵</parmname>。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1c9zmw">
+                                    <entry cid="A8AaW">
+                                        <p cid="2381GX"><xref cid="1jW06J" format="dita" href="GUID-FAF7694C-891C-4933-92DE-1CBDB021C6B5#GUID-FAF7694C-891C-4933-92DE-1CBDB021C6B5" /></p>
+                                    </entry>
+                                    <entry cid="1A9UbO">
+                                        <p cid="HNyo1">支持配置ROI。</p>
+                                    </entry>
+                                </row>
+                                <row cid="FbkOQ">
+                                    <entry cid="1XIjlK">
+                                        <p cid="1ARC3d"><xref cid="2BlJKU" format="dita" href="GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD#GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD" /></p>
+                                    </entry>
+                                    <entry cid="7jKNf">
+                                        <p cid="1vYas5"><xref cid="2BXInH" format="dita" href="GUID-047F85DF-CBF6-410F-B20C-710BA8C137FF#GUID-047F85DF-CBF6-410F-B20C-710BA8C137FF" /></p>
+                                    </entry>
+                                    <entry cid="1I3DbD">
+                                        <p cid="swVk1">输出结果中新增<parmname cid="1HynL3">输出无效点</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1ulafB">
+                                    <entry cid="3zHFY" morerows="3">
+                                        <p cid="jCb9b"><xref cid="pOgw1" format="dita" href="GUID-F52BF925-3125-4E5A-A589-D945648E6B2A#GUID-F52BF925-3125-4E5A-A589-D945648E6B2A" /></p>
+                                    </entry>
+                                    <entry cid="1ePaEj">
+                                        <p cid="giZBO"><xref cid="wfB9K" format="dita" href="GUID-CE930C4D-1E9A-4B06-AC40-D306A4AEC85D#GUID-CE930C4D-1E9A-4B06-AC40-D306A4AEC85D" /></p>
+                                    </entry>
+                                    <entry cid="ujp9A">
+                                        <p cid="1kJnhC">新增<parmname cid="1RiYY8">连续轮廓截面</parmname>类型。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1mT2kc">
+                                    <entry cid="gXtbl">
+                                        <p cid="vKXFC"><xref cid="117SoJ" format="dita" href="GUID-E52B6F60-6E4E-4AAA-B15B-9B4567D0709C#GUID-E52B6F60-6E4E-4AAA-B15B-9B4567D0709C" /></p>
+                                    </entry>
+                                    <entry cid="nkVaw">
+                                        <p cid="FPya6">支持<parmname cid="12c21U">掩膜滤波类型</parmname>，可选择对RGB和（或）深度图进行滤波处理。</p>
+                                    </entry>
+                                </row>
+                                <row cid="N2Jrr">
+                                    <entry cid="JVjaT">
+                                        <p cid="o3wPz"><xref cid="29R9Nt" format="dita" href="GUID-A8568514-123C-4859-ABF6-D3D1462CEC7F#GUID-A8568514-123C-4859-ABF6-D3D1462CEC7F" /></p>
+                                    </entry>
+                                    <entry cid="11vUKR">
+                                        <p cid="2DeHUN">新增<parmname cid="YK4GP">输出点云使能</parmname>，支持输出拼接后的点云数据。</p>
+                                    </entry>
+                                </row>
+                                <row cid="215IWz">
+                                    <entry cid="deRDT">
+                                        <p cid="1AQP4N"><xref cid="111jxz" format="dita" href="GUID-BCD22CAC-6696-47CA-8746-A486EF7D6826#GUID-BCD22CAC-6696-47CA-8746-A486EF7D6826" /></p>
+                                    </entry>
+                                    <entry cid="2Kdrvg">
+                                        <p cid="2FtLVN">支持多ROI配置。</p>
+                                    </entry>
+                                </row>
+                                <row cid="XdF4f">
+                                    <entry cid="VHZJf">
+                                        <p cid="wfOmU"><xref cid="fPB0S" format="dita" href="GUID-B10E881E-1FC9-4AAA-84F0-DC886A38E7FB#GUID-B10E881E-1FC9-4AAA-84F0-DC886A38E7FB" /></p>
+                                    </entry>
+                                    <entry cid="1YMDvz">
+                                        <p cid="pq81v"><xref cid="uOWsf" format="dita" href="GUID-4383C4B4-74B1-4820-A936-91A57E7446DB#GUID-4383C4B4-74B1-4820-A936-91A57E7446DB" /></p>
+                                    </entry>
+                                    <entry cid="OZEWP">
+                                        <p cid="13xJ97">支持输出轮廓点云。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1R5TVn">
+                                    <entry cid="5UYly" morerows="4">
+                                        <p cid="1MN5vz"><xref cid="kaAti" format="dita" href="GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB#GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB" /></p>
+                                    </entry>
+                                    <entry cid="1uWQmb">
+                                        <p cid="1RZwE7"><xref cid="1xmV9h" format="dita" href="GUID-FC5E8D16-AA95-4BBD-9B8D-68C120459009#GUID-FC5E8D16-AA95-4BBD-9B8D-68C120459009" /></p>
+                                    </entry>
+                                    <entry cid="1p6Y7S">
+                                        <p cid="1qiPH5">支持将深度图转换为RGB图。</p>
+                                    </entry>
+                                </row>
+                                <row cid="fEXOj">
+                                    <entry cid="1uWQmb">
+                                        <p cid="162v93"><xref cid="27GcAH" format="dita" href="GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916#GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916" /></p>
+                                    </entry>
+                                    <entry cid="1p6Y7S">
+                                        <p cid="1sPayN">运行参数新增<parmname cid="21CHNY">Z轴朝上使能</parmname>，开启后，转换的坐标系可绕X轴旋转180°，确保转换后的深度图和<msgph varref="MeasureSensor" />格式深度图一致。</p>
+                                    </entry>
+                                </row>
+                                <row cid="pSYGY">
+                                    <entry cid="2I2ksy">
+                                        <p cid="1z69C"><xref cid="N6pZG" format="dita" href="GUID-41DFC8D9-EC4C-4B5E-8E7B-A9BA4F0914DB#GUID-41DFC8D9-EC4C-4B5E-8E7B-A9BA4F0914DB" /></p>
+                                    </entry>
+                                    <entry cid="1g3FZj">
+                                        <ul id="UL_G2R_VJC_13C">
+                                            <li id="GUID-3F870594-AF10-417E-B976-DC0B01B26245">
+                                                <p cid="dzkyL">在<parmname cid="naxDa">自由路径</parmname>下支持配置<parmname cid="27HnP5">平滑等级</parmname>。</p>
+                                            </li>
+                                            <li id="GUID-48225F46-5AEE-4D68-AE4F-8CFB10E0C4EA">
+                                                <p cid="17tuds"><parmname cid="2DFnxq">直线</parmname>和<parmname cid="1Zn2lv">自由路径</parmname>支持设置<parmname cid="2EExQD">法向类型</parmname>。</p>
+                                            </li>
+                                            <li id="GUID-4B1C60AC-1894-49B8-8316-4A82CB0F523D">
+                                                <p cid="Z3MVA">支持订阅<xref cid="1oTz8t" format="dita" href="GUID-6DF4A29F-1B7F-4910-8AF0-9C93C18F9985#GUID-6DF4A29F-1B7F-4910-8AF0-9C93C18F9985" />的修正结果，此时仅对输出点位置进行调整。</p>
+                                            </li>
+                                        </ul>
+                                    </entry>
+                                </row>
+                                <row cid="1Di2C0">
+                                    <entry cid="tQnXz">
+                                        <p cid="1OTzSI"><xref cid="1DrHss" format="dita" href="GUID-22336E5E-BE6C-493D-ABDC-8EEE0CA31E9D#GUID-22336E5E-BE6C-493D-ABDC-8EEE0CA31E9D" /></p>
+                                    </entry>
+                                    <entry cid="1qDmcF">
+                                        <p cid="24pRFW">新增<parmname cid="1zFIV0">分段偏移</parmname>，可用于分段调整还原的路径点数据。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1MyubL">
+                                    <entry cid="17PM3R">
+                                        <p cid="1ocKvq"><xref cid="151rDb" format="dita" href="GUID-D97A495F-F9B5-46C9-A523-13969E00F65F#GUID-D97A495F-F9B5-46C9-A523-13969E00F65F" /></p>
+                                    </entry>
+                                    <entry cid="1zWWv8">
+                                        <p cid="LCdyj">支持设置<parmname cid="WPFy0">采样步长X</parmname>和<parmname cid="nE0lD">采样步长Y</parmname>，用于降低点云数据的点密度。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1eNNg6">
+                                    <entry cid="1PPs2U" morerows="1">
+                                        <p cid="Iuu2R"><xref cid="F5tyE" format="dita" href="GUID-C010452F-2EDE-424B-8140-DACB7C82359E#GUID-C010452F-2EDE-424B-8140-DACB7C82359E" /></p>
+                                    </entry>
+                                    <entry cid="n7AjX">
+                                        <p cid="2HQdOy"><xref cid="2BAax7" format="dita" href="GUID-DCFE28CD-7C5D-4000-86C8-387369C5B20E#GUID-DCFE28CD-7C5D-4000-86C8-387369C5B20E" /></p>
+                                    </entry>
+                                    <entry cid="jEnLL">
+                                        <p cid="mqKE6">输出结果中新增<parmname cid="XnwXq">正向最大值点</parmname>和<parmname cid="26YUUv">负向最大值点</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="8VhjC">
+                                    <entry cid="RyeRh">
+                                        <p cid="1Hu9ec"><xref cid="H7oBx" format="dita" href="GUID-8382BAD9-4515-4318-9429-D5345ADE3D1F#GUID-8382BAD9-4515-4318-9429-D5345ADE3D1F" /></p>
+                                    </entry>
+                                    <entry cid="7coWq">
+                                        <p cid="mnPjr">的运行参数新增<parmname cid="umG1A">单点成行使能</parmname>和<parmname cid="1ySEf8">杂点过滤使能</parmname>，分别用于某行/环存在1个ROI和输入数据中存在干扰杂点的情况。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1vSLKW">
+                                    <entry cid="1rgelu" morerows="2">
+                                        <p cid="Dv1pw"><xref cid="20LhXp" format="dita" href="GUID-0C244518-3EF8-44EB-97CF-F00255177318#GUID-0C244518-3EF8-44EB-97CF-F00255177318" /></p>
+                                    </entry>
+                                    <entry cid="hkBSF">
+                                        <p cid="1TgxqQ"><xref cid="1GdzD8" format="dita" href="GUID-C6C41880-4A93-4B08-B39F-2645F14ADD72#GUID-C6C41880-4A93-4B08-B39F-2645F14ADD72" /></p>
+                                    </entry>
+                                    <entry cid="4th7F">
+                                        <p cid="1QNOXR">支持设置<parmname cid="1ERrLt">坐标系类型</parmname>。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1NtoED">
+                                    <entry cid="1an2gz">
+                                        <p cid="ppyTE"><xref cid="1roue3" format="dita" href="GUID-9E2C5077-6303-4226-B180-2160DF7E28E4#GUID-9E2C5077-6303-4226-B180-2160DF7E28E4" /></p>
+                                        <p cid="1mi2Fy"><xref cid="1s8QVK" format="dita" href="GUID-E6B5A189-94E2-4CAF-8EDA-9ABA11FA453D#GUID-E6B5A189-94E2-4CAF-8EDA-9ABA11FA453D" /></p>
+                                        <p cid="mATJm"><xref cid="17SU58" format="dita" href="GUID-A834F63D-C019-4E7F-8F42-10FD8876A884#GUID-A834F63D-C019-4E7F-8F42-10FD8876A884" /></p>
+                                        <p cid="rXITk"><xref cid="1HJ8QT" format="dita" href="GUID-7DC09E88-CBDE-4FF4-AABB-5A9DC0CC2DDA#GUID-7DC09E88-CBDE-4FF4-AABB-5A9DC0CC2DDA" /></p>
+                                    </entry>
+                                    <entry cid="1cGzcc">
+                                        <p cid="1YVteR">支持处理更多类型的数据（如SPHERE3D型）。</p>
+                                    </entry>
+                                </row>
+                                <row cid="1T4M58">
+                                    <entry cid="5LQG8">
+                                        <p cid="255Iay"><xref cid="1GJOsS" format="dita" href="GUID-246401A9-D710-4739-9AE6-E3BC8202826D#GUID-246401A9-D710-4739-9AE6-E3BC8202826D" /></p>
+                                    </entry>
+                                    <entry cid="9VHK9">
+                                        <p cid="29nNfY">支持设置bool型数据。该数据可用于控制<xref cid="j532D" format="dita" href="GUID-56F27EF0-361A-4305-92F6-3BD59B25901B#GUID-56F27EF0-361A-4305-92F6-3BD59B25901B" />和<b>流程</b>运行参数的显示或隐藏。</p>
+                                    </entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </li>
+                <li id="GUID-5B67C428-EDF0-47B5-BBB2-2D9524A2CFD9">
+                    <p cid="ukYxY">3D模块命名调整。</p>
+                    <ul id="UL_EYS_31X_C3C">
+                        <li id="GUID-F47F1A95-0DC4-483E-AFD6-43F13440EC56">
+                            <p cid="aWDRM"><uicontrol>平面检测-深度图</uicontrol>更名为<xref cid="1h1DH7" format="dita" href="GUID-33C70583-3829-4C83-AF93-7EA9375426E6#GUID-33C70583-3829-4C83-AF93-7EA9375426E6" />。</p>
+                        </li>
+                        <li id="GUID-BE148226-1B15-4D5A-93A5-BB4E4A53B8EC">
+                            <p cid="25l7TO"><uicontrol>着地面检测-深度图</uicontrol>更名为<xref cid="2Gc31q" format="dita" href="GUID-D6878F49-84D9-44D9-A702-562374D83F73#GUID-D6878F49-84D9-44D9-A702-562374D83F73" />。</p>
+                        </li>
+                        <li id="GUID-F0CCBE31-191F-46D0-B237-791021BB6A71">
+                            <p cid="5392L"><uicontrol>生成稠密点云</uicontrol>更名为<xref cid="Yg0vD" format="dita" href="GUID-4383C4B4-74B1-4820-A936-91A57E7446DB#GUID-4383C4B4-74B1-4820-A936-91A57E7446DB" />。</p>
+                        </li>
+                        <li id="GUID-C20435F7-DF1E-43D5-B0EA-903FB4466647">
+                            <p cid="1KNf95"><uicontrol>平面点云属性计算</uicontrol>更名为<xref cid="Y8dAo" format="dita" href="GUID-E57287D2-C2A8-4E1B-AD1B-F0F35F20B744#GUID-E57287D2-C2A8-4E1B-AD1B-F0F35F20B744" />。</p>
+                        </li>
+                        <li id="GUID-40BEE808-2110-4EB0-B6C9-E26988C963DD">
+                            <p cid="1USkzG"><uicontrol>RGBD转轮廓仪-深度图</uicontrol>更名为<xref cid="R4zIz" format="dita" href="GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916#GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916" /></p>
+                        </li>
+                    </ul>
+                </li>
+                <li id="GUID-595BBAD0-AF0C-454E-B9B8-5B18B24B81A3">
+                    <p cid="1C5cnE">3D模块分组调整。</p>
+                    <table colsep="1" frame="all" id="TABLE_AN4_LWY_D3C" rowsep="1">
+                        <tgroup cid="1P2jlx" cols="2">
+                            <colspec cid="w8PLb" colname="c1" colnum="1" colwidth="1.0*" />
+                            <colspec cid="1Tpxlc" colname="c2" colnum="2" colwidth="1.0*" />
+                            <thead cid="2CQIrw">
+                                <row cid="1Ha87W">
+                                    <entry cid="1KRTck">
+                                        <p cid="R2Sgz">模块名</p>
+                                    </entry>
+                                    <entry cid="tU78Q">
+                                        <p cid="kUiCY">调整后的类别</p>
+                                    </entry>
+                                </row>
+                            </thead>
+                            <tbody cid="101HZO">
+                                <row cid="1C8A3x">
+                                    <entry cid="1e7Q2M">
+                                        <p cid="2DupOP"><xref cid="Ombdy" format="dita" href="GUID-10965E3F-945C-471F-8B3A-4E66E7822CC2#GUID-10965E3F-945C-471F-8B3A-4E66E7822CC2" /></p>
+                                        <p cid="2CiIzy"><xref cid="1udVGi" format="dita" href="GUID-8D6C829A-5936-4CFA-853D-A732E421A21B#GUID-8D6C829A-5936-4CFA-853D-A732E421A21B" /></p>
+                                        <p cid="14pYy9"><xref cid="1Mdliw" format="dita" href="GUID-BA6F0771-98D4-4D93-8B75-4D3CB08D0ED8#GUID-BA6F0771-98D4-4D93-8B75-4D3CB08D0ED8" /></p>
+                                        <p cid="zf2rb"><xref cid="151rDb" format="dita" href="GUID-D97A495F-F9B5-46C9-A523-13969E00F65F#GUID-D97A495F-F9B5-46C9-A523-13969E00F65F" /></p>
+                                        <p cid="1rJI4P"><xref cid="NHeXq" format="dita" href="GUID-AB986C3C-56C2-4C3A-8646-8BE6F36C1829#GUID-AB986C3C-56C2-4C3A-8646-8BE6F36C1829" /></p>
+                                        <p cid="162v93"><xref cid="27GcAH" format="dita" href="GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916#GUID-3821A8BD-41CF-42EC-BD1A-8209C578A916" /></p>
+                                        <p cid="ZwUFs"><xref cid="N6pZG" format="dita" href="GUID-41DFC8D9-EC4C-4B5E-8E7B-A9BA4F0914DB#GUID-41DFC8D9-EC4C-4B5E-8E7B-A9BA4F0914DB" /></p>
+                                        <p cid="1bnTld"><xref cid="1DrHss" format="dita" href="GUID-22336E5E-BE6C-493D-ABDC-8EEE0CA31E9D#GUID-22336E5E-BE6C-493D-ABDC-8EEE0CA31E9D" /></p>
+                                        <p cid="fiyqi"><xref cid="rQane" format="dita" href="GUID-0768BC12-3799-48DC-A6D4-1AC3CB244569#GUID-0768BC12-3799-48DC-A6D4-1AC3CB244569" /></p>
+                                        <p cid="2D0NoX"><xref cid="aeSvP" format="dita" href="GUID-6B5DDAAA-2916-4CDC-A2DC-097021723502#GUID-6B5DDAAA-2916-4CDC-A2DC-097021723502" /></p>
+                                        <p cid="aZCQl"><xref cid="189SWQ" format="dita" href="GUID-A06B7863-D4B9-4134-ADF1-1C62997BB7C7#GUID-A06B7863-D4B9-4134-ADF1-1C62997BB7C7" /></p>
+                                        <p cid="WLly"><xref cid="1xmV9h" format="dita" href="GUID-FC5E8D16-AA95-4BBD-9B8D-68C120459009#GUID-FC5E8D16-AA95-4BBD-9B8D-68C120459009" /></p>
+                                        <p cid="16lPek"><xref cid="1QNHF1" format="dita" href="GUID-EAAE9701-D616-4813-A4A3-0692ED71BC13#GUID-EAAE9701-D616-4813-A4A3-0692ED71BC13" /></p>
+                                    </entry>
+                                    <entry cid="Q8Xiz">
+                                        <p cid="1MN5vz"><xref cid="kaAti" format="dita" href="GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB#GUID-560C09AE-7FA0-4CCE-9F63-839AD8EA2FAB" /></p>
+                                    </entry>
+                                </row>
+                                <row cid="1d74qW">
+                                    <entry cid="Ffn6j">
+                                        <p cid="20m0Cx"><xref cid="HR8TN" format="dita" href="GUID-047F85DF-CBF6-410F-B20C-710BA8C137FF#GUID-047F85DF-CBF6-410F-B20C-710BA8C137FF" /></p>
+                                        <p cid="1IXtUJ"><xref cid="26A5Xx" format="dita" href="GUID-650C7017-6321-4A44-B8BE-5C686EF4DECD#GUID-650C7017-6321-4A44-B8BE-5C686EF4DECD" /></p>
+                                        <p cid="1JLEly"><xref cid="10Xtm8" format="dita" href="GUID-7E7EE040-9145-4D1B-9969-CE0E73BD244D#GUID-7E7EE040-9145-4D1B-9969-CE0E73BD244D" /></p>
+                                    </entry>
+                                    <entry cid="inCnl">
+                                        <p cid="1ARC3d"><xref cid="2BlJKU" format="dita" href="GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD#GUID-F5B1A131-3628-4847-B99A-98DA0C4012CD" /></p>
+                                    </entry>
+                                </row>
+                                <row cid="1bIfrm">
+                                    <entry cid="Hpd78">
+                                        <p cid="2GGRai"><xref cid="1Et1i7" format="dita" href="GUID-8382BAD9-4515-4318-9429-D5345ADE3D1F#GUID-8382BAD9-4515-4318-9429-D5345ADE3D1F" /></p>
+                                        <p cid="dDxQt"><xref cid="2K1lgZ" format="dita" href="GUID-FA7891EA-58BA-4D1B-A52B-6E5ADF6D88A9#GUID-FA7891EA-58BA-4D1B-A52B-6E5ADF6D88A9" /></p>
+                                        <p cid="DfSdO"><xref cid="zN8FW" format="dita" href="GUID-91656619-1A34-4265-9800-515DF351678E#GUID-91656619-1A34-4265-9800-515DF351678E" /></p>
+                                    </entry>
+                                    <entry cid="FY6Aw">
+                                        <p cid="Iuu2R"><xref cid="F5tyE" format="dita" href="GUID-C010452F-2EDE-424B-8140-DACB7C82359E#GUID-C010452F-2EDE-424B-8140-DACB7C82359E" /></p>
+                                    </entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </li>
+                <li id="GUID-D13B61AF-AB9F-47A4-AB25-4B9057ABDEE1">
+                    <p cid="QKBZu">2D模块更新。</p>
+                    <ul id="UL_VK4_V3B_D3C">
+                        <li id="GUID-1D13405C-AE6A-47B7-9F64-BFBD4E31552A">
+                            <p cid="1CwoNL"><xref cid="2DuxjA" format="dita" href="GUID-A7167DA4-4180-4C28-99A6-C49B348FE5C5#GUID-A7167DA4-4180-4C28-99A6-C49B348FE5C5" />支持处理RGB数据。</p>
+                        </li>
+                        <li id="GUID-03F4253B-C165-4E19-9BA8-BE8ADF1FCD9C">
+                            <p cid="yn6bl"><xref cid="1rpk39" format="dita" href="GUID-933448AC-A693-4A0A-9238-E95A02C16C02#GUID-933448AC-A693-4A0A-9238-E95A02C16C02" />中的<parmname cid="1hfMSt">实时存储</parmname>参数默认开启。</p>
+                        </li>
+                    </ul>
+                </li>
+                <li id="GUID-AF6CDD7E-5F68-44FD-9D8C-9E1160B1AC2F">
+                    <p cid="1vgWp0">其他功能更新。</p>
+                    <ul id="UL_KF1_14K_ZHC">
+                        <li id="GUID-A63D7DC2-7E04-45F5-A969-0986A14F5FB7">
+                            <p cid="EfhFs">支持在<parmname cid="SixZt">图像查看区域</parmname>保存RAW格式图像。保存后，您可在<xref cid="2AC9yb" format="dita" href="GUID-4FC9B9A9-AC8B-48B9-BDAD-7DD283E790A8#GUID-4FC9B9A9-AC8B-48B9-BDAD-7DD283E790A8" />模块中加载该图像，或在<msgph varref="HVname" />、<msgph varref="3DMVSname" />等客户端中查看。</p>
+                        </li>
+                        <li id="GUID-D5984496-121C-40D6-9449-529A46F6D72D">
+                            <p cid="KrdIH">流程和<xref cid="EbOKN" format="dita" href="GUID-56F27EF0-361A-4305-92F6-3BD59B25901B#GUID-56F27EF0-361A-4305-92F6-3BD59B25901B" />模块在配置输入和输出数据时，支持调整数据顺序。您可根据后序需求，将高优先级的参数调整到靠前的位置。<!--放图--></p>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-A276BE23-8C87-4077-8433-FE8C16F4252C">
+            <title id="GUID-22A585E4-CE3E-4D09-914F-4EF85C33EB05">功能废弃</title>
+            <p cid="8UgmS"><xref cid="cbJ4h" format="dita" href="GUID-BCD22CAC-6696-47CA-8746-A486EF7D6826#GUID-BCD22CAC-6696-47CA-8746-A486EF7D6826" />模块不再支持<uicontrol>模型差异</uicontrol>模式。</p>
+        </section>
+        <section id="GUID-0BBDDE58-FBE7-48D4-B8C1-C06323AE1A73">
+            <title id="GUID-2E2B4D4D-AF06-4C7F-A620-4AC0BBCB94A2">功能优化</title>
+            <ul id="UL_ZHJ_QNK_ZHC">
+                <li id="GUID-BE0D6065-BD8E-4D74-AE83-E07287107446">
+                    <p cid="GkKui">优化图像渲染相关设置，跟随方案保存。</p>
+                    <ul id="UL_GBF_CPK_ZHC">
+                        <li id="GUID-51F89C83-C6A6-4778-A1A9-FB628F500B22">
+                            <p cid="1BhZyK">深度图默认以“伪彩”形式渲染。</p>
+                        </li>
+                        <li id="GUID-20CC9BC1-A673-4004-A084-67E755D88313">
+                            <p cid="DvyXH">优化点云渲染配置，支持更多设置项。例如模块包含多簇点云时，您可分别查看每一簇的点云数据。更多介绍，请参见<xref cid="bpelD" format="dita" href="GUID-5772305C-6A30-47BD-B949-5663D75AEC67#GUID-5772305C-6A30-47BD-B949-5663D75AEC67" />。<!--放图--></p>
+                        </li>
+                    </ul>
+                </li>
+                <li id="GUID-78015DEC-49E8-4766-9F9A-F1601A6B1EEE">
+                    <p cid="1NCy7w"><xref cid="IfQAz" format="dita" href="GUID-2FF21485-05C4-417C-B6C5-309C7F30113F#GUID-2FF21485-05C4-417C-B6C5-309C7F30113F" />新增<parmname cid="e7bKY">性能模式</parmname>。开启后，可降低<msgph varref="VMname_abbreviation" />的内存占用。但此时不建议您查看图像渲染效果。</p>
+                </li>
+                <li id="GUID-D41315C8-BF97-4126-A696-8ADE41628D6B">
+                    <p cid="dtNmQ"><parmname cid="qychK">图像显示区域</parmname>支持显示当前模块的序号。<!--放图--></p>
+                </li>
+                <li id="GUID-AE9C2C4A-1353-4865-83E8-631554BDB2FF">
+                    <p cid="MLadc">调整模块箱中的3D模块分类，提升模块箱结构的清晰度和可操作性。</p>
+                </li>
+                <li id="GUID-1634208C-B9F9-43C0-8D88-255DC7242354">
+                    <p cid="TSnm2">提供更多示例程序。在安装示例包后，您可通过.\Application\Sample获取对应应用示例。</p>
+                </li>
+            </ul>
+        </section>
+        <section id="GUID-008DC5FD-EF51-4B90-B5FA-2459070F5786">
+            <title id="GUID-39C7B4C1-53A2-4547-99D2-B805556AE1B1">用户手册优化</title>
+            <ul id="UL_M4F_1YX_B3C">
+                <li id="GUID-053C25A3-FB8C-4B26-A9D0-E21436EC9962">
+                    <p cid="15zPZ9">整体优化<xref cid="1gTcyd" format="dita" href="GUID-0F95F7F3-E557-41C3-A4A5-87A3C3A8195A#GUID-0F95F7F3-E557-41C3-A4A5-87A3C3A8195A" />章节，围绕<msgph varref="VMname_abbreviation" />的“模块”介绍其各方面的功能，方便您根据实际场景查阅相应内容。</p>
+                </li>
+                <li id="GUID-32EFCC2A-8382-4BD6-B7F7-CCC20C8F63F4">
+                    <p cid="eAnFc">优化多个3D模块的使用参考，提供更全面的使用效果图和使用说明，帮助您快速掌握模块的使用方法。</p>
+                </li>
+                <li id="GUID-EE7AFB50-3376-47CF-A249-F2660F4B37D4">
+                    <p cid="vvPjt">针对示例方案提供更多导读，详情请参见<xref cid="1AqJjI" format="dita" href="GUID-DAC8910D-D12B-42BF-B5B8-7D9D68088888#GUID-DAC8910D-D12B-42BF-B5B8-7D9D68088888" />下的对应内容。</p>
+                </li>
+            </ul>
+        </section>
+    </conbody>
+</concept>

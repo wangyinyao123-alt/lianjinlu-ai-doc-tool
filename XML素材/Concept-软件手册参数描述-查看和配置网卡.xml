@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>
+<concept id="GUID-56B74C05-61DF-4141-B128-52FDF9721608" xml:lang="zh-CN">
+    <title id="GUID-2E8D554A-6B5A-4698-A90F-60BA2D6AE7A3">查看和配置网卡</title>
+    <shortdesc cid="1K5FJK">您可在VCPTool中查看Windows网卡和RTOS网卡的连接及网络参数，并在管理员模式下修改网卡基本参数和Windows网卡高级参数。</shortdesc>
+<conbody cid="29iKoV">
+        <section id="GUID-4B3470A1-92FE-465A-9356-D5DB468AB8C2">
+            <title id="GUID-E7CBECD8-9D6F-41A0-80CB-425D84810991">查看网卡信息</title>
+            <p cid="AXjBk">操作员模式下，您可通过<uicontrol>Windows网卡</uicontrol>和<uicontrol>RTOS网卡</uicontrol>页签，分别查看Windows侧和RTOS侧的网卡信息。</p>
+            <p cid="wJJw0">查看所选网卡的连接及网络参数。</p>
+            <parml cid="1CewQo">
+                <plentry id="GUID-E0623D97-C5E9-4185-8CBA-1A3604070106">
+                    <pt cid="cujA8">类型</pt>
+                    <pd cid="1vXclj">
+                        <p cid="7w41M">网卡的连接类型。例如，<uicontrol>wired</uicontrol>表示有线网卡。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-2DF4C02D-DDF0-42B3-96FA-CC055208B15B">
+                    <pt cid="PnJ6d">状态</pt>
+                    <pd cid="1R3SvB">
+                        <p cid="1FJJfL">网卡当前是否已建立网络连接。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-5447B441-B2D7-4209-BAA0-1ADC641CD329">
+                    <pt cid="1QYFEd">DHCP</pt>
+                    <pd cid="w6Oyr">
+                        <p cid="uRqk">显示<uicontrol>开启</uicontrol>，网卡通过DHCP自动获取网络参数。</p>
+                    </pd>
+                </plentry>
+                <plentry id="GUID-528A096C-BBE0-4715-A0D1-70E52135966B">
+                    <pt cid="WzFH">IP地址</pt>
+                    <pt cid="14YM73">子网掩码</pt>
+                    <pt cid="1l2f9w">网关</pt>
+                    <pt cid="109PiL">DNS</pt>
+                    <pd cid="IVXvS">
+                        <p cid="1ES9Vm">分别显示网卡当前使用的IP地址、所属网络的子网范围、访问其他网段时使用的默认网关以及当前使用的DNS服务器地址。</p>
+                    </pd>
+                </plentry>
+            </parml>
+        </section>
+        <section id="GUID-116864C0-E093-4697-8CB8-24907505086B">
+            <title id="GUID-46DB375E-505A-4EC0-820E-B5B313C6A728">配置网卡参数</title>
+            <p cid="uTCL9">管理员模式下，您可以修改Windows网卡或RTOS网卡的基本参数，也可以设置Windows网卡高级参数。</p>
+            <fig id="FIG_YXX_525_ZJC">
+                <title id="GUID-2C33B41D-F141-47A8-8ECB-46B7829DD1CC">配置网卡参数</title>
+                <image href="GUID-16A93439-A1E2-4954-AF5D-BCAAB591FB33" id="IMAGE_ZXX_525_ZJC" width="1800" />
+            </fig>
+            <dl cid="nl4ab" outputclass="wt-tabbed">
+                <dlentry id="GUID-696AC4AD-94F1-4913-8E22-CD013CCA4605">
+                    <dt cid="KAUrg">网卡基本参数</dt>
+                    <dd cid="1FmqRG">
+                        <p cid="sio1h">在<uicontrol>网卡信息</uicontrol>区域中选择目标网卡，然后单击<uicontrol>编辑</uicontrol>，可设置网卡基本参数。</p>
+                        <table colsep="1" frame="all" id="TABLE_P3F_GK5_ZJC" rowsep="1">
+                            <title id="GUID-33C7D1B6-A23B-4C97-AE90-FAD253AEA4EE">配置方式说明</title>
+                            <tgroup cid="cXdd9" cols="2">
+                                <colspec cid="Z30kh" colname="c1" colnum="1" colwidth="0.3*" />
+                                <colspec cid="1PsLUS" colname="c2" colnum="2" colwidth="1.0*" />
+                                <thead cid="igmTq">
+                                    <row cid="1Wq1yD">
+                                        <entry cid="21pgpz">
+                                            <p cid="bUkqQ">配置方式</p>
+                                        </entry>
+                                        <entry cid="1C8rRP">
+                                            <p cid="1SCVHa">说明</p>
+                                        </entry>
+                                    </row>
+                                </thead>
+                                <tbody cid="13sqXC">
+                                    <row cid="1wvyow">
+                                        <entry cid="1sngDq">
+                                            <p cid="nZwai">DHCP</p>
+                                        </entry>
+                                        <entry cid="14EjWt">
+                                            <p cid="tbgFK">由网络中的DHCP服务器自动分配IP地址、子网掩码、网关和DNS。</p>
+                                            <note id="GUID-1B72ACF3-7D84-4568-BCCC-F5096BC4F32D">
+                                                <p cid="1ktUr0">使用该方式前，请确认网络中已部署可用的DHCP服务器。</p>
+                                            </note>
+                                        </entry>
+                                    </row>
+                                    <row cid="EqLmF">
+                                        <entry cid="1h3GLv">
+                                            <p cid="pbJ5G">Static</p>
+                                        </entry>
+                                        <entry cid="1mbUEV">
+                                            <p cid="KRrUd">手动设置IP地址、子网掩码、网关、DNS1和DNS2。该方式适用于使用固定IP地址的工业网络。</p>
+                                            <note id="GUID-E80B4396-C132-48D6-83BD-D2C1175D11B7">
+                                                <p cid="yFZgy">使用静态IP地址时，请确认该地址与目标设备处于同一网段，且未被其他设备占用。</p>
+                                            </note>
+                                        </entry>
+                                    </row>
+                                </tbody>
+                            </tgroup>
+                        </table>
+                    </dd>
+                </dlentry>
+                <dlentry id="GUID-7C0CF733-25A6-4052-B6AE-208C6E86C46F">
+                    <dt cid="2Beite">Windows网卡高级参数</dt>
+                    <dd cid="IThj">
+                        <p cid="MDSIi">在<uicontrol>Windows网卡高级设置</uicontrol>区域中选择适配器，可读取和设置以下高级参数。如无明确的网络性能优化需求，建议保留网卡高级参数的默认值。</p>
+                        <note id="GUID-73767261-CE9A-4E9E-930B-2207FE505E84" type="caution">
+                            <p cid="2Cmhyf">修改当前使用的网卡参数可能中断远程访问、工业相机通信或虚拟机间通信。修改前，请记录原网卡参数，并确认具备本地维护条件。</p>
+                        </note>
+                        <parml cid="1F8dT6">
+                            <plentry id="GUID-A5B794C6-BB26-476F-9ED7-94560DE5BD17">
+                                <pt cid="jHvKv">巨帧数据包</pt>
+                                <pd cid="1iBwZI">
+                                    <p cid="1gPY6W">设置网卡支持的以太网数据帧大小或禁用巨帧数据包。启用巨帧可以降低大数据量传输时的数据包处理开销。</p>
+                                    <note id="GUID-DFAB7D1F-7392-4BA7-B716-B1FE8601EFD5">
+                                        <p cid="k2fSm">使用前，请确认通信链路中的交换机和对端设备均支持相同的巨帧配置。</p>
+                                    </note>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-5177ABBF-AC11-46A5-AC0B-5207B1BB639F">
+                                <pt cid="1MLI8J">速度和双工</pt>
+                                <pd cid="1FyFzc">
+                                    <p cid="H6dsc">设置网卡的连接速率和双工模式。</p>
+                                    <p cid="1MGmfR">如无特殊网络要求，建议选择<parmname cid="1g5z3I">自动协商</parmname>。</p>
+                                    <note id="GUID-AB8619D8-91D0-4BE7-891C-75AD980624AA">
+                                        <p cid="magj3">手动设置时，网卡与对端设备的速率和双工模式应保持一致。</p>
+                                    </note>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-96B9268A-281D-4319-BB4C-487E8822AF9D">
+                                <pt cid="yQXKq">流量控制</pt>
+                                <pd cid="1qeR29">
+                                    <p cid="1xKznK">设置网卡接收或发送流量控制帧的方式。可选项如下。</p>
+                                    <parml cid="DcXSA">
+                                        <plentry id="GUID-0CFDFA1A-29B5-4D3E-9074-2192DFB0B13C">
+                                            <pt cid="219X3c">禁用</pt>
+                                            <pd cid="wPevA">
+                                                <p cid="1K2rvJ">不发送、不响应暂停帧。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-16571C4E-211A-4754-A008-96C95926AC8D">
+                                            <pt cid="1H7pAy">已启用 Tx</pt>
+                                            <pd cid="1IvQQ4">
+                                                <p cid="NAcNz">本机接收缓冲区拥塞时，向对端发送暂停帧，请求对方暂缓发送数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-D39C988A-3662-48CB-9A12-78DA3C21759A">
+                                            <pt cid="1dhxRQ">已启用 Rx</pt>
+                                            <pd cid="1t5Bbo">
+                                                <p cid="8WSO9">收到对端发送的暂停帧后，本机暂缓向外发送数据。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-DFF1869B-7763-4B37-92BA-28337634D349">
+                                            <pt cid="1I0Kus">已启用 Rx 和 Tx</pt>
+                                            <pd cid="1SFvay">
+                                                <p cid="1ezTr4">双向启用流量控制，既可发出暂停请求，也可响应对端暂停指令。</p>
+                                            </pd>
+                                        </plentry>
+                                        <plentry id="GUID-3EF48D22-F45B-45C2-A61B-BF88FA43F3FA">
+                                            <pt cid="1WCJNh">自动协商</pt>
+                                            <pd cid="1eQlxR">
+                                                <p cid="1oErRD">网卡与链路对端自动协商流量控制能力，无特殊需求建议选用该模式。</p>
+                                            </pd>
+                                        </plentry>
+                                    </parml>
+                                </pd>
+                            </plentry>
+                            <plentry id="GUID-F4BA0327-D7D5-4DA3-A9E6-77F80E236D27">
+                                <pt cid="1nBHsI">接收缓冲区</pt>
+                                <pt cid="a1KqW">传输缓冲区</pt>
+                                <pd cid="1zcgXC">
+                                    <p cid="VTAg8">设置网卡用于暂存接收或待发送数据的缓冲区大小，默认值为<uicontrol>2048</uicontrol>。</p>
+                                    <note id="GUID-FBE675C7-E6F3-4CA5-A276-7F51E2A6BE66">
+                                        <p cid="Aji1M">参数值单位为数据包数量。</p>
+                                    </note>
+                                </pd>
+                            </plentry>
+                        </parml>
+                    </dd>
+                </dlentry>
+            </dl>
+            <p cid="2KjTjw">设置区域下方提供以下功能按钮。</p>
+            <ul id="UL_ALS_MM5_ZJC">
+                <li id="GUID-5F4EBED0-DC37-499B-BAB3-05D59CA71CD1">
+                    <p cid="29yhzw"><uicontrol>设置参数</uicontrol>：将页面中的高级参数下发至当前选择的Windows网卡。</p>
+                </li>
+                <li id="GUID-142E8669-D81D-491F-BE29-CF24569A1C22">
+                    <p cid="LQ8jT"><uicontrol>获取参数</uicontrol>：读取并显示当前选择的Windows网卡高级参数。</p>
+                </li>
+            </ul>
+        </section>
+    </conbody>
+</concept>

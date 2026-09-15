@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?><!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]><concept id="GUID-9B530E87-C640-4DEB-88BA-EB592AEB4EAB" xml:lang="zh-CN">
+    <title id="GUID-319ECC04-2062-4EDF-8ED7-825C03A2D29A">设计窗口概览</title>
+<shortdesc cid="1a2pUY">运行界面设计窗口用于自定义配置运行界面，本文为您介绍设计窗口各区域功能及说明。</shortdesc>
+<conbody cid="jSxGU">
+        <p cid="JwMm1">单击主界面工具条中的<image href="GUID-434D257F-C302-48B3-9F61-79C1EC2198DD" id="IMAGE_KBR_K14_PYB" outputclass="icon" />可进入运行界面设计窗口。</p>
+        <fig id="FIG_RYH_GRS_LCC">
+            <title id="GUID-55E7727F-EB38-4DAF-97B9-20A9EC38BEF0">运行界面设计</title>
+            <image href="GUID-96558FEA-21F5-4A9C-B051-32B7FFAACE3E" width="2100" id="IMAGE_SYH_GRS_LCC" />
+        </fig>
+        <p cid="1gWmTn">该界面各区域的说明参见下表：</p>
+        <table frame="all" rowsep="1" colsep="1" id="TABLE_V1F_DX3_LYB">
+            <title id="GUID-98ECA7F2-7153-4398-BBA3-7BD7E697E944">运行界面设计窗口介绍</title>
+            <tgroup cols="2" cid="1wSje">
+                <colspec colname="c2" colnum="1" colwidth="2.29*" cid="jt5lw" />
+                <colspec colname="c3" colnum="2" colwidth="12.41*" cid="bZw2J" />
+                <thead cid="1UCtiG">
+                    <row cid="b4HrK">
+                        <entry cid="27muRB">
+                            <p cid="U4RXa">名称</p>
+                        </entry>
+                        <entry cid="1GzeiL">
+                            <p cid="gRoI6">描述</p>
+                        </entry>
+                    </row>
+                </thead>
+                <tbody cid="1vVaGH">
+                    <row cid="CvZat">
+                        <entry cid="1N9FfG">
+                            <p cid="1dgIlc">工具条</p>
+                        </entry>
+                        <entry cid="AR5Lq">
+                            <p cid="l6Jn1">提供运行界面保存、模板设置、图层设置、删除、固定栏设置、导出等功能，详情参见<xref href="GUID-9B530E87-C640-4DEB-88BA-EB592AEB4EAB#GUID-9B530E87-C640-4DEB-88BA-EB592AEB4EAB/GUID-9EFA4AD3-F9BC-49EE-A60D-6CE1DEE83EE8" format="dita" cid="Ug89Z" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="ipvTz">
+                        <entry cid="gf1kE">
+                            <p cid="naSbg">控件区</p>
+                        </entry>
+                        <entry cid="1pPN3T">
+                            <p cid="1zGrZD">呈现可在运行界面上使用的控件，详情参见<xref href="GUID-4B26F592-9322-47D7-9EE5-9B8188AF4EF7#GUID-4B26F592-9322-47D7-9EE5-9B8188AF4EF7" format="dita" cid="1KD4RN" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="1vIp0I">
+                        <entry cid="kATAm">
+                            <p cid="1qEBcc">预览及编辑区</p>
+                        </entry>
+                        <entry cid="RId8k">
+                            <p cid="kuYVH">呈现当前设计中的运行界面。可绘制新的控件，或编辑当前已添加的控件，具体如何操作参见<xref href="GUID-8435F4B7-12AA-40C7-9571-1D0F2970E32B#GUID-8435F4B7-12AA-40C7-9571-1D0F2970E32B" format="dita" cid="1PCwFg" />。</p>
+                        </entry>
+                    </row>
+                    <row cid="1ZI1he">
+                        <entry cid="1Fduc4">
+                            <p cid="1ffou7">属性设置区</p>
+                        </entry>
+                        <entry cid="19SiMH">
+                            <p cid="2EYDal">展示预览及编辑区选中画布、固定栏及控件的属性（例如布局、数据源、颜色、字体等），并进行设置。</p>
+                        </entry>
+                    </row>
+                </tbody>
+            </tgroup>
+        </table>
+        <section id="GUID-9EFA4AD3-F9BC-49EE-A60D-6CE1DEE83EE8">
+            <title id="GUID-B5A46991-DDEB-4F50-9351-47A5C234DAAA">工具条介绍</title>
+            <p cid="1l5CIk">工具条可设置如下功能：</p>
+            <ul id="UL_OQT_RLJ_LYB">
+                <li id="GUID-1E019F9E-1447-45CF-A982-370D9947E80E">
+                    <p cid="IKP1Z"><image href="GUID-9BDB4E9B-7084-41D8-B3F2-8132035121EF" id="IMAGE_UGH_P24_PYB" outputclass="icon" />：加载已保存的运行界面。</p>
+                </li>
+                <li id="GUID-EAB7D3FB-B259-4802-9810-4336D7D40219">
+                    <p cid="15vXZU"><image href="GUID-B3A5B501-9CEC-4748-BC4C-3CEE33DE9AB8" id="IMAGE_NS1_Q24_PYB" outputclass="icon" />：保存当前设计的运行界面。若为首次保存，需选择保存路径。</p>
+                </li>
+                <li id="GUID-CEF2524D-1211-4A07-9F45-4E43005BFBCD">
+                    <p cid="2KbNrK"><image href="GUID-3983D673-6E69-4E4C-B1AD-7F55BFE78EC4" id="IMAGE_KYM_FX5_TZB" outputclass="icon" />：可选择已保存的运行界面模板进行应用或删除。</p>
+                </li>
+                <li id="GUID-634F72AC-B474-45E8-9952-9F2F91C5FFDD">
+                    <p cid="1IXWVl"><image href="GUID-21463D14-0B1B-496E-8D31-2FB1B543C083" id="IMAGE_OJG_GX5_TZB" outputclass="icon" />：可将当前设计的运行界面作为模板保存。保存时，需填写<parmname cid="zqgl2">名称</parmname>、<parmname cid="15P1bR">创建人</parmname>、<parmname cid="bGgHI">推荐使用场景</parmname>和<parmname cid="jCTXY">描述</parmname>，并点击<uicontrol>确定</uicontrol>。</p>
+                </li>
+                <li id="GUID-AD9D6B82-9E32-44C3-ABE0-F1C6BFB8574C">
+                    <p cid="1s6nHM"><image href="GUID-BB0A0DEA-561B-4A09-8827-47D0EE4A6A7F" id="IMAGE_MPZ_Q24_PYB" outputclass="icon" />：可对预览及编辑区中选中的控件设置图层位置，分别对应顶层、上一层、底层、下一层。</p>
+                </li>
+                <li id="GUID-99D93A0B-A272-4ECE-80A9-B3473AB046C0">
+                    <p cid="27embz"><image href="GUID-CDC41464-7FFA-4C7E-9F85-881CAAE4DB3B" id="IMAGE_GX2_KX5_TZB" outputclass="icon" />：预览及编辑区域选中多个控件时，以选中控件组成的区域为基准对选中控件的对齐方式进行调整。可选左对齐、水平居中、右对齐、顶部对齐、垂直居中、底部对齐。</p>
+                </li>
+                <li id="GUID-5A36986D-2D54-45AF-A238-FCE02B78A9BD">
+                    <p cid="27embz"><image href="GUID-86503A63-DAA6-45F4-BA12-466E93BC3B2D" id="IMAGE_FPX_3X5_TZB" outputclass="icon" />：预览及编辑区域选中多个控件时，以选中控件组成的区域为基准对选中控件的分布方式进行调整。可选水平分布和垂直分布。</p>
+                    <note id="GUID-282A50D3-8608-4A2C-B548-25AC81D5F0FC">
+                        <p cid="3E41i">水平/垂直分布需选择3个以上的控件，才起作用。对应的效果分别为水平/垂直方向控件等间隔分布。其余选项选择2个以上控件即可。</p>
+                    </note>
+                </li>
+                <li id="GUID-7110500D-1A54-448E-BB99-7F2F6DDEC5C0">
+                    <p cid="29K61e"><image href="GUID-E0EC584A-9BE4-469A-B01A-A79927DD3818" id="IMAGE_L3Q_S24_PYB" outputclass="icon" />：撤销最近一次操作。</p>
+                </li>
+                <li id="GUID-D9CC4BD0-3554-46A2-8CF9-52F2306E102A">
+                    <p cid="2089Fo"><image href="GUID-D2F4DCA5-5AD6-4E93-9B83-A4ADB059EDCF" id="IMAGE_TBG_T24_PYB" outputclass="icon" />：取消撤销操作，恢复至撤销前的状态。</p>
+                </li>
+                <li id="GUID-1579EEF0-9204-4634-8478-FEC305D9CC3C">
+                    <p cid="x82t8"><image href="GUID-99DAFFEA-D680-4E08-98EE-E00C8FF25BBC" id="IMAGE_EWD_524_PYB" outputclass="icon" />：删除预览及编辑区域选中的控件。</p>
+                </li>
+                <li id="GUID-D90EA251-96FD-4645-A488-835DF0910AC8">
+                    <p cid="mEP8G"><image href="GUID-12A8086D-E091-40B0-B0D2-31FB75FF06D5" id="IMAGE_AT1_TX5_TZB" outputclass="icon" />：可将<uicontrol>预览及编辑区</uicontrol>中的运行界面窗口相对于<uicontrol>预览及编辑区</uicontrol>按照合适比例进行大小调整。</p>
+                    <note id="GUID-D00D3464-16DA-4106-BD57-3CD63E2FF9EE">
+                        <p cid="cV762">打开运行界面设计窗口时，默认调用一次该功能。后续可在调整窗体宽/高后，使用该功能。</p>
+                    </note>
+                </li>
+                <li id="GUID-3B88137E-496C-4287-BB0A-9071D1ED8C19">
+                    <p cid="1Acibb"><image href="GUID-ECF58E6D-6E60-434D-8448-22C973048388" id="IMAGE_FMZ_5X5_TZB" outputclass="icon" />：可通过拖动滑块调整预览及编辑区域中运行界面的大小。</p>
+                </li>
+                <li id="GUID-DB0586FA-549A-4905-925B-9834B7616552">
+                    <p cid="JYGYD"><image href="GUID-F615E1C4-21B8-4CFE-92F1-B848C14F14C0" id="IMAGE_K2V_ZX5_TZB" outputclass="icon" />：可设置是否在运行界面增加顶部、底部、左侧和右侧固定栏。点击勾选即可，可同时选择多个位置的固定栏。</p>
+                </li>
+                <li id="GUID-AAD40E90-44E7-4D0D-822B-493D1E7851AA">
+                    <p cid="16jPdI"><parmname cid="1AG3RQ">预览</parmname>：可预览当前设计的运行界面。</p>
+                </li>
+                <li id="GUID-65A1F0FF-7144-4057-9E01-DF8D5FBD73D2">
+                    <p cid="qVWxb"><parmname cid="qZPQn">导出</parmname>：可将<msgph varref="VMname">VM</msgph>当前编辑的方案以及设计的运行界面以工程包的形式导出。详情参见<xref href="GUID-07040BF3-000B-4A63-BD6E-40303ED73A21#GUID-07040BF3-000B-4A63-BD6E-40303ED73A21" format="dita" cid="1RK0Dl" />。</p>
+                </li>
+            </ul>
+            <note id="GUID-141BC1AF-A2E5-4276-9162-8146490FED2C">
+                <ul id="UL_YFT_D4N_QZB">
+                    <li id="GUID-9111DFCE-0EFC-4DCA-826E-C6260242570E">
+                        <p cid="1Yi2ga">其中删除、撤销、重做、图层位置功能也支持在选中控件后通过鼠标右键实现；</p>
+                    </li>
+                    <li id="GUID-12CD4AA8-44EF-4A10-B630-A312E951F422">
+                        <p cid="OAR8W">复制粘贴功能仅支持在选中控件后通过Ctrl+C和Ctrl+V实现。</p>
+                    </li>
+                    <li id="GUID-9562B4A8-FD6E-47C9-938F-C82E6504660B">
+                        <p cid="1Yi2ga"><image href="GUID-3983D673-6E69-4E4C-B1AD-7F55BFE78EC4" outputclass="icon" id="IMAGE_ILV_ZY5_TZB" />、<image href="GUID-21463D14-0B1B-496E-8D31-2FB1B543C083" outputclass="icon" id="IMAGE_OW2_1Z5_TZB" />和<image href="GUID-F615E1C4-21B8-4CFE-92F1-B848C14F14C0" outputclass="icon" id="IMAGE_M3N_1Z5_TZB" />功能仅型号中带6210或7210的加密狗支持使用。</p>
+                    </li>
+                </ul>
+            </note>
+        </section>
+    </conbody>
+</concept>

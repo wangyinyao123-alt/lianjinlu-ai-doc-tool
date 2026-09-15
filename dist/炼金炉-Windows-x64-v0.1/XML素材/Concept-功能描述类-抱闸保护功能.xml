@@ -1,0 +1,257 @@
+﻿<?xml version="1.0" encoding="utf-8"?><!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]><concept id="GUID-90634490-44CF-4387-A7B5-B8431189A6D7" xml:lang="zh-CN">
+    <title id="GUID-59049177-7528-406B-827F-C3F819277A98">抱闸保护功能</title>
+<shortdesc cid="1tCO7x">抱闸为伺服电机内置锁止机构，停机时自动抱死电机轴，防止负载意外位移。抱闸保护功能通过驱动器管控抱闸与电机供电的时序，避免因动作错位导致机械下坠、冲击或抱闸损坏。</shortdesc>
+<conbody cid="22qoUi">
+        <section id="SEC-BRAKE-OVERVIEW">
+            <title id="GUID-8F9F48D7-63D9-414F-9D8C-AB9BC765967C">软硬件配置</title>
+            <p cid="26wY4T">使用抱闸保护功能前，需了解并严格遵守如下要求，并完成相关软硬件配置，以确保抱闸功能可以正常运行。</p>
+            <ul id="UL_GDL_3FM_BJC">
+                <li id="GUID-980CD26A-127F-4699-A6B3-09F750607441">
+                    <p cid="1oFf0m">伺服电机内置抱闸为非通电式锁止机构，仅用于电机静止位置保持，不可用于动态制动减速。</p>
+                </li>
+                <li id="GUID-76FA64DE-8CB5-4474-BFCB-0B5C19C347E6">
+                    <p cid="1lbr3S">抱闸线圈无极性，工作需外接独立DC 24 V电源。</p>
+                </li>
+                <li id="GUID-7BE65301-ABFB-4F93-924A-4ED10BA4A3B4">
+                    <p cid="C5JfE">抱闸开合存在机械动作延迟，下发运转指令前，须确认已超过参数配置的等待时间。</p>
+                </li>
+                <li id="GUID-C8D9828F-96AF-48D1-8B63-CAEF0F425772">
+                    <p cid="2CDEeg">垂直轴应用时，须合理设置抱闸断开后的电机失电延时，防止负载因自重造成机械下坠。</p>
+                </li>
+            </ul>
+            <dl cid="200Cma">
+                <dlentry id="GUID-CF823297-EE33-4AE4-BD09-0BD7C18C3D2C">
+                    <dt cid="18KZ8f">硬件配置</dt>
+                    <dd cid="1K0BMg">
+                        <p cid="17e96E">按照如下步骤进行硬件配置。</p>
+                        <ol id="OL_H1K_NNW_FJC">
+                            <li id="GUID-A53A6FB1-459E-4B65-840A-349DC126CA43">
+                                <p cid="23RR7B">确认伺服电机内置抱闸机构、抱闸电源、控制线缆均连接正确，且接线规格符合电机与驱动器的技术要求。</p>
+                            </li>
+                            <li id="GUID-40134BDB-CB29-4130-8B9F-6BB8F4E9E365">
+                                <p cid="1JapwB">通过IO控制接口（CN1）连接抱闸机构，使用下表所列出的4个端子。</p>
+                                <table frame="all" id="TABLE_RHP_SHW_FJC">
+                                    <title id="GUID-2E2B4CBD-E617-4209-B51C-42307C51316C">抱闸相关端子引脚定义</title>
+                                    <tgroup cols="3" cid="Uh84N">
+                                        <colspec colname="c1" colnum="1" colwidth="1*" cid="1sViqq" />
+                                        <colspec colname="c2" colnum="2" colwidth="1.18*" cid="1Y6465" />
+                                        <colspec colname="c3" colnum="3" colwidth="2.11*" cid="CRkmw" />
+                                        <thead cid="173RpQ">
+                                            <row cid="J7RLV">
+                                                <entry cid="1sXEqa">
+                                                  <p cid="17dqTQ">端子号</p>
+                                                </entry>
+                                                <entry cid="HaDeo">
+                                                  <p cid="1wMdPL">名称</p>
+                                                </entry>
+                                                <entry cid="1BWT4F">
+                                                  <p cid="kGgde">默认功能</p>
+                                                </entry>
+                                            </row>
+                                        </thead>
+                                        <tbody cid="68jnV">
+                                            <row cid="YJWBH">
+                                                <entry cid="BqHvf">
+                                                  <p cid="ppA2">2</p>
+                                                </entry>
+                                                <entry cid="13CsTD">
+                                                  <p cid="2Ex8Qs">DO3-</p>
+                                                </entry>
+                                                <entry cid="1uCXPc">
+                                                  <p cid="1GITEs">BK-：抱闸输出-</p>
+                                                </entry>
+                                            </row>
+                                            <row cid="gxpKR">
+                                                <entry cid="BqHvf">
+                                                  <p cid="ppA2">3</p>
+                                                </entry>
+                                                <entry cid="1vFuB">
+                                                  <p cid="2Ex8Qs">DO3+</p>
+                                                </entry>
+                                                <entry cid="1sNjmU">
+                                                  <p cid="SGrTL">BK+：抱闸输出+</p>
+                                                </entry>
+                                            </row>
+                                            <row cid="1iVcMP">
+                                                <entry cid="BqHvf">
+                                                  <p cid="ppA2">\</p>
+                                                </entry>
+                                                <entry cid="Uci5K">
+                                                  <p cid="rqowk">COM-</p>
+                                                </entry>
+                                                <entry cid="1NjDJy">
+                                                  <p cid="hMDUj">外部24 V电源-</p>
+                                                </entry>
+                                            </row>
+                                            <row cid="ITX1c">
+                                                <entry cid="BqHvf">
+                                                  <p cid="ppA2">\</p>
+                                                </entry>
+                                                <entry cid="PSRl5">
+                                                  <p cid="1oAGKv">+24V</p>
+                                                </entry>
+                                                <entry cid="1fXFrd">
+                                                  <p cid="hMDUj">外部24 V电源+</p>
+                                                </entry>
+                                            </row>
+                                        </tbody>
+                                    </tgroup>
+                                </table>
+                                <note id="GUID-B498B629-947C-4553-BA4C-EACC567A4012">
+                                    <ul id="UL_RH5_1XN_JJC">
+                                        <li id="GUID-D4C88153-797D-4953-AB37-ECB5AB7258B3">
+                                            <p cid="1OqgYk">抱闸输出默认占用CN1的2、3号数字量输出端子。支持配置为其余两组端子使用。CN1引脚示意图及完整引脚定义，请参见<xref href="GUID-A668D92E-EAB3-4E74-BD72-B35BC2EE315B#GUID-A668D92E-EAB3-4E74-BD72-B35BC2EE315B" format="dita" cid="246TGQ" />章节。</p>
+                                        </li>
+                                        <li id="GUID-7ED05DD4-5254-45D2-BF12-4C8D5D9ABFE3">
+                                            <p cid="17Tjvt">抱闸电源必须使用外部 24
+                                                V电源供电。由于DO输出带载能力较小，不能直接驱动抱闸，需由DO输出控制外部继电器，再由继电器控制抱闸电源。</p>
+                                        </li>
+                                    </ul>
+                                </note>
+                            </li>
+                            <li id="GUID-5798C490-7D9C-4112-8274-69AE1E73837F">
+                                <p cid="1EuOmi">按照抱闸接线示意图完成硬件接线。</p>
+                                <fig id="FIG_JCM_CLW_FJC">
+                                    <title id="GUID-0FCFE64C-8E01-46BA-946E-C106B3FE6984">抱闸接线示意图</title>
+                                    <image href="GUID-263E2C34-9487-4840-BD12-2978D550896E" width="1400" id="IMAGE_KCM_CLW_FJC" />
+                                </fig>
+                            </li>
+                        </ol>
+                    </dd>
+                </dlentry>
+                <dlentry id="GUID-75D253D9-92EC-4153-9CFB-D80C7D4D321C">
+                    <dt cid="wzT1K">软件配置</dt>
+                    <dd cid="1jWvof">
+                        <p cid="1C55Jk">按照如下步骤进行软件配置。</p>
+                        <ol id="OL_RDL_SFX_FJC">
+                            <li id="GUID-9AD8134B-F713-48CE-9A47-E30A76158297">
+                                <p cid="mvCbS">将一路CN1数字量输出端子配置为抱闸输出功能，并确认输出有效逻辑与现场接线方式一致。</p>
+                            </li>
+                            <li id="GUID-CB8FCB87-1E5D-4DF8-9CCE-A48B26780AFC">
+                                <p cid="CTL2V">将<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-16" format="dita" cid="klA2p" />（抱闸保护使能）参数设置为<parmname cid="1RmORE">1</parmname>。</p>
+                            </li>
+                            <li id="GUID-6A9AF17F-55BA-433E-94B9-7ED5FCF7058E">
+                                <p cid="2HflL9">根据机械负载特性与运行工况，设置抱闸相关参数，确保抱闸动作时序与电机通断电逻辑一致。</p>
+                            </li>
+                        </ol>
+                        <note id="GUID-7BF08915-6FBD-49C9-989E-7FB367FA3742">
+                            <p cid="10yGNL">抱闸使能以及相关参数可通过驱动器面板或配套软件EasyDriver调整。</p>
+                        </note>
+                    </dd>
+                </dlentry>
+            </dl>
+        </section>
+        <section id="GUID-1B899313-BEDA-47CC-AEF1-3CE8F9FE0738">
+            <title id="GUID-3F46E0E4-A510-4A52-8511-B7D639C7E95E">抱闸时序</title>
+            <p cid="1YuBtC">根据电机运行状态与驱动器工作状态，抱闸时序可分为正常停机场景和故障停机场景。</p>
+            <ul id="UL_E2B_ZNM_BJC">
+                <li id="GUID-EC564B43-D7C5-4D5F-8F8E-91F119A70B4E">
+                    <p cid="jNmFf">正常停机场景：细分为电机静止与旋转状态两类场景，分别执行对应的抱闸时序逻辑。</p>
+                    <dl cid="ihslf">
+                        <dlentry id="GUID-7B29F8E0-E853-4C12-85CE-25FE45159BBC">
+                            <dt cid="84OI8">电机静止时的抱闸时序</dt>
+                            <dd cid="29kkAj">
+                                <p cid="1ePQr4">当电机实际转速低于设定阈值时，驱动器判定为静止状态。此时伺服使能（S-ON）由ON切换为OFF，对应时序逻辑如下图所示。</p>
+                                <fig id="FIG-BRAKE-STATIC">
+                                    <title id="GUID-B58F628D-ACFC-45CB-8116-B2C16F9CE206">电机静止时抱闸时序图</title>
+                                    <image href="GUID-91679093-107F-499D-86CA-C1D378EB7AC4" width="1800" id="IMAGE_SQR_2SM_BJC" />
+                                </fig>
+                                <ol id="OL_MC5_H5M_BJC">
+                                    <li id="GUID-CD1915F8-8BA2-4820-9F3D-3E1BB09CACC0">
+                                        <p cid="MOjLq">伺服使能由OFF切换为ON后，电机通电约需100 ms。</p>
+                                    </li>
+                                    <li id="GUID-2E546363-FBB6-4872-963E-B5861F29EDC0">
+                                        <p cid="1e4xq">通电完成后，驱动器等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-11" format="dita" cid="1pqpTD" />（伺服ON至抱闸ON等待时间）设定的时间，将抱闸输出切换为ON，触发抱闸机械松开。</p>
+                                    </li>
+                                    <li id="GUID-44F08D77-3466-4FED-8EE0-83DEB17A70FF">
+                                        <p cid="1fLY9Q">松开动作完成后，进入允许接收指令区间。重新接收指令前，须等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-15" format="dita" cid="DQu9s" />（抱闸ON至指令接收等待时间）设定的时间，确保抱闸已完全释放。</p>
+                                    </li>
+                                    <li id="GUID-1A19FDCA-3C8D-4744-A756-F1EE67EF8884">
+                                        <p cid="T4YCd">伺服使能由ON切换为OFF时，抱闸输出立即变为OFF，抱闸开始机械抱死。</p>
+                                    </li>
+                                    <li id="GUID-B17578D1-C528-45D3-9AC7-F38AF872E0E9">
+                                        <p cid="1OZ1qY">在抱闸抱紧过程中，电机保持通电状态，等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-14" format="dita" cid="1CsO3y" />（抱闸OFF至电机失电等待时间）设定的时间后，电机失电。</p>
+                                    </li>
+                                </ol>
+                            </dd>
+                        </dlentry>
+                        <dlentry id="GUID-2F3381AA-8336-448A-A94D-2618F0CC312A">
+                            <dt cid="EcwB">电机旋转时的抱闸时序</dt>
+                            <dd cid="1Mgrrz">
+                                <p cid="1xzwXR">当电机实际转速大于等于设定阈值时，驱动器判定为旋转状态。此时伺服使能OFF（如触发急停或断开使能）时，电机进入减速停机，抱闸不立即动作，以防高速抱死损坏机械。对应时序逻辑如下图所示。</p>
+                                <fig id="FIG_FVL_M5Q_BJC">
+                                    <title id="GUID-1C434B9B-DF2D-4D36-8E15-21BB9AB61E8E">电机旋转时抱闸时序图</title>
+                                    <image href="GUID-5BFBCBE0-F61A-4536-975E-82A03291D4B2" width="1800" id="IMAGE_GVL_M5Q_BJC" />
+                                </fig>
+                                <ol id="OL_RPL_S5Q_BJC">
+                                    <li id="GUID-48B53CB2-9300-4C67-BA61-ABE28F394DC2">
+                                        <p cid="mnxJd">伺服使能ON阶段与静止时序相同。</p>
+                                        <ol id="OL_BGL_LVQ_BJC">
+                                            <li id="GUID-3DFC54AA-F704-451F-86B9-0D9DF4ACE5C2">
+                                                <p cid="12Pa9h">电机通电约100 ms后，驱动器等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-11" format="dita" cid="22thes" />（伺服ON至抱闸ON等待时间）设定的时间后，抱闸机械松开。</p>
+                                            </li>
+                                            <li id="GUID-8D0FCC36-AABF-4A37-918B-643F09DADC65">
+                                                <p cid="vJLmO">再等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-15" format="dita" cid="1vt49f" />（抱闸ON至指令接收等待时间）设定的时间后，允许接收指令。</p>
+                                            </li>
+                                        </ol>
+                                    </li>
+                                    <li id="GUID-27A275AF-38AE-4B90-A133-FE60B3165D71">
+                                        <p cid="1gjRqL">伺服使能由ON切换为OFF时，电机进入减速过程，抱闸输出保持ON，不立即吸合。抱闸输出变为OFF（即执行吸合）须满足以下任一条件：</p>
+                                        <ul id="UL_QD3_WVQ_BJC">
+                                            <li id="GUID-859F5B9D-3A4C-4814-B47B-39713E98AB4E">
+                                                <p cid="1EoRmQ">速度优先：电机实际转速在<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-12" format="dita" cid="1KTdcf" />（旋转状态，伺服OFF至抱闸OFF等待时间）等待时间结束前，已降至<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-13" format="dita" cid="20e63x" />（旋转状态，伺服OFF至抱闸OFF速度限制阀值）设定的速度阈值以下。</p>
+                                            </li>
+                                            <li id="GUID-60EEC4F9-37E6-4E1E-B155-68009781E801">
+                                                <p cid="7eaez">时间优先：当<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-12" format="dita" cid="28Lpgi" />设定的等待时间耗尽时，电机转速仍高于<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-13" format="dita" cid="TLesF" />设定的速度，此时，驱动器强制触发抱闸吸合。</p>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li id="GUID-423A11DA-EA25-40DD-9E09-6FA38E149844">
+                                        <p cid="1yHdnG">抱闸吸合后，等待<xref href="GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30#GUID-BE2BF7AE-DE49-464B-A905-58F6A9A5CC30/SEC-H00-14" format="dita" cid="1JGoj6" />（抱闸OFF至电机失电等待时间）设定的时间后，电机失电，电机实际转速随之降至0 rpm。</p>
+                                    </li>
+                                </ol>
+                            </dd>
+                        </dlentry>
+                    </dl>
+                </li>
+                <li id="GUID-1DFAFD02-4B97-4E5D-839A-7102B91EF968">
+                    <p cid="7Y60z">故障停机场景：抱闸动作与当前停机方式联动，根据故障类型执行对应的时序逻辑。</p>
+                    <dl cid="Y9Oiz">
+                        <dlentry id="GUID-EAB73243-1335-45A2-94B2-7AC09F783C1E">
+                            <dt cid="1E0Bev">第1类故障的抱闸时序</dt>
+                            <dd cid="1Rp4Yk">
+                                <p cid="1RD9FP">第1类故障中涉及抱闸动作的停机方式为：自由停机、DB（Dynamic
+                                        Braking）停机。具体时序图及其描述请查看<xref href="GUID-07FF7B00-DC06-4A60-8C06-C3434573B991#GUID-07FF7B00-DC06-4A60-8C06-C3434573B991" format="dita" cid="stqdM" />章节对应停机情况的抱闸场景。</p>
+                                <ul id="UL_KNZ_HDR_BJC">
+                                    <li id="GUID-3E2BD996-5D06-4AE6-BEBD-AAE68AA3DB99">
+                                        <p cid="19EcVL">自由停机，保持自由运行状态</p>
+                                    </li>
+                                    <li id="GUID-F14DDB88-9BF4-444B-BD4A-E27566D22A93">
+                                        <p cid="1bR58R">DB停机，保持自由运行状态</p>
+                                    </li>
+                                    <li id="GUID-54DD2A2E-137F-45A1-9392-ABFC560B9099">
+                                        <p cid="ia9jP">DB停机，保持DB状态</p>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dlentry>
+                        <dlentry id="GUID-55601313-B115-4039-A835-4701F404A342">
+                            <dt cid="fnHP6">第2类故障的抱闸时序</dt>
+                            <dd cid="1ivGLt">
+                                <p cid="1h6m6M">第2类故障中涉及抱闸动作的停机方式为：零速停机。具体时序图及其描述请查看<xref href="GUID-07FF7B00-DC06-4A60-8C06-C3434573B991#GUID-07FF7B00-DC06-4A60-8C06-C3434573B991" format="dita" cid="1U8sGr" />章节对应停机情况的抱闸场景。</p>
+                                <ul id="UL_AFV_1TZ_BJC">
+                                    <li id="GUID-D7B4FAD5-091C-4BF9-8F46-3EEE2D53DDF1">
+                                        <p cid="LZbU4">零速停机，保持自由运行状态</p>
+                                    </li>
+                                    <li id="GUID-E7E17676-835F-407B-9181-688EDD5CEA0E">
+                                        <p cid="ia9jP">零速停机，保持DB状态</p>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dlentry>
+                    </dl>
+                </li>
+            </ul>
+        </section>
+    </conbody>
+</concept>

@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?><!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>
+<concept id="GUID-EB037D07-9B4A-41ED-B2E8-F8024DBE7532" xml:lang="zh-CN" outputclass="appendix1">
+    <title id="GUID-DE09BB30-940E-4A9F-8835-85D3479DABE4">EtherCAT对象字典</title>
+    <shortdesc cid="1ifG5w">EtherCAT对象字典分为1000系列通信参数组和6000系列子协议参数组，用于配置设备通信行为、PDO映射及运动控制相关参数。</shortdesc>
+</concept>

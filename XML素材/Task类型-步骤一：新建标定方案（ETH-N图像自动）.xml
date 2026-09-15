@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?><!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd"[]><task id="GUID-76444633-81CE-4C91-8B7B-319C36A87A2E" xml:lang="zh-CN">
+    <title id="GUID-8B95F5CC-AB52-4AFB-A827-710E68C7F82D">步骤一：新建标定方案</title>
+    <shortdesc cid="uyjWT">该步骤主要操作包括标定前检查、选择安装方式、连接相机、连接机器人和确认标定规格。</shortdesc>
+<taskbody cid="RHB3o">
+        <steps id="GUID-976F7CDB-AC3E-4C67-B26B-B881CDCC009A">
+            <step id="GUID-1C17A8AB-E111-4AC9-BDA2-1C3EA2F40458">
+                <cmd>单击<uicontrol>新建标定</uicontrol>并选择<uicontrol>常规机器人</uicontrol>。</cmd>
+            </step>
+            <step id="GUID-FB69178B-4F93-4C25-AA99-82CC0558C41C">
+                <cmd>根据界面提示内容进行标定前检查工作，确认全部检查项后单击<uicontrol>已全部确认</uicontrol>，再单击<uicontrol>下一步</uicontrol>。</cmd>
+                <info cid="sjDKc">
+                    <note id="GUID-D7AFC22F-ABB4-473A-BD65-8F6E75F9620F">
+                        <p cid="2ASKQJ">具体检查方法及要求详情请参见<xref href="GUID-0D83BDA9-6533-4176-BF47-27E7336F2DA9#GUID-0D83BDA9-6533-4176-BF47-27E7336F2DA9" format="dita" cid="2EN8AW" />。</p>
+                    </note>
+                    <fig id="FIG_IXJ_YW3_M3C">
+                        <title id="GUID-085D5F5A-CAD6-4802-85FA-770E5B9F9E9D">标定前检查</title>
+                        <image href="GUID-743DC34E-DE43-4992-8498-F7809EB154F2" width="1000" id="IMAGE_L2B_FLJ_M3C" />
+                    </fig>
+                </info>
+            </step>
+            <step id="GUID-3DCDCCFE-95C3-46D9-A547-31DFD2E76C87">
+                <cmd>选择安装方式为<uicontrol>Eye To Hand</uicontrol>，单击<uicontrol>下一步</uicontrol>。</cmd>
+                <info cid="azr3r">
+                    <fig id="FIG_YRX_FFG_DWB">
+                        <title id="GUID-E532160B-E047-421A-8728-9496763ACAC2">选择安装方式</title>
+                        <image href="GUID-D7F1CC83-30AB-4BCA-8E3A-D55FDF3C8297" width="1000" id="IMAGE_VGC_2LJ_M3C" />
+                    </fig>
+                </info>
+            </step>
+            <step id="GUID-987986F2-656E-434C-BD80-5B22A1E671EB">
+                <cmd>连接相机。</cmd>
+                <substeps id="SUBSTEPS_LYS_1ZJ_PDC">
+                    <substep id="GUID-EEE7BB14-776C-4CC7-9B39-AA96324C252B">
+                        <cmd>在<uicontrol>相机类型</uicontrol>右侧下拉列表选择<uicontrol>RGBD相机</uicontrol>。</cmd>
+                    </substep>
+                    <substep id="GUID-2ACC3946-DDB5-49F2-8FDC-F0F18ED19FB7">
+                        <cmd>在<uicontrol>相机列表</uicontrol>下方，单击待连接相机右侧<image href="GUID-B646DB3D-4E0E-45DE-9FA2-BF9699FB2B93" outputclass="icon" id="IMAGE_HPX_HLJ_NZB" />进行连接。</cmd>
+                        <info cid="8bBCG">
+                            <ul id="UL_SVW_THK_NZB">
+                                <li id="GUID-312434D1-3396-48C7-B47F-83E7129E6B04">
+                                    <p cid="pOaIT">可单击<image href="GUID-4B5DFAC1-2EDE-4CD6-8E5B-347015DF7092" outputclass="icon" id="IMAGE_IPX_HLJ_NZB" />刷新相机列表枚举到的相机。</p>
+                                </li>
+                                <li id="GUID-CBC9C513-E3F0-4879-85A3-0F25214588E4">
+                                    <p cid="wg2Tz">可在<uicontrol>设备信息</uicontrol>区域查看当前选中相机的相关信息。</p>
+                                </li>
+                            </ul>
+                            <note id="GUID-92FB32F6-3C7C-4E35-8AFA-EFD7BA5BE9A3">
+                                <p cid="1z1w3j">若相机非软件已录入基线型号，则在连接相机之后，还需在弹窗中手动选择相机型号。</p>
+                            </note>
+                        </info>
+                    </substep>
+                    <substep id="GUID-C603B410-D7D3-4CDD-948C-A28C57C389B4">
+                        <cmd>通过右侧图像区域观察并确定相机能够正常采集图像，然后单击<uicontrol>下一步</uicontrol>。</cmd>
+                        <info cid="OmsNY">
+                            <note id="GUID-DDDC6538-5AA6-4819-B296-FE76403B9A77">
+                                <p cid="CPXrc">图像区域右上角按钮可分别实现图像放大、图像缩小及恢复原比例显示。</p>
+                            </note>
+                        </info>
+                    </substep>
+                </substeps>
+                <info cid="1MAi2m">
+                    <fig id="FIG_BFB_H43_M3C">
+                        <title id="GUID-2E4521A1-D35B-4595-B8AA-B735AE47C5BE">连接相机</title>
+                        <image href="GUID-C2F34AD8-EE86-4829-8129-807A63383732" width="1000" id="IMAGE_GMF_DLD_W3C" />
+                    </fig>
+                </info>
+            </step>
+            <step id="GUID-2803C8D1-5EDA-4BE8-93EF-AD8509EC64FF">
+                <cmd>根据以下步骤进行机器人的设置和连接。</cmd>
+                <substeps id="SUBSTEPS_ZMN_F4J_NZB">
+                    <substep id="GUID-EACF8DEC-0646-4C37-AF4B-38796C9CB78E">
+                        <cmd><uicontrol>控制方式</uicontrol>选择<uicontrol>自动标定</uicontrol>。</cmd>
+                    </substep>
+                    <substep id="GUID-0C4E6446-FD2E-40F5-B6BE-FB95C8BFE25C">
+                        <cmd>根据现场应用需求选择<uicontrol>点位录入方式</uicontrol>。</cmd>
+                        <info cid="1b035g">
+                            <ul id="UL_ED1_RFQ_RZB">
+                                <li id="GUID-99AFC655-E80A-4992-AAA8-37E0A998374B">
+                                    <p cid="15MZiw">若确认业务现场的机器人真机后续采用RP全托管模式运行，则选择<uicontrol>全托管</uicontrol>模式。</p>
+                                </li>
+                                <li id="GUID-30808247-3D10-4EB1-840C-B8FE7614B5E6">
+                                    <p cid="238r7N">若业务现场的机器人真机后续采用其它模式和RP平台交互，可选择<uicontrol>单任务</uicontrol>模式。</p>
+                                    <note id="GUID-4FBAEE95-78EE-437B-80E7-865311A0A829">
+                                        <p cid="92yzm">若选择<uicontrol>单任务</uicontrol>模式，则可配置<parmname cid="gqsM2">移动超时</parmname>。该配置项用于定义机器人单任务移动的超时时长——若机器人执行单任务的移动时间达到超时时长，软件将弹窗提示；该情况下建议您增大机器人移速，或配置更长的超时时长。</p>
+                                    </note>
+                                </li>
+                            </ul>
+                        </info>
+                    </substep>
+                    <substep id="GUID-7B2A75FC-1389-47D2-B19D-0E0490521DA3">
+                        <cmd>单击<uicontrol>选择机器人型号</uicontrol>，在弹窗中选择所需机器人。</cmd>
+                        <info cid="1y6VtY">
+                            <note id="GUID-0C9B0884-93A9-4B40-B382-F5FD25660F8C">
+                                <ul id="UL_Y54_KR3_M3C">
+                                    <li id="GUID-0CA3C259-FF59-45D1-BD05-AE815EE90C66">
+                                        <p cid="shY07">可在界面上方通过选择特定品牌或根据机器人能力范围进行筛选，也可直接搜索机器人型号。</p>
+                                    </li>
+                                    <li id="GUID-F75A12DF-BE32-469E-A10A-5E03B6F11ED3">
+                                        <p cid="fjG9g">若未找到所需型号机器人，可单击右上角<uicontrol>导入机器人</uicontrol>并导入品牌列表所支持的机器人模板文件（.zip）。模板获取请联系我司技术支持。</p>
+                                    </li>
+                                    <li id="GUID-017B5FFB-09E7-48BF-8536-F65FE59EABEB">
+                                        <p cid="14TJdC">若所需机器人不在列表中，但属于常规六轴机器人，可联系技术支持协助制作模板。</p>
+                                    </li>
+                                </ul>
+                            </note>
+                        </info>
+                    </substep>
+                    <substep id="GUID-5F14755E-E369-4C4F-B039-3576FDB345AE">
+                        <cmd>单击<uicontrol>获取烧录文件</uicontrol>，可快捷跳转至脚本程序文件路径，选择与<parmname cid="1aRPhr">点位录入方式</parmname>相对应命名的脚本进行烧录。</cmd>
+                        <info cid="1xVCrw">
+                            <ul id="UL_ZRM_CPJ_NZB">
+                                <li id="GUID-7BB4B260-0BCA-4585-9B3F-EDAF63B8B5C6">
+                                    <p cid="MENC3">点位录入方式选择<uicontrol>全托管</uicontrol>时，需选择全托管脚本烧录。</p>
+                                </li>
+                                <li id="GUID-C3345DAF-F038-4960-B4C8-9A631F7A4B6A">
+                                    <p cid="u2LQM">点位录入方式选择<uicontrol>单任务</uicontrol>时，需选择标定数据发送及自动标定脚本烧录。</p>
+                                </li>
+                            </ul>
+                            <note id="GUID-2C993123-E36F-4E5B-B6D5-2673060DF45F">
+                                <ul id="UL_ZWD_QCP_C2C">
+                                    <li id="GUID-7C012A57-F469-4229-881B-1590B0D490D6">
+                                        <p cid="8wQsn">全托管脚本可从DriveControl文件夹获取，自动标定脚本可从AutoCalib文件夹获取。</p>
+                                    </li>
+                                    <li id="GUID-83388D2A-8320-48C1-A8B0-88C1D3F762E9">
+                                        <p cid="15Clcv">脚本烧录详情，请参见<xref href="https://pinfo.hikrobotics.com/analysisQR/showQR/ce10275a" format="html" scope="external" cid="274Z2j">RobotPilot用户手册</xref>的<cite cid="1CRxnT">机器人程序烧录</cite>章节。</p>
+                                    </li>
+                                </ul>
+                            </note>
+                        </info>
+                    </substep>
+                    <substep id="GUID-A2446CBB-A69C-45FB-92E5-A9CA26FE0282">
+                        <cmd>输入机器人<userinput>IP地址</userinput>。</cmd>
+                    </substep>
+                    <substep id="GUID-55431760-AEB4-4177-A0DA-CC3D55CE5B2F">
+                        <cmd>单击<uicontrol>连接</uicontrol>，完成后单击<uicontrol>下一步</uicontrol>。</cmd>
+                        <info cid="1rpYzb">
+                            <fig id="FIG_TTP_4PJ_NZB">
+                                <title id="GUID-817409E5-D1B0-4629-A1CB-EAD6E9F3C612">连接机器人</title>
+                                <image href="GUID-3BB53C41-671D-4708-A24C-4CF986F865E4" width="1000" id="IMAGE_L1Y_JLJ_M3C" />
+                            </fig>
+                        </info>
+                    </substep>
+                </substeps>
+            </step>
+            <step id="GUID-741B6095-97B4-4BF4-9D0D-9BCAA1FC55D8">
+                <cmd>确认标定规格。</cmd>
+                <substeps id="SUBSTEPS_R3N_TLG_DWB">
+                    <substep id="GUID-E44C6438-2186-48E7-A45C-5602FAC22664">
+                        <cmd>在<parmname cid="2Drlum">数据采集方式</parmname>处下拉选择<uicontrol>N图像</uicontrol>。</cmd>
+                    </substep>
+                    <substep id="GUID-40DB8F7B-A9FC-4853-BF0C-8A3F9BA2D8DD">
+                        <cmd>在<parmname cid="lnStd">标定板型号</parmname>处，根据实际使用的标定板选择对应类型。当前支持<uicontrol>倒三角小标定板</uicontrol>、<uicontrol>倒三角大标定板</uicontrol>、<parmname cid="5xpUJ">倒三角迷你标定板</parmname>和<uicontrol>倒三角微型标定板</uicontrol>。</cmd>
+                        <info cid="oSZgM">
+                            <note id="GUID-BA74E420-BA29-4F31-A5D8-9D85112592C9">
+                                <ul id="UL_JX2_XV3_M3C">
+                                    <li id="GUID-1435CF63-FFA2-4DE4-B803-A11024C68C51">
+                                        <p cid="ONZma">若实际使用的标定板并非上述标定板，可选择<uicontrol>自定义标定板</uicontrol>，并结合实际使用的标定板尺寸和界面提示，设置标定板的尺寸数据。</p>
+                                    </li>
+                                    <li id="GUID-810F30EB-E0E4-4B1F-9CF4-FBE2D2114252">
+                                        <p cid="jbeu9">标定板选型方法及相关参考信息详情请参见<xref href="GUID-7F3E8C05-B8F7-4030-8AFD-571EA6B5D6F1#GUID-7F3E8C05-B8F7-4030-8AFD-571EA6B5D6F1" format="dita" cid="1f3lTH" />。</p>
+                                    </li>
+                                </ul>
+                            </note>
+                        </info>
+                    </substep>
+                </substeps>
+                <info cid="LKkSo">
+                    <fig id="FIG_JR2_KG2_M5B">
+                        <title id="GUID-A481810C-4BBF-40CB-8331-38ADE4B4F7D5">确认标定规格</title>
+                        <image href="GUID-197D8DDA-74C5-4F88-BB39-8A516524F1A3" width="1000" id="IMAGE_E42_LLJ_M3C" />
+                    </fig>
+                </info>
+            </step>
+        </steps>
+        <postreq id="GUID-D5755484-9A4F-4190-A151-84A32DB87D1B">
+            <p cid="14NZvS">至此，已完成标定方案配置，此时单击<uicontrol>开始标定</uicontrol>即可进入正式标定流程。</p>
+        </postreq>
+</taskbody>
+</task>
