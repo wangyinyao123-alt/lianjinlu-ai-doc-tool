@@ -17,7 +17,10 @@
 - 本压缩包不包含用户历史项目和个人配置。
 
 素材说明：
-- 直接提取：Word（.docx）、Markdown、HTML、TXT、XML、JSON、CSV、YAML；
+- 直接提取：Word（.docx）、Markdown、HTML、TXT、XML、JSON、CSV、YAML、Excel（.xlsx/.xlsm）；
+- 支持在需求分析页面直接粘贴文本，也支持对文本材料二次编辑；
+- 外部框架导入支持 .xlsx/.xlsm/.docx/.md/.txt，导入后自动填充 Markdown Editor 和脑图；
+- 旧版 Excel（.xls）请先另存为 .xlsx；
 - PDF：需要系统安装 pdftotext；
 - CHM：需要系统安装 extract_chmLib；
 - 未能提取的文件仍会保存在项目中，可人工查看或后续补充解析工具。

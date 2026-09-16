@@ -1,5 +1,6 @@
 const state = {
   projects: [],
+  projectModeFilter: "all",
   selectedProject: null,
   selectedAsset: null,
   coverSelection: null,
@@ -240,12 +241,14 @@ function handleCoverUpload(event) {
 
 function renderProjects() {
   const list = $("#project-list");
-  $("#project-count").textContent = state.projects.length;
-  if (!state.projects.length) {
-    list.innerHTML = `<div class="empty-state"><div><div class="empty-icon">＋</div><p>还没有项目</p><p>先创建一个文档项目。</p></div></div>`;
+  const filter = state.projectModeFilter || "all";
+  const projects = filter === "all" ? state.projects : state.projects.filter((project) => project.mode === filter);
+  $("#project-count").textContent = projects.length;
+  if (!projects.length) {
+    list.innerHTML = `<div class="empty-state"><div><div class="empty-icon">＋</div><p>${filter === "all" ? "还没有项目" : `${({new:"全新开发",update:"版本更新",optimize:"Topic 优化"}[filter] || "该模式")}暂无项目`}</p><p>先创建一个文档项目。</p></div></div>`;
     return;
   }
-  list.innerHTML = state.projects.map((project) => `
+  list.innerHTML = projects.map((project) => `
     <button class="project-card ${state.selectedProject?.id === project.id ? "is-selected" : ""}" data-project-id="${project.id}">
       <div class="project-card-body">
         <div class="project-card-copy">
@@ -621,10 +624,25 @@ function renderAnalysisMaterials() {
       <span class="material-file-mark">${escapeHtml((material.extension || "FILE").replace(".", "").slice(0, 4).toUpperCase())}</span>
       <span class="material-file-copy"><a href="${escapeHtml(material.download_url)}" target="_blank" rel="noreferrer">${escapeHtml(material.name)}</a><small>${escapeHtml(formatFileSize(material.size))} · ${escapeHtml(material.extract_message || "")}</small></span>
       <span class="material-file-status status-${escapeHtml(material.extract_status)}">${escapeHtml(formatAnalysisStatus(material.extract_status))}</span>
-      <button type="button" class="icon-button is-danger" data-delete-material="${escapeHtml(material.id)}" aria-label="删除材料">×</button>
+      ${[".txt", ".md", ".markdown", ".csv", ".yaml", ".yml", ".json", ".xml"].includes((material.extension || "").toLowerCase()) ? `<button type="button" class="mini-button" data-edit-material="${escapeHtml(material.id)}">编辑</button>` : ""}<button type="button" class="icon-button is-danger" data-delete-material="${escapeHtml(material.id)}" aria-label="删除材料">×</button>
     </div>
   `).join("");
   list.querySelectorAll("[data-delete-material]").forEach((button) => button.addEventListener("click", () => deleteAnalysisMaterial(button.dataset.deleteMaterial)));
+  list.querySelectorAll("[data-edit-material]").forEach((button) => button.addEventListener("click", () => editAnalysisMaterial(button.dataset.editMaterial)));
+}
+
+async function editAnalysisMaterial(materialId) {
+  const projectId = $("#analysis-project")?.value;
+  const material = state.projectMaterials.find((item) => item.id === materialId);
+  if (!projectId || !material) return;
+  try {
+    const result = await request(`/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}/content`);
+    const text = window.prompt(`编辑材料：${material.name}\n\n提示：请直接修改文本，点击“确定”保存。`, result.text || "");
+    if (text === null) return;
+    await request(`/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}`, { method: "PUT", body: JSON.stringify({ text }) });
+    await loadProjectMaterials(projectId);
+    showMessage("#analysis-message", "材料内容已保存。", "success");
+  } catch (error) { showMessage("#analysis-message", error.message, "error"); }
 }
 
 async function loadProjectMaterials(projectId) {
@@ -689,6 +707,32 @@ async function handleAnalysisMaterialFiles(event) {
   } finally {
     if (button) button.disabled = false;
   }
+}
+
+async function savePastedMaterial() {
+  const projectId = $("#analysis-project")?.value;
+  const text = $("#analysis-pasted-text")?.value.trim();
+  if (!projectId) return showMessage("#analysis-message", "请先选择项目。", "error");
+  if (!text) return showMessage("#analysis-message", "请先粘贴文本。", "error");
+  const name = `粘贴文本-${new Date().toISOString().slice(0,19).replace(/[T:]/g, "-")}.txt`;
+  const dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`;
+  try {
+    await request(`/api/projects/${encodeURIComponent(projectId)}/materials`, { method: "POST", body: JSON.stringify({ name, mime_type: "text/plain", data_url: dataUrl }) });
+    $("#analysis-pasted-text").value = "";
+    $("#analysis-pasted-text").classList.add("is-hidden"); $("#save-pasted-material").classList.add("is-hidden");
+    await loadProjectMaterials(projectId); showMessage("#analysis-message", "粘贴文本已保存为材料。", "success");
+  } catch (error) { showMessage("#analysis-message", error.message, "error"); }
+}
+
+async function importFrameworkExcel(event) {
+  const file = event.target.files?.[0]; event.target.value = "";
+  const projectId = $("#analysis-project")?.value;
+  if (!file || !projectId) return showMessage("#analysis-message", "请先选择项目和 Excel 文件。", "error");
+  try {
+    const result = await request(`/api/projects/${encodeURIComponent(projectId)}/framework/import-excel`, { method: "POST", body: JSON.stringify({ name: file.name, mime_type: file.type, data_url: await readFileAsDataUrl(file) }) });
+    $("#framework-markdown").value = result.markdown || ""; handleFrameworkMarkdownInput();
+    showMessage("#analysis-message", `已读取“${result.sheet_name || "框架"}”页签并填充 Editor。`, "success");
+  } catch (error) { showMessage("#analysis-message", error.message, "error"); }
 }
 
 function parseFrameworkMarkdown(markdown) {
@@ -2262,7 +2306,7 @@ async function boot() {
     applyFrameworkTheme(event.target.value);
   });
   $("#new-project-button").addEventListener("click", openDialog);
-  document.querySelectorAll("[data-create-mode]").forEach((button) => button.addEventListener("click", () => openDialog(button.dataset.createMode || "new")));
+  document.querySelectorAll("[data-create-mode]").forEach((button) => button.addEventListener("click", (event) => { const create = event.target.closest?.("[data-create-project]"); if (create) { event.preventDefault(); event.stopPropagation(); openDialog(create.dataset.createProject || button.dataset.createMode || "new"); return; } const mode = button.dataset.createMode || "new"; state.projectModeFilter = state.projectModeFilter === mode ? "all" : mode; renderProjects(); button.classList.toggle("is-filtered", state.projectModeFilter === mode); }));
   $("#close-dialog").addEventListener("click", closeDialog);
   $("#cancel-dialog").addEventListener("click", closeDialog);
   $("#close-cover-preview")?.addEventListener("click", () => $("#cover-preview-dialog")?.close());
@@ -2272,6 +2316,9 @@ async function boot() {
   $("#project-cover-file").addEventListener("change", handleCoverUpload);
   $("#analysis-form").addEventListener("submit", runRequirementsAnalysis);
   $("#analysis-material-files").addEventListener("change", handleAnalysisMaterialFiles);
+  $("#paste-material-button")?.addEventListener("click", () => { $("#analysis-pasted-text")?.classList.toggle("is-hidden"); $("#save-pasted-material")?.classList.toggle("is-hidden"); $("#analysis-pasted-text")?.focus(); });
+  $("#save-pasted-material")?.addEventListener("click", savePastedMaterial);
+  $("#framework-excel-file")?.addEventListener("change", importFrameworkExcel);
   $("#reload-analysis-button")?.addEventListener("click", async () => {
     const projectId = $("#analysis-project")?.value;
     if (projectId) await Promise.all([loadProjectMaterials(projectId), loadProjectAnalysis(projectId), loadProjectFramework(projectId)]);

@@ -56,9 +56,9 @@
           </div>
 
           <div class="mode-strip" aria-label="三种项目模式">
-            <button type="button" class="mode-card mode-card-new" data-create-mode="new"><span class="mode-card-index">01 / FROM ZERO</span><strong>全新开发</strong><small>从需求材料开始搭建新的文档框架和 Topic。</small><b>创建项目 <i>→</i></b></button>
-            <button type="button" class="mode-card mode-card-update" data-create-mode="update"><span class="mode-card-index">02 / UPDATE</span><strong>版本更新</strong><small>导入上版本框架和 Topic，识别新增与变更内容。</small><b>创建项目 <i>→</i></b></button>
-            <button type="button" class="mode-card mode-card-optimize" data-create-mode="optimize"><span class="mode-card-index">03 / REFINE</span><strong>Topic 优化</strong><small>选择已有 Topic，专注优化语言、结构和术语表达。</small><b>创建项目 <i>→</i></b></button>
+            <button type="button" class="mode-card mode-card-new" data-create-mode="new"><span class="mode-card-index">01 / FROM ZERO</span><strong>全新开发</strong><small>从需求材料开始搭建新的文档框架和 Topic。</small><b data-create-project="new">创建项目 <i>→</i></b></button>
+            <button type="button" class="mode-card mode-card-update" data-create-mode="update"><span class="mode-card-index">02 / UPDATE</span><strong>版本更新</strong><small>导入上版本框架和 Topic，识别新增与变更内容。</small><b data-create-project="update">创建项目 <i>→</i></b></button>
+            <button type="button" class="mode-card mode-card-optimize" data-create-mode="optimize"><span class="mode-card-index">03 / REFINE</span><strong>Topic 优化</strong><small>选择已有 Topic，专注优化语言、结构和术语表达。</small><b data-create-project="optimize">创建项目 <i>→</i></b></button>
           </div>
 
           <div class="workspace-grid">
@@ -78,11 +78,12 @@
           <form class="panel analysis-command-bar" id="analysis-form">
             <div class="analysis-command-row analysis-command-primary">
               <label class="analysis-project-field">项目<select id="analysis-project" required><option value="">请先创建项目</option></select></label>
-              <div class="analysis-material-summary"><span class="command-label">需求材料</span><strong id="analysis-material-count">0 份</strong><span id="analysis-material-summary-text">尚未导入材料</span><label class="upload-button">＋ 添加材料<input id="analysis-material-files" type="file" multiple accept=".doc,.docx,.pdf,.chm,.md,.markdown,.txt,.html,.htm,.xml,.json,.csv,.yaml,.yml" /></label></div>
+              <div class="analysis-material-summary"><span class="command-label">需求材料</span><strong id="analysis-material-count">0 份</strong><span id="analysis-material-summary-text">尚未导入材料</span><label class="upload-button">＋ 添加材料<input id="analysis-material-files" type="file" multiple accept=".doc,.docx,.pdf,.chm,.md,.markdown,.txt,.html,.htm,.xml,.json,.csv,.yaml,.yml,.xlsx,.xls" /></label><button type="button" class="mini-button" id="paste-material-button">粘贴文本</button><label class="upload-button">导入外部框架<input id="framework-excel-file" type="file" accept=".xlsx,.xlsm,.docx,.md,.markdown,.txt" /></label></div>
               <div class="analysis-command-actions"><button type="submit" class="primary-button" id="run-analysis-button">生成框架</button><button type="button" class="secondary-button" id="regenerate-framework-button">重新生成</button><button type="button" class="secondary-button" id="batch-generate-topics-button">批量生成 Topic</button><button type="button" class="secondary-button" id="save-framework-button">保存框架</button><button type="button" class="secondary-button" id="export-framework-button">导出</button></div>
             </div>
             <div class="analysis-command-row analysis-command-secondary">
               <div class="analysis-material-inline" id="analysis-material-list"><span class="field-hint">请选择项目后添加需求材料。</span></div>
+              <textarea id="analysis-pasted-text" class="is-hidden" rows="3" placeholder="粘贴需求、会议纪要或研发说明，点击“保存粘贴文本”。"></textarea><button type="button" class="mini-button is-hidden" id="save-pasted-material">保存粘贴文本</button>
               <div class="analysis-skill-inline"><span class="command-label">Skill</span><div id="analysis-skill-options" class="skill-options"><div class="field-hint">正在读取 Skill…</div></div></div>
               <label class="analysis-note-inline">本次生成提示词<textarea id="analysis-note" rows="2" placeholder="例如：重点覆盖产品概述、工程创建、设备配置和异常处理；不要虚构材料中没有出现的功能。"></textarea></label>
             </div>

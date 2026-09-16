@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
 import ipaddress
 import json
 import mimetypes
@@ -58,7 +59,7 @@ TOPIC_TYPES = {"concept": "Concept", "task": "Task", "appendix": "附录类 Conc
 MATERIAL_TEXT_EXTENSIONS = {
     ".md", ".markdown", ".txt", ".html", ".htm", ".xml", ".json", ".csv", ".yaml", ".yml"
 }
-MATERIAL_EXTENSIONS = MATERIAL_TEXT_EXTENSIONS | {".doc", ".docx", ".pdf", ".chm"}
+MATERIAL_EXTENSIONS = MATERIAL_TEXT_EXTENSIONS | {".doc", ".docx", ".pdf", ".chm", ".xlsx", ".xls"}
 GUID_PATTERN = re.compile(r"GUID(?:-|=)[A-Z0-9-]+", re.IGNORECASE)
 PLACEHOLDER_PATTERN = re.compile(r"\bTODO_(?:IMAGE|REF)\b")
 
@@ -742,6 +743,14 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
                 message = f"文本已提取，超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI。"
             return text, "success", message
 
+        if extension in {".xlsx", ".xls"}:
+            if extension == ".xls":
+                return "", "unsupported", "旧版 .xls 暂不支持自动读取，请另存为 .xlsx 后导入。"
+            text, sheet_name = extract_xlsx_framework(path.read_bytes())
+            if not text:
+                return "", "failed", "Excel 中未找到可识别的框架页签或内容。"
+            return text, "success", f"已识别 Excel 页签“{sheet_name}”，并转换为 Markdown。"
+
         if extension == ".docx":
             with ZipFile(path) as archive:
                 document_xml = archive.read("word/document.xml")
@@ -834,6 +843,97 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
         return "", "unsupported", f"暂不支持直接提取 {extension or '该格式'} 文本，已保留原文件。"
     except (OSError, BadZipFile, ET.ParseError, subprocess.TimeoutExpired) as exc:
         return "", "failed", f"材料读取失败：{str(exc)[:240]}"
+
+
+def extract_xlsx_framework(raw: bytes) -> tuple[str, str]:
+    """Read a lightweight xlsx workbook using stdlib only and convert its outline sheet."""
+    with ZipFile(io.BytesIO(raw)) as archive:
+        ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+        shared = []
+        if "xl/sharedStrings.xml" in archive.namelist():
+            root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+            shared = ["".join(node.itertext()) for node in root.findall("m:si", ns)]
+        wb = ET.fromstring(archive.read("xl/workbook.xml"))
+        rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        relmap = {item.attrib.get("Id"): item.attrib.get("Target", "") for item in rels}
+        candidates = []
+        for sheet in wb.findall("m:sheets/m:sheet", ns):
+            name = sheet.attrib.get("name", "")
+            target = relmap.get(sheet.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"), "")
+            if target.startswith("/"): target = target[1:]
+            if not target.startswith("xl/"): target = "xl/" + target
+            candidates.append((name, target))
+        preferred = ["框架", "文档框架", "需求分析", "目录", "outline"]
+        ordered = sorted(candidates, key=lambda x: (0 if any(k.lower() in x[0].lower() for k in preferred) else 1, x[0]))
+        for name, target in ordered:
+            if target not in archive.namelist(): continue
+            root = ET.fromstring(archive.read(target)); rows = []
+            for row in root.findall(".//m:sheetData/m:row", ns):
+                values = []
+                for cell in row.findall("m:c", ns):
+                    value = cell.find("m:v", ns); value = "" if value is None else value.text or ""
+                    if cell.attrib.get("t") == "inlineStr":
+                        value = "".join(cell.itertext()).replace(value, "", 1) if value else "".join(cell.itertext())
+                    if cell.attrib.get("t") == "s" and value.isdigit() and int(value) < len(shared): value = shared[int(value)]
+                    values.append((cell.attrib.get("r", ""), value.strip()))
+                if any(values): rows.append(values)
+            if not rows: continue
+            lines = []
+            header = {}
+            for row_index, row in enumerate(rows):
+                values_only = [value for _, value in row if value]
+                lowered = [value.lower() for value in values_only]
+                if any(keyword in lowered for keyword in {"标题", "章节标题", "topic", "title", "层级", "level", "章节概述", "概述"}):
+                    for index, value in enumerate(values_only):
+                        key = value.lower()
+                        if key in {"标题", "章节标题", "topic", "title", "名称"}: header["title"] = index
+                        elif key in {"层级", "level", "级别"}: header["level"] = index
+                        elif key in {"章节概述", "概述", "说明", "描述", "summary"}: header["summary"] = index
+                    continue
+                cells = [(ref, value) for ref, value in row if value]
+                if not cells: continue
+                values_only = [value for _, value in cells]
+                title_index = header.get("title", 0)
+                if title_index >= len(values_only): title_index = 0
+                title = values_only[title_index]
+                if title.isdigit() and len(values_only) > 1: title = values_only[1]
+                if title.lower() in {"标题", "章节标题", "topic", "名称", "序号"}: continue
+                level_value = values_only[header["level"]] if "level" in header and header["level"] < len(values_only) else ""
+                structural = re.match(r"^(第[一二三四五六七八九十百\d]+章|附录|[一二三四五六七八九十]+、|\d+[.、]|\d+\.\d+(?:\.\d+)*)", title)
+                if structural:
+                    prefix = structural.group(1)
+                    level = 1 if prefix.startswith(("第", "附录")) or re.match(r"^[一二三四五六七八九十]+、", prefix) else min(prefix.count(".") + 2, 5)
+                elif str(level_value).isdigit() and 1 <= int(level_value) <= 6:
+                    level = int(level_value)
+                else:
+                    col_match = re.search(r"[A-Z]+", cells[0][0])
+                    col = 0
+                    if col_match:
+                        for char in col_match.group(): col = col * 26 + ord(char) - 64
+                    level = min(max(col, 1), 4)
+                summary = values_only[header["summary"]] if "summary" in header and header["summary"] < len(values_only) else next((v for _, v in cells[1:] if v and v != str(level)), "")
+                lines.append(f"{'#' * level} {title}")
+                if summary: lines.append(f"> 章节概述：{summary}")
+            if lines: return "\n\n".join(lines), name
+    return "", ""
+
+
+def text_to_framework_markdown(text: str, title: str = "外部导入框架") -> str:
+    """Apply the structural-heading rules from doc2md.py to plain/docx text."""
+    lines = [f"# {title}", ""]
+    for raw in str(text or "").splitlines():
+        value = re.sub(r"\s+", " ", raw).strip()
+        if not value: continue
+        if value.startswith("#"):
+            lines.append(value); continue
+        match = re.match(r"^(第[一二三四五六七八九十百\d]+章|附录|[一二三四五六七八九十]+、|\d+\.\d+(?:\.\d+)*|\d+[.、])", value)
+        if match:
+            prefix = match.group(1)
+            level = 1 if prefix.startswith(("第", "附录")) or re.match(r"^[一二三四五六七八九十]+、", prefix) else min(prefix.count(".") + 2, 5)
+            lines.append(f"{'#' * level} {value}")
+        else:
+            lines.append(f"> 章节概述：{value}")
+    return "\n\n".join(lines)
 
 
 def material_summary(project_id: str, material: dict[str, Any]) -> dict[str, Any]:
@@ -945,6 +1045,30 @@ def delete_project_material(project_id: str, material_id: str) -> None:
     if isinstance(project, dict):
         project["updated_at"] = now_iso()
         write_json(project_dir(project_id) / "project.json", project)
+
+
+def update_project_material_text(project_id: str, material_id: str, text: str) -> dict[str, Any]:
+    material = get_project_material(project_id, material_id)
+    if not material:
+        raise ValueError("材料不存在。")
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("材料内容不能为空。")
+    if len(text) > MAX_MATERIAL_TEXT_CHARS:
+        raise ValueError(f"材料内容不能超过 {MAX_MATERIAL_TEXT_CHARS:,} 个字符。")
+    directory = material_dir(project_id, material_id)
+    source_path = directory / Path(str(material.get("file", "source.txt"))).name
+    source_path.write_text(text, encoding="utf-8")
+    material["extracted_text"] = text
+    material["extract_status"] = "success"
+    material["extract_message"] = "文本已编辑并保存。"
+    material["size"] = len(text.encode("utf-8"))
+    material["mime_type"] = "text/plain"
+    write_json(directory / "material.json", material)
+    project = read_json(project_dir(project_id) / "project.json", None)
+    if isinstance(project, dict):
+        project["updated_at"] = now_iso()
+        write_json(project_dir(project_id) / "project.json", project)
+    return material_summary(project_id, material)
 
 
 def topic_level(value: Any, default: int = 1) -> int:
@@ -2428,6 +2552,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         data = path.read_bytes()
         self.send_response(200)
+        if content_type.startswith("text/") and "charset=" not in content_type:
+            content_type += "; charset=utf-8"
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -2511,6 +2637,9 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_file(*material_file)
                     else:
                         self.send_error(404)
+                elif len(parts) == 3 and parts[1] == "materials" and parts[2] == "content":
+                    material = get_project_material(project_id, parts[2])
+                    self.send_json(200 if material else 404, {"text": str(material.get("extracted_text", ""))} if material else {"error": "材料不存在。"})
                 elif len(parts) == 2 and parts[1] == "analysis":
                     records = list_analysis_records(project_id)
                     latest = analysis_record_summary(records[-1]) if records else None
@@ -2550,6 +2679,25 @@ class AppHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/projects/") and path.endswith("/materials"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/materials").strip("/"))
                 self.send_json(201, save_project_material(project_id, self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/framework/import-excel"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/framework/import-excel").strip("/"))
+                project = get_project(project_id)
+                if not project: raise ValueError("项目不存在。")
+                name, _, raw = decode_material(self.read_body())
+                extension = Path(name).suffix.lower()
+                if extension == ".xls": raise ValueError("旧版 .xls 暂不支持，请另存为 .xlsx。")
+                if extension in {".xlsx", ".xlsm"}:
+                    markdown, sheet_name = extract_xlsx_framework(raw)
+                elif extension in {".docx", ".txt", ".md", ".markdown"}:
+                    temp_path = Path(tempfile.mkdtemp(prefix="lianjinlu_import_")) / name
+                    temp_path.write_bytes(raw)
+                    extracted, status, message = extract_material_text(temp_path)
+                    if status != "success": raise ValueError(message)
+                    markdown, sheet_name = text_to_framework_markdown(extracted, Path(name).stem), Path(name).name
+                else:
+                    raise ValueError("框架导入支持 .xlsx、.docx、.md、.txt；旧版 .xls 请先另存为 .xlsx。")
+                if not markdown: raise ValueError("未找到可识别的框架页签或内容。")
+                self.send_json(200, {"markdown": markdown, "sheet_name": sheet_name})
             elif path.startswith("/api/projects/") and path.endswith("/framework/generate"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/framework/generate").strip("/"))
                 self.send_json(201, generate_framework(project_id, self.read_body()))
@@ -2590,6 +2738,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json(200, {"topics": save_topic_order(parts[0], self.read_body())})
                 elif len(parts) == 3 and parts[1] == "topics":
                     self.send_json(200, update_topic_xml(parts[0], parts[2], self.read_body()))
+                elif len(parts) == 3 and parts[1] == "materials":
+                    payload = self.read_body()
+                    self.send_json(200, update_project_material_text(parts[0], parts[2], str(payload.get("text", ""))))
                 elif len(parts) == 2 and parts[1] == "framework":
                     self.send_json(200, save_framework(parts[0], self.read_body()))
                 elif len(parts) == 1:

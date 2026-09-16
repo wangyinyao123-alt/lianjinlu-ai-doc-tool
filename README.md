@@ -15,6 +15,9 @@ HIK 文档开发工作台的阶段 1 本地原型。
 - 首页不展示素材墙，素材仅在新建项目的封面选择器中加载；
 - HIK Writing Skill 固定为必选 Skill，支持追加项目/Topic Skill；
 - 支持从 0 创建 Concept、Task 和附录类 Concept，生成 XML 初稿并在页面内编辑、保存和校验。
+- 需求材料支持上传文件或直接粘贴文本，并可对文本材料二次编辑；
+- 支持导入外部 Excel/Word/Markdown/文本框架，自动转换为 Markdown 并同步生成脑图；
+- Markdown 框架编辑器支持手动输入、实时同步脑图，以及全新开发、版本更新、Topic 优化三种模式项目筛选。
 
 ## 启动
 
@@ -33,22 +36,19 @@ python3 app.py
 - 项目元数据和本地文件保存在 `data/`，该目录不应提交到版本库。
 - API Key 不写入 `data/settings.json`：macOS 保存到 Keychain，Windows 保存到 Credential Manager。
 - 当前连通性测试会发送一条最小测试消息“只回复 OK”。
-- 当前还未接入需求材料上传和 AI 需求分析；Topic XML 已支持本地结构初稿生成，AI 生成接口后续接入。
+- 需求材料、需求分析、框架生成和 Topic XML 生成均在本地项目工作区内完成；AI 仅在配置服务后调用。
 
 ## 阶段 1 后续
 
-1. 接入 DOCX、PDF、Markdown、HTML、TXT 和 Excel 解析；
-2. 建立需求分析工作台；
-3. 接入 HIK Writing Skill 和项目 Skill（当前已完成基础配置）；
-4. 实现从 0 新建 Concept/Task Topic（当前已完成基础闭环）；
-5. 渲染 XML、禁止生成 GUID、使用 `TODO_IMAGE`/`TODO_REF`；
-6. 接入 XML 输出校验和导出。
+1. 持续完善 DOCX、PDF、Markdown、HTML、TXT 和 Excel 的结构化解析；
+2. 扩展需求分析表格和历史版本对比能力；
+3. 持续补充 HIK Writing Skill 与项目语料库检索能力。
 
 ## Windows 便携版
 
 Windows 版本采用免安装便携包，内置官方 Python 运行时，不需要单独安装 Python。
 
-1. 解压 `炼金炉-Windows-x64-v0.1.zip` 到本地目录；
+1. 解压 Release 中的 `炼金炉-Windows-x64-v0.2.zip` 到本地目录；
 2. 双击 `启动炼金炉.bat`；
 3. 浏览器打开 <http://127.0.0.1:8765>；
 4. 在“AI 服务配置”中填写 API 地址、模型和 API Key。
@@ -57,4 +57,4 @@ Windows 下 API Key 保存在当前 Windows 用户的 Credential Manager 中，�
 
 ### 素材格式说明
 
-当前版本支持导入 Word（`.docx`）、PDF、Markdown、HTML、TXT、XML、JSON、CSV、YAML，以及 CHM 原文件保存。Markdown、HTML、TXT、XML、JSON、CSV、YAML 和 `.docx` 可直接提取文本；PDF 需要系统安装 `pdftotext`，CHM 需要系统安装 `extract_chmLib`，否则仍会保留原文件，但需要人工阅读或后续补装解析工具。
+当前版本支持导入 Word（`.docx`）、PDF、Markdown、HTML、TXT、XML、JSON、CSV、YAML、Excel（`.xlsx/.xlsm`），以及 CHM 原文件保存。框架导入支持 `.xlsx/.xlsm/.docx/.md/.txt`，会自动转换为 Markdown；`.xls` 请先另存为 `.xlsx`。Markdown、HTML、TXT、XML、JSON、CSV、YAML、Excel 和 `.docx` 可直接提取文本；PDF 需要系统安装 `pdftotext`，CHM 需要系统安装 `extract_chmLib`，否则仍会保留原文件，但需要人工阅读或后续补装解析工具。
