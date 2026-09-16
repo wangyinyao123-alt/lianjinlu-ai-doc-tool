@@ -2306,7 +2306,28 @@ async function boot() {
     applyFrameworkTheme(event.target.value);
   });
   $("#new-project-button").addEventListener("click", openDialog);
-  document.querySelectorAll("[data-create-mode]").forEach((button) => button.addEventListener("click", (event) => { const create = event.target.closest?.("[data-create-project]"); if (create) { event.preventDefault(); event.stopPropagation(); openDialog(create.dataset.createProject || button.dataset.createMode || "new"); return; } const mode = button.dataset.createMode || "new"; state.projectModeFilter = state.projectModeFilter === mode ? "all" : mode; renderProjects(); button.classList.toggle("is-filtered", state.projectModeFilter === mode); }));
+  document.querySelectorAll("[data-mode-filter]").forEach((card) => {
+    const applyModeFilter = () => {
+      const mode = card.dataset.modeFilter || "new";
+      state.projectModeFilter = state.projectModeFilter === mode ? "all" : mode;
+      document.querySelectorAll("[data-mode-filter]").forEach((item) => item.classList.toggle("is-filtered", state.projectModeFilter === item.dataset.modeFilter));
+      renderProjects();
+    };
+    card.addEventListener("click", (event) => {
+      if (event.target.closest?.("[data-create-project]")) return;
+      applyModeFilter();
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        applyModeFilter();
+      }
+    });
+  });
+  document.querySelectorAll("[data-create-project]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openDialog(button.dataset.createProject || "new");
+  }));
   $("#close-dialog").addEventListener("click", closeDialog);
   $("#cancel-dialog").addEventListener("click", closeDialog);
   $("#close-cover-preview")?.addEventListener("click", () => $("#cover-preview-dialog")?.close());

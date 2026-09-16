@@ -226,8 +226,10 @@ input, select, textarea { background: #f8fbfc; }
 .mode-card-index { color: var(--muted); font-family: var(--mono); font-size: 9px; letter-spacing: .06em; }
 .mode-card strong { font-size: 18px; letter-spacing: -.03em; }
 .mode-card small { min-height: 34px; color: var(--muted); font-size: 11px; line-height: 1.55; }
-.mode-card b { margin-top: auto; color: var(--cyan-soft); font-family: var(--mono); font-size: 10px; font-weight: 500; }
-.mode-card b i { font-style: normal; margin-left: 5px; }
+.mode-create-button { margin-top: auto; padding: 0; border: 0; background: transparent; color: var(--cyan-soft); font-family: var(--mono); font-size: 10px; font-weight: 500; cursor: pointer; }
+.mode-create-button:hover { color: var(--cyan); }
+.mode-create-button i { font-style: normal; margin-left: 5px; }
+.mode-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .mode-card-new { background: linear-gradient(135deg, #fff, #f4fff1); }
 .mode-card-update { background: linear-gradient(135deg, #fff, #f2fbff); }
 .mode-card-optimize { background: linear-gradient(135deg, #fff, #fff8ef); }
