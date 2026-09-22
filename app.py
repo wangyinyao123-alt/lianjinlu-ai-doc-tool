@@ -4,7 +4,7 @@
 当前范围：
 - 本地项目创建、读取和持久化；
 - AI 服务配置；
-- macOS Keychain / Windows Credential Manager 中保存 API Key；
+- macOS Keychain / Windows 用户级 DPAPI 中保存 API Key；
 - OpenAI 兼容接口 / Anthropic 接口连通性测试；
 - 提供浏览器界面，后续可封装为桌面应用。
 """
@@ -17,6 +17,7 @@ import io
 import ipaddress
 import json
 import mimetypes
+import posixpath
 import re
 import secrets
 import shutil
@@ -54,6 +55,8 @@ MAX_MATERIAL_TEXT_CHARS = 120_000
 MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024
 MAX_SKILL_ATTACHMENTS = 20
 HIK_SKILL = "HIK Writing Skill"
+HIK_DITA_RULE_SKILL = "HIK DITA Rule"
+BUILTIN_SKILL_IDS = {"hik-writing", "hik-dita-rule"}
 PROJECT_MODES = {"new": "全新开发", "update": "版本更新", "optimize": "Topic 优化"}
 TOPIC_TYPES = {"concept": "Concept", "task": "Task", "appendix": "附录类 Concept"}
 MATERIAL_TEXT_EXTENSIONS = {
@@ -131,9 +134,93 @@ def parse_outline_items(value: Any) -> list[dict[str, Any]]:
     return result
 
 
-def normalize_skills(value: Any) -> list[str]:
+def normalize_skills(value: Any, *, default_dita: bool = False) -> list[str]:
+    """Normalize a user-facing Skill selection.
+
+    Writing Skill is always present.  DITA Rule is a default for newly created
+    or migrated projects, but it remains removable from an explicit Topic
+    override, so it must not be forced here for every request.
+    """
     skills = parse_lines(value)
-    return [HIK_SKILL] + [skill for skill in skills if skill != HIK_SKILL]
+    result = [HIK_SKILL]
+    if default_dita or HIK_DITA_RULE_SKILL in skills:
+        result.append(HIK_DITA_RULE_SKILL)
+    result.extend(skill for skill in skills if skill not in {HIK_SKILL, HIK_DITA_RULE_SKILL})
+    return result
+
+
+def ordered_unique(values: Any) -> list[str]:
+    result: list[str] = []
+    for value in values if isinstance(values, list) else []:
+        name = str(value or "").strip()
+        if name and name not in result:
+            result.append(name)
+    return result
+
+
+def project_skill_names(project: dict[str, Any], *, default_dita: bool = False) -> list[str]:
+    """Return the project-level Skill route in deterministic order."""
+    return normalize_skills(project.get("skills", []), default_dita=default_dita)
+
+
+def resolve_topic_skill_names(
+    project: dict[str, Any], selected: Any, inherit_project_skills: bool = True
+) -> list[str]:
+    """Resolve the effective Skill route for a Topic.
+
+    When inheritance is enabled, the Topic selection is treated as additions
+    to the current project route.  This means new project-level Skills flow to
+    existing Topics automatically instead of being copied as stale snapshots.
+    """
+    own = normalize_skills(selected)
+    if inherit_project_skills:
+        return ordered_unique(project_skill_names(project) + own)
+    return own
+
+
+def topic_skill_overrides(
+    project: dict[str, Any], selected: Any, inherit_project_skills: bool = True
+) -> list[str]:
+    selected_names = [name for name in parse_lines(selected) if name != HIK_SKILL]
+    if not inherit_project_skills:
+        return [HIK_SKILL] + selected_names
+    project_names = set(project_skill_names(project))
+    return [name for name in selected_names if name not in project_names]
+
+
+def skill_usage_snapshot(
+    skill_names: Any,
+    project: dict[str, Any] | None = None,
+    topic_overrides: Any = None,
+    inherit_project_skills: bool = True,
+) -> list[dict[str, Any]]:
+    """Record which Skill version and route contributed to a generation."""
+    names = normalize_skills(skill_names)
+    project_names = set(project_skill_names(project or {})) if project else set()
+    override_names = set(parse_lines(topic_overrides))
+    snapshot: list[dict[str, Any]] = []
+    for name in names:
+        listed = next((item for item in list_skills() if item.get("name") == name), None)
+        source = "required" if name == HIK_SKILL else "topic"
+        if name != HIK_SKILL and name in project_names:
+            source = "project"
+        if name in override_names:
+            source = "topic"
+        snapshot.append(
+            {
+                "id": listed.get("id") if listed else None,
+                "name": name,
+                "source": source,
+                "inherited": bool(
+                    name != HIK_SKILL
+                    and inherit_project_skills
+                    and name in project_names
+                    and name not in override_names
+                ),
+                "updated_at": listed.get("updated_at") if listed else None,
+            }
+        )
+    return snapshot
 
 
 DEFAULT_HIK_SKILL_CONTENT = """# HIK Writing Skill
@@ -198,6 +285,83 @@ DEFAULT_HIK_SKILL_CONTENT = """# HIK Writing Skill
 - 是否把操作、说明、结果和注意事项分开组织。
 - 是否统一术语、控件名称、标点、数字和单位。
 - 是否存在 GUID；是否需要人工替换 `TODO_IMAGE` 或 `TODO_REF`。
+"""
+
+
+DEFAULT_HIK_DITA_RULE_CONTENT = """# HIK DITA Rule
+
+适用于海康 KC（SDL Knowledge Center / Oxygen XML Author）中的 DITA Topic 编写、审核和 XML 生成。生成 XML 前先确认业务事实，再按本规则检查标签语义、嵌套关系和发布约束。
+
+## 1. Topic 类型与基本结构
+
+- Concept 回答“是什么、为什么”，用于功能说明、原理和背景，不写冗长操作步骤。
+- Task 回答“怎么做”，必须包含清晰的操作步骤；一个 Task 至少包含 2 个 step。
+- Reference 回答“什么值、什么参数或什么调用要求”，用于 FAQ、问题排查和参数参考。当前炼金炉默认不分析 Reference Topic。
+- Topic 通常按 `title`、`shortdesc`、正文容器的顺序组织。不要为了补结构而编造产品事实。
+- Task 的正文顺序为 `prereq` → `context` → `steps` → `result` → `example` → `postreq`，不能随意调换。
+
+## 2. 文字与段落
+
+- `shortdesc` 位于 `title` 后、正文前，概括 Topic 的用途或主旨；禁止放置 `image` 和 `xref`。
+- 块级容器（`note`、`entry`、`li`、`prereq`、`context`、`info`、`result` 等）中的纯文字必须嵌套在 `p` 内。
+- 行内标记（`uicontrol`、`parmname`、`userinput`、`sub`、`sup`、`tm`、`cite`、`term`、`xref` 等）应作为句子成分放在 `p` 内，不能脱离段落单独成句。
+- 一个 `p` 表达一个中心意思；优先主动语态、结论先行，句子尽量不超过 40 个字。
+- 界面文字必须与产品实际显示一致，包括英文大小写；不要擅自改写界面名称。
+- 海康文档中鼠标操作统一使用“单击”，读者称呼使用“您”。
+
+## 3. Concept、section 和标题
+
+- Concept 可在 `conbody` 中使用 `section` 分节；`section` 必须包含 `title`，不要把 section 用在 Task 中。
+- 有明确子主题、需要复用或链接、内容超过三四个段落时再增加 section；短小连贯的内容不强行拆分。
+- Task 标题采用动宾结构，例如“设置校准方案”，避免使用“校准方案设置”。
+- 同级标题保持语义和句式一致，避免仅有一个没有必要的子节。
+
+## 4. 常用行内标记
+
+- `uicontrol`：按钮、菜单、页签、导航栏等交互控件，通常与“单击”“选择”搭配。
+- `parmname`：参数项或配置项名称，不表示需要单击的对象。
+- `userinput`：用户输入的 IP、文件名、命令、参数值等内容。
+- `menucascade`：两级及以上的菜单路径，至少包含两个 `uicontrol`。
+- `xref`：Topic、section、fig、table 或外部 URL 的交叉引用。优先链接 Topic 层级，并使用“请参见……”引出。
+- `codeph`：单行短代码或命令；多行代码使用 `codeblock`；API 名称使用 `apiname`。
+- `sup` 和 `sub` 仅用于上标、下标、单位和变量编号；商标使用 `tm`，不要用 `sup` 模拟商标。
+- `cite` 只标记资料名称，不承载链接；中文资料的书名号放在 `cite` 内部。
+- `term` 仅在术语首次出现或需要重点说明时使用，全文术语保持一致。
+
+## 5. 列表、表格和说明
+
+- 无键值关系的有序内容使用 `ol`，无序内容使用 `ul`；参数与参数说明使用 `parml` 或 `dl`，不要用 `ul` 堆叠 `parmname`。
+- `ol`、`ul` 至少包含 2 个 `li`；列表不宜过深，子级列表必须隶属直接父级。
+- `note` 用于补充说明、建议或提醒；风险提示使用 `caution` 或 `warning`，高风险场景才使用 `danger`。`note` 内文字必须放在 `p` 中，不写操作步骤，不嵌套 note。
+- `table` 的标题放在 `title` 中，内容放在 `tgroup` 中；`entry` 内所有文字必须嵌套 `p`。`colspec` 定义的列数必须与实际列数一致。
+- 不建议使用 `simpletable`。跨行使用 `morerows`，跨列使用 `namest` 和 `nameend`。
+
+## 6. Task 步骤
+
+- `steps` 是 Task 的核心容器，每个 `step` 必须包含 `cmd`；`cmd` 只写一个操作动作，不写结果。
+- 操作补充信息放在 `info`，单步结果放在 `stepresult`，整个任务结果放在 `result`。
+- 步骤一般不超过 7 步；复杂流程用 `substeps` 或拆分 Topic。`substeps` 至少包含 2 个子步骤。
+- 前置条件描述用户开始任务前必须满足的状态，不写成操作动作；若必须执行动作，应改为第一个 step。
+- 互斥选项使用 `choices`，可选操作使用 `choicetable`；两者都至少包含 2 个选项。
+
+## 7. 图片、引用和 XML 安全
+
+- 图片一般使用 `fig` 包含 `title` 和 `image`；图标可单独使用 `image`。图片须从 KC Repository 引用，不直接加载本地路径。
+- 图片使用白色背景，尺寸属性在 `Width`、`Height`、`Scale` 中选择一种。
+- 本工具生成的图片使用 `TODO_IMAGE`，引用使用 `TODO_REF`；生成时不写 GUID，校验报告提示人工替换占位符。
+- XML 中的 `<`、`>`、`&` 分别转义为 `&lt;`、`&gt;`、`&amp;`。属性值和 ID 必须唯一且符合项目约束。
+- 条件内容使用 KC 已配置的 `ishcondition`；不要手动创建不存在的 condition。
+- 可复用内容放入 conref 源 Topic，引用前确认源 Topic 已 check in；不要随意修改源 Topic 中其他复用内容。
+
+## 8. 生成后自查
+
+1. 是否包含必要的 `shortdesc`，其中是否误用 `image` 或 `xref`。
+2. `note`、`entry`、`info`、`result` 等块级容器中的文字是否正确嵌套 `p`。
+3. Topic 类型、标题句式和正文结构是否匹配。
+4. Task 是否按固定顺序组织，步骤是否至少 2 步且每步只描述一个动作。
+5. 表格列数、列表层级、引用目标和标记对嵌套是否正确。
+6. 是否存在 GUID；`TODO_IMAGE` 和 `TODO_REF` 是否已在后续审核中替换。
+7. 是否通过 XML 解析、KC 发布规则、术语一致性和业务准确性检查。
 """
 
 
@@ -292,8 +456,27 @@ def store_skill_attachments(skill: dict[str, Any], requested: Any) -> list[dict[
     return stored
 
 
+def builtin_skill_override_path(skill_id: str) -> Path:
+    if skill_id not in BUILTIN_SKILL_IDS:
+        raise ValueError("无效的内置 Skill ID。")
+    return SKILLS_DIR / f"builtin_{skill_id}.json"
+
+
+def apply_builtin_skill_override(default: dict[str, Any]) -> dict[str, Any]:
+    override = read_json(builtin_skill_override_path(str(default["id"])), None)
+    if not isinstance(override, dict):
+        return default
+    merged = {**default, **override}
+    merged["id"] = default["id"]
+    merged["name"] = default["name"]
+    merged["source"] = "builtin"
+    merged["required"] = default["required"]
+    merged["attachments"] = override.get("attachments", default.get("attachments", []))
+    return merged
+
+
 def builtin_hik_skill() -> dict[str, Any]:
-    return {
+    return apply_builtin_skill_override({
         "id": "hik-writing",
         "name": HIK_SKILL,
         "description": "海康机器人中文技术文档与 DITA/XML 写作规范。",
@@ -304,7 +487,22 @@ def builtin_hik_skill() -> dict[str, Any]:
         "attachments": [],
         "created_at": None,
         "updated_at": None,
-    }
+    })
+
+
+def builtin_hik_dita_rule_skill() -> dict[str, Any]:
+    return apply_builtin_skill_override({
+        "id": "hik-dita-rule",
+        "name": HIK_DITA_RULE_SKILL,
+        "description": "海康 KC / Oxygen XML Author 的 DITA Topic 标记对、结构和发布规则。",
+        "content": DEFAULT_HIK_DITA_RULE_CONTENT,
+        "source": "builtin",
+        "required": False,
+        "enabled": True,
+        "attachments": [],
+        "created_at": None,
+        "updated_at": None,
+    })
 
 
 def skill_summary(skill: dict[str, Any]) -> dict[str, Any]:
@@ -323,7 +521,7 @@ def skill_summary(skill: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_skills() -> list[dict[str, Any]]:
-    result = [builtin_hik_skill()]
+    result = [skill_summary(builtin_hik_skill()), skill_summary(builtin_hik_dita_rule_skill())]
     if SKILLS_DIR.exists():
         for path in sorted(SKILLS_DIR.glob("skill_*.json"), key=lambda item: item.name.lower()):
             skill = read_json(path, None)
@@ -335,6 +533,8 @@ def list_skills() -> list[dict[str, Any]]:
 def get_skill_record(skill_id: str) -> dict[str, Any] | None:
     if skill_id == "hik-writing":
         return builtin_hik_skill()
+    if skill_id == "hik-dita-rule":
+        return builtin_hik_dita_rule_skill()
     skill = read_json(skill_path(skill_id), None)
     return skill if isinstance(skill, dict) else None
 
@@ -381,8 +581,30 @@ def create_skill(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_skill(skill_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    if skill_id == "hik-writing":
-        raise ValueError("HIK Writing Skill 为内置必选 Skill，不支持编辑。")
+    if skill_id in BUILTIN_SKILL_IDS:
+        current = get_skill_record(skill_id)
+        if not current:
+            raise ValueError("Skill 不存在。")
+        content = str(payload.get("content", current.get("content", ""))).strip()
+        if not content:
+            raise ValueError("Skill 内容不能为空。")
+        updated = {
+            **current,
+            "description": sanitize_text(payload.get("description", current.get("description", "")))[:240],
+            "content": content[:2_000_000],
+            "enabled": True if current.get("required") else bool(payload.get("enabled", current.get("enabled", True))),
+            "updated_at": now_iso(),
+        }
+        if "attachments" in payload:
+            updated["attachments"] = store_skill_attachments(updated, payload["attachments"])
+        write_json(builtin_skill_override_path(skill_id), {
+            "description": updated["description"],
+            "content": updated["content"],
+            "enabled": updated["enabled"],
+            "attachments": updated.get("attachments", []),
+            "updated_at": updated["updated_at"],
+        })
+        return skill_summary(updated)
     path = skill_path(skill_id)
     skill = read_json(path, None)
     if not isinstance(skill, dict):
@@ -412,8 +634,8 @@ def update_skill(skill_id: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def delete_skill(skill_id: str) -> None:
-    if skill_id == "hik-writing":
-        raise ValueError("HIK Writing Skill 为内置必选 Skill，不支持删除。")
+    if skill_id in BUILTIN_SKILL_IDS:
+        raise ValueError("内置 Skill 不支持删除。")
     path = skill_path(skill_id)
     if not path.exists():
         raise ValueError("Skill 不存在。")
@@ -528,16 +750,85 @@ def load_settings() -> dict[str, Any]:
 
 
 class KeychainStore:
-    """Use the native credential store on macOS and Windows."""
+    """Use a native, user-bound credential store on macOS and Windows.
+
+    Windows previously used a hand-written Credential Manager ctypes structure.
+    That path can fail on some Python/Windows combinations with the opaque
+    ``class must define a 'type' attribute`` error. Windows DPAPI provides the
+    same user-bound protection without depending on that structure layout.
+    """
 
     def __init__(self) -> None:
         if sys.platform == "darwin" and shutil.which("security") is not None:
             self.backend = "macOS Keychain"
         elif sys.platform == "win32":
-            self.backend = "Windows Credential Manager"
+            self.backend = "Windows DPAPI（当前用户）"
         else:
             self.backend = None
         self.available = bool(self.backend)
+
+    @property
+    def _windows_secret_path(self) -> Path:
+        return DATA_DIR / ".api-key.dpapi"
+
+    def _windows_dpapi_api(self):
+        import ctypes
+        from ctypes import wintypes
+
+        class DATA_BLOB(ctypes.Structure):
+            _fields_ = [
+                ("cbData", wintypes.DWORD),
+                ("pbData", ctypes.POINTER(ctypes.c_ubyte)),
+            ]
+
+        crypt = ctypes.WinDLL("Crypt32.dll", use_last_error=True)
+        kernel = ctypes.WinDLL("Kernel32.dll", use_last_error=True)
+        crypt.CryptProtectData.argtypes = [
+            ctypes.POINTER(DATA_BLOB), wintypes.LPCWSTR,
+            ctypes.POINTER(DATA_BLOB), ctypes.c_void_p, ctypes.c_void_p,
+            wintypes.DWORD, ctypes.POINTER(DATA_BLOB),
+        ]
+        crypt.CryptProtectData.restype = wintypes.BOOL
+        crypt.CryptUnprotectData.argtypes = [
+            ctypes.POINTER(DATA_BLOB), ctypes.POINTER(wintypes.LPWSTR),
+            ctypes.POINTER(DATA_BLOB), ctypes.c_void_p, ctypes.c_void_p,
+            wintypes.DWORD, ctypes.POINTER(DATA_BLOB),
+        ]
+        crypt.CryptUnprotectData.restype = wintypes.BOOL
+        kernel.LocalFree.argtypes = [ctypes.c_void_p]
+        kernel.LocalFree.restype = ctypes.c_void_p
+        return ctypes, DATA_BLOB, crypt, kernel
+
+    def _windows_dpapi_protect(self, value: str) -> bytes:
+        ctypes, data_blob, crypt, kernel = self._windows_dpapi_api()
+        raw = value.encode("utf-8")
+        source_buffer = (ctypes.c_ubyte * len(raw)).from_buffer_copy(raw)
+        source = data_blob(len(raw), ctypes.cast(source_buffer, ctypes.POINTER(ctypes.c_ubyte)))
+        protected = data_blob()
+        description = "炼金炉 API Key"
+        if not crypt.CryptProtectData(ctypes.byref(source), description, None, None, None, 0, ctypes.byref(protected)):
+            error = ctypes.get_last_error()
+            raise RuntimeError(f"Windows 用户凭据保护失败（错误码 {error}）。")
+        try:
+            return ctypes.string_at(protected.pbData, protected.cbData)
+        finally:
+            kernel.LocalFree(protected.pbData)
+
+    def _windows_dpapi_unprotect(self, value: bytes) -> str | None:
+        ctypes, data_blob, crypt, kernel = self._windows_dpapi_api()
+        if not value:
+            return None
+        source_buffer = (ctypes.c_ubyte * len(value)).from_buffer_copy(value)
+        source = data_blob(len(value), ctypes.cast(source_buffer, ctypes.POINTER(ctypes.c_ubyte)))
+        unprotected = data_blob()
+        if not crypt.CryptUnprotectData(ctypes.byref(source), None, None, None, None, 0, ctypes.byref(unprotected)):
+            error = ctypes.get_last_error()
+            raise RuntimeError(f"Windows 用户凭据读取失败（错误码 {error}）。")
+        try:
+            raw = ctypes.string_at(unprotected.pbData, unprotected.cbData)
+            return raw.decode("utf-8") or None
+        finally:
+            kernel.LocalFree(unprotected.pbData)
 
     def _windows_api(self):
         import ctypes
@@ -575,16 +866,26 @@ class KeychainStore:
         if not self.available:
             return None
         if sys.platform == "win32":
-            ctypes, _credential_type, api = self._windows_api()
-            pointer = ctypes.POINTER(_credential_type)()
-            if not api.CredReadW(self._windows_target(), 1, 0, ctypes.byref(pointer)):
-                return None
             try:
-                credential = pointer.contents
-                raw = ctypes.string_at(credential.CredentialBlob, credential.CredentialBlobSize)
-                return raw.decode("utf-8") or None
-            finally:
-                api.CredFree(pointer)
+                path = self._windows_secret_path
+                if path.is_file():
+                    return self._windows_dpapi_unprotect(path.read_bytes())
+            except (OSError, RuntimeError, UnicodeError):
+                return None
+            # Compatibility read for packages created before the DPAPI change.
+            try:
+                ctypes, credential_type, api = self._windows_api()
+                pointer = ctypes.POINTER(credential_type)()
+                if not api.CredReadW(self._windows_target(), 1, 0, ctypes.byref(pointer)):
+                    return None
+                try:
+                    credential = pointer.contents
+                    raw = ctypes.string_at(credential.CredentialBlob, credential.CredentialBlobSize)
+                    return raw.decode("utf-8") or None
+                finally:
+                    api.CredFree(pointer)
+            except (OSError, RuntimeError, UnicodeError):
+                return None
         result = subprocess.run(
             [
                 "security",
@@ -608,19 +909,11 @@ class KeychainStore:
         if not self.available:
             raise RuntimeError("当前系统未检测到可用的系统凭据存储，暂不保存 API Key。")
         if sys.platform == "win32":
-            ctypes, credential_type, api = self._windows_api()
-            raw = value.encode("utf-8")
-            buffer = ctypes.create_string_buffer(raw)
-            credential = credential_type()
-            credential.Type = 1  # CRED_TYPE_GENERIC
-            credential.TargetName = self._windows_target()
-            credential.CredentialBlobSize = len(raw)
-            credential.CredentialBlob = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte))
-            credential.Persist = 2  # CRED_PERSIST_LOCAL_MACHINE
-            credential.UserName = KEYCHAIN_ACCOUNT
-            if not api.CredWriteW(ctypes.byref(credential), 0):
-                error = ctypes.get_last_error()
-                raise RuntimeError(f"写入 Windows Credential Manager 失败（错误码 {error}）。")
+            protected = self._windows_dpapi_protect(value)
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            temporary = self._windows_secret_path.with_suffix(".dpapi.tmp")
+            temporary.write_bytes(protected)
+            temporary.replace(self._windows_secret_path)
             return
         result = subprocess.run(
             [
@@ -845,77 +1138,195 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
         return "", "failed", f"材料读取失败：{str(exc)[:240]}"
 
 
+def excel_column_index(reference: str) -> int:
+    """Return a zero-based Excel column index from a cell reference."""
+    match = re.match(r"^([A-Z]+)", str(reference or "").upper())
+    if not match:
+        return 0
+    result = 0
+    for char in match.group(1):
+        result = result * 26 + ord(char) - ord("A") + 1
+    return max(0, result - 1)
+
+
+def normalize_excel_label(value: Any) -> str:
+    return re.sub(r"[\s_\-：:（）()\[\]【】]+", "", str(value or "").strip().lower())
+
+
+def excel_outline_level(title: str) -> int | None:
+    """Infer outline depth from common Chinese/Arabic chapter numbering."""
+    value = str(title or "").strip()
+    if re.match(r"^(第[一二三四五六七八九十百\d]+章|附录(?:[A-Za-z一二三四五六七八九十\d]+)?)", value):
+        return 1
+    if re.match(r"^[一二三四五六七八九十百]+、", value):
+        return 1
+    if re.match(r"^[（(][一二三四五六七八九十百]+[）)]", value):
+        return 2
+    match = re.match(r"^(\d+(?:[.．]\d+)*)(?:[、.．)）]|\s|$)", value)
+    if match:
+        return min(6, max(1, len(re.split(r"[.．]", match.group(1)))))
+    return None
+
+
+def excel_level_value(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    match = re.search(r"(?:第\s*)?(\d+|[一二三四五六七八九十百]+)\s*(?:级|层)?", text)
+    if not match:
+        return None
+    token = match.group(1)
+    if token.isdigit():
+        return min(6, max(1, int(token)))
+    chinese = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    return min(6, max(1, chinese.get(token, 1)))
+
+
+def excel_hierarchy_level(label: Any) -> int | None:
+    """Recognize columns such as Map, 一级目录, 二级标题, or Level 3."""
+    normalized = normalize_excel_label(label)
+    if normalized in {"map", "root", "文档", "文档标题"}:
+        return 1
+    match = re.match(r"^(\d+|[一二三四五六七八九十百]+)(?:级|层)(?:目录|标题|节点)?$", normalized)
+    if not match:
+        return None
+    token = match.group(1)
+    if token.isdigit():
+        return min(6, max(1, int(token)))
+    chinese = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    return min(6, max(1, chinese.get(token, 1)))
+
+
 def extract_xlsx_framework(raw: bytes) -> tuple[str, str]:
-    """Read a lightweight xlsx workbook using stdlib only and convert its outline sheet."""
+    """Select the best outline sheet and convert it to a rooted Markdown tree."""
     with ZipFile(io.BytesIO(raw)) as archive:
         ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
-        shared = []
-        if "xl/sharedStrings.xml" in archive.namelist():
+        names = set(archive.namelist())
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
             root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
-            shared = ["".join(node.itertext()) for node in root.findall("m:si", ns)]
+            shared = ["".join(node.itertext()).strip() for node in root.findall("m:si", ns)]
         wb = ET.fromstring(archive.read("xl/workbook.xml"))
         rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
         relmap = {item.attrib.get("Id"): item.attrib.get("Target", "") for item in rels}
-        candidates = []
+        candidates: list[tuple[str, str]] = []
         for sheet in wb.findall("m:sheets/m:sheet", ns):
             name = sheet.attrib.get("name", "")
             target = relmap.get(sheet.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"), "")
-            if target.startswith("/"): target = target[1:]
-            if not target.startswith("xl/"): target = "xl/" + target
-            candidates.append((name, target))
-        preferred = ["框架", "文档框架", "需求分析", "目录", "outline"]
-        ordered = sorted(candidates, key=lambda x: (0 if any(k.lower() in x[0].lower() for k in preferred) else 1, x[0]))
-        for name, target in ordered:
-            if target not in archive.namelist(): continue
-            root = ET.fromstring(archive.read(target)); rows = []
-            for row in root.findall(".//m:sheetData/m:row", ns):
-                values = []
+            target = posixpath.normpath(posixpath.join("xl", target.lstrip("/")))
+            if target in names:
+                candidates.append((name, target))
+
+        title_labels = {"标题", "章节标题", "章节名称", "topic", "title", "名称", "目录", "章节", "文档结构", "outline"}
+        number_labels = {"序号", "编号", "章节编号", "章节序号", "no", "no.", "id"}
+        level_labels = {"层级", "级别", "level", "headinglevel", "标题级别", "层级关系"}
+        summary_labels = {"章节概述", "概述", "短描述", "shortdesc", "summary", "说明", "描述", "内容"}
+        sheet_results: list[tuple[int, str, list[tuple[str, int, str]]]] = []
+
+        for sheet_order, (name, target) in enumerate(candidates):
+            sheet_root = ET.fromstring(archive.read(target))
+            rows: list[tuple[dict[int, str], int]] = []
+            for row in sheet_root.findall(".//m:sheetData/m:row", ns):
+                row_values: dict[int, str] = {}
+                next_col = 0
                 for cell in row.findall("m:c", ns):
-                    value = cell.find("m:v", ns); value = "" if value is None else value.text or ""
+                    col = excel_column_index(cell.attrib.get("r", "")) if cell.attrib.get("r") else next_col
+                    value_node = cell.find("m:v", ns)
+                    value = "" if value_node is None else value_node.text or ""
                     if cell.attrib.get("t") == "inlineStr":
-                        value = "".join(cell.itertext()).replace(value, "", 1) if value else "".join(cell.itertext())
-                    if cell.attrib.get("t") == "s" and value.isdigit() and int(value) < len(shared): value = shared[int(value)]
-                    values.append((cell.attrib.get("r", ""), value.strip()))
-                if any(values): rows.append(values)
-            if not rows: continue
-            lines = []
-            header = {}
-            for row_index, row in enumerate(rows):
-                values_only = [value for _, value in row if value]
-                lowered = [value.lower() for value in values_only]
-                if any(keyword in lowered for keyword in {"标题", "章节标题", "topic", "title", "层级", "level", "章节概述", "概述"}):
-                    for index, value in enumerate(values_only):
-                        key = value.lower()
-                        if key in {"标题", "章节标题", "topic", "title", "名称"}: header["title"] = index
-                        elif key in {"层级", "level", "级别"}: header["level"] = index
-                        elif key in {"章节概述", "概述", "说明", "描述", "summary"}: header["summary"] = index
+                        value = "".join(cell.itertext()).strip()
+                    elif cell.attrib.get("t") == "s" and value.isdigit() and int(value) < len(shared):
+                        value = shared[int(value)]
+                    elif cell.attrib.get("t") == "b":
+                        value = "是" if value == "1" else "否"
+                    value = re.sub(r"\s+", " ", str(value or "").strip())
+                    if value:
+                        row_values[col] = value
+                    next_col = col + 1
+                if row_values:
+                    row_number = int(row.attrib.get("r", len(rows) + 1))
+                    rows.append((row_values, row_number))
+            if not rows:
+                continue
+
+            header_row_index = -1
+            header: dict[str, Any] = {}
+            best_header_score = 0
+            for index, (row, _) in enumerate(rows[:25]):
+                labels = {normalize_excel_label(value): col for col, value in row.items()}
+                hierarchy_columns = {col: level for label, col in labels.items() if (level := excel_hierarchy_level(label)) is not None}
+                score = sum(1 for label in labels if label in title_labels or label in number_labels or label in level_labels or label in summary_labels) + len(hierarchy_columns)
+                if score > best_header_score:
+                    best_header_score = score
+                    header_row_index = index
+                    header = {}
+                    if hierarchy_columns:
+                        header["hierarchy"] = hierarchy_columns
+                    for label, col in labels.items():
+                        if label in title_labels and "title" not in header: header["title"] = col
+                        elif label in number_labels and "number" not in header: header["number"] = col
+                        elif label in level_labels and "level" not in header: header["level"] = col
+                        elif label in summary_labels and "summary" not in header: header["summary"] = col
+
+            data_rows = rows[header_row_index + 1:] if header_row_index >= 0 else rows
+            entries: list[tuple[str, int, str]] = []
+            previous_level = 1
+            for row, _ in data_rows:
+                hierarchy_columns = header.get("hierarchy", {})
+                title_col = header.get("title")
+                title = row.get(title_col, "") if title_col is not None else ""
+                hierarchy_level = None
+                if hierarchy_columns:
+                    populated = [(col, row.get(col, ""), level) for col, level in hierarchy_columns.items() if row.get(col, "")]
+                    if populated:
+                        title_col, title, hierarchy_level = max(populated, key=lambda item: item[0])
+                if not title:
+                    candidates_text = [(col, value) for col, value in sorted(row.items()) if value and not value.isdigit()]
+                    title = candidates_text[0][1] if candidates_text else ""
+                    title_col = candidates_text[0][0] if candidates_text else 0
+                if not title or normalize_excel_label(title) in title_labels | {"序号", "编号", "no"}:
                     continue
-                cells = [(ref, value) for ref, value in row if value]
-                if not cells: continue
-                values_only = [value for _, value in cells]
-                title_index = header.get("title", 0)
-                if title_index >= len(values_only): title_index = 0
-                title = values_only[title_index]
-                if title.isdigit() and len(values_only) > 1: title = values_only[1]
-                if title.lower() in {"标题", "章节标题", "topic", "名称", "序号"}: continue
-                level_value = values_only[header["level"]] if "level" in header and header["level"] < len(values_only) else ""
-                structural = re.match(r"^(第[一二三四五六七八九十百\d]+章|附录|[一二三四五六七八九十]+、|\d+[.、]|\d+\.\d+(?:\.\d+)*)", title)
-                if structural:
-                    prefix = structural.group(1)
-                    level = 1 if prefix.startswith(("第", "附录")) or re.match(r"^[一二三四五六七八九十]+、", prefix) else min(prefix.count(".") + 2, 5)
-                elif str(level_value).isdigit() and 1 <= int(level_value) <= 6:
-                    level = int(level_value)
-                else:
-                    col_match = re.search(r"[A-Z]+", cells[0][0])
-                    col = 0
-                    if col_match:
-                        for char in col_match.group(): col = col * 26 + ord(char) - 64
-                    level = min(max(col, 1), 4)
-                summary = values_only[header["summary"]] if "summary" in header and header["summary"] < len(values_only) else next((v for _, v in cells[1:] if v and v != str(level)), "")
-                lines.append(f"{'#' * level} {title}")
-                if summary: lines.append(f"> 章节概述：{summary}")
-            if lines: return "\n\n".join(lines), name
-    return "", ""
+
+                explicit_level = excel_level_value(row.get(header["level"], "")) if "level" in header else None
+                numbered_level = excel_outline_level(title)
+                if numbered_level is None and "number" in header:
+                    numbered_level = excel_outline_level(row.get(header["number"], ""))
+                level = hierarchy_level or explicit_level or numbered_level
+                if level is None:
+                    nonempty_cols = [col for col, value in row.items() if value]
+                    source_col = min(nonempty_cols) if nonempty_cols else int(title_col or 0)
+                    base_col = int(title_col or source_col)
+                    level = min(6, max(1, source_col - base_col + 1))
+                if entries and level > previous_level + 1:
+                    level = previous_level + 1
+                level = min(6, max(1, level))
+                previous_level = level
+                summary = row.get(header["summary"], "") if "summary" in header else ""
+                if not summary and "summary" in header:
+                    summary = next((value for col, value in sorted(row.items()) if col != title_col and value and not value.isdigit()), "")
+                entries.append((title, level, summary))
+
+            name_score = 0
+            lowered_name = name.lower()
+            for keyword, score in (("文档框架", 60), ("需求分析", 55), ("框架", 50), ("目录", 45), ("outline", 45)):
+                if keyword.lower() in lowered_name:
+                    name_score = max(name_score, score)
+            content_score = best_header_score * 25 + min(len(entries), 20) * 2
+            if any(excel_outline_level(title) for title, _, _ in entries):
+                content_score += 15
+            if entries:
+                sheet_results.append((name_score + content_score - sheet_order, name, entries))
+
+        if not sheet_results:
+            return "", ""
+        _, selected_name, entries = max(sheet_results, key=lambda item: item[0])
+        lines = [f"# {selected_name or '外部导入框架'}", ""]
+        for title, level, summary in entries:
+            lines.append(f"{'#' * (level + 1)} {title}")
+            if summary:
+                lines.append(f"> 章节概述：{summary}")
+            lines.append("")
+        return "\n".join(lines).strip() + "\n", selected_name
 
 
 def text_to_framework_markdown(text: str, title: str = "外部导入框架") -> str:
@@ -929,7 +1340,13 @@ def text_to_framework_markdown(text: str, title: str = "外部导入框架") -> 
         match = re.match(r"^(第[一二三四五六七八九十百\d]+章|附录|[一二三四五六七八九十]+、|\d+\.\d+(?:\.\d+)*|\d+[.、])", value)
         if match:
             prefix = match.group(1)
-            level = 1 if prefix.startswith(("第", "附录")) or re.match(r"^[一二三四五六七八九十]+、", prefix) else min(prefix.count(".") + 2, 5)
+            # The generated document title already occupies level 1. Keep
+            # imported chapters beneath it: 1. -> ##, 1.1 -> ###, etc.
+            if prefix.startswith(("第", "附录")) or re.match(r"^[一二三四五六七八九十]+、", prefix):
+                level = 2
+            else:
+                numeric_prefix = prefix.rstrip(".、")
+                level = min(numeric_prefix.count(".") + 2, 5)
             lines.append(f"{'#' * level} {value}")
         else:
             lines.append(f"> 章节概述：{value}")
@@ -1214,8 +1631,22 @@ def topic_summary(project_id: str, topic: dict[str, Any]) -> dict[str, Any]:
     topic_id = topic["id"]
     directory = topic_dir(project_id, topic_id)
     xml_path = directory / f"{topic_id}.xml"
+    project = read_json(project_dir(project_id) / "project.json", {})
+    project = project if isinstance(project, dict) else {}
+    inherit_project_skills = topic.get("inherit_project_skills", True) is not False
+    selected_skills = topic.get("skill_overrides")
+    if selected_skills is None:
+        stored_skills = normalize_skills(topic.get("skills", []))
+        selected_skills = [name for name in stored_skills if name not in set(project_skill_names(project))]
+    effective_skills = resolve_topic_skill_names(project, selected_skills, inherit_project_skills)
     return {
         **topic,
+        "skills": effective_skills,
+        "skill_overrides": ordered_unique(selected_skills),
+        "inherit_project_skills": inherit_project_skills,
+        "skill_snapshot": topic.get("skill_snapshot") or skill_usage_snapshot(
+            effective_skills, project, selected_skills, inherit_project_skills
+        ),
         "heading_level": topic_level(topic.get("heading_level", topic.get("level", 1))),
         "level": topic_level(topic.get("level", topic.get("heading_level", 1))),
         "order": int(topic.get("order", 0) or 0),
@@ -1262,6 +1693,10 @@ def create_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     timestamp = now_iso()
     existing_topics = list_topics(project_id)
     heading_level = topic_level(payload.get("heading_level", payload.get("level", 1)))
+    inherit_project_skills = payload.get("inherit_project_skills", True) is not False
+    selected_skills = payload.get("skills", project.get("skills", []))
+    effective_skills = resolve_topic_skill_names(project, selected_skills, inherit_project_skills)
+    skill_overrides = topic_skill_overrides(project, selected_skills, inherit_project_skills)
     topic = {
         "id": topic_id,
         "project_id": project_id,
@@ -1272,7 +1707,11 @@ def create_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         "outline": parse_outline_items(payload.get("outline")),
         "prerequisites": parse_lines(payload.get("prerequisites")),
         "steps": parse_lines(payload.get("steps")),
-        "skills": normalize_skills(payload.get("skills") or project.get("skills", [])),
+        "skills": effective_skills,
+        "skill_overrides": skill_overrides,
+        "inherit_project_skills": inherit_project_skills,
+        "skill_snapshot": ai_result.get("skill_snapshot") if ai_result else skill_usage_snapshot(effective_skills, project, skill_overrides, inherit_project_skills),
+        "skill_snapshot_schema_version": 2,
         "heading_level": heading_level,
         "level": heading_level,
         "order": len(existing_topics),
@@ -1308,6 +1747,8 @@ def regenerate_topic(project_id: str, topic_id: str, payload: dict[str, Any]) ->
     if not isinstance(project, dict):
         raise ValueError("项目不存在。")
 
+    inherit_project_skills = payload.get("inherit_project_skills", topic.get("inherit_project_skills", True)) is not False
+    selected_skills = payload.get("skills", topic.get("skill_overrides", topic.get("skills", project.get("skills", []))))
     merged = {
         **topic,
         **payload,
@@ -1316,7 +1757,8 @@ def regenerate_topic(project_id: str, topic_id: str, payload: dict[str, Any]) ->
         "brief": payload.get("brief", topic.get("brief")),
         "topic_type": payload.get("topic_type", topic.get("topic_type", "concept")),
         "heading_level": payload.get("heading_level", topic.get("heading_level", 1)),
-        "skills": payload.get("skills", topic.get("skills", [])),
+        "skills": selected_skills,
+        "inherit_project_skills": inherit_project_skills,
         "previous_xml": topic.get("xml", ""),
         "ai_generate": True,
     }
@@ -1332,7 +1774,16 @@ def regenerate_topic(project_id: str, topic_id: str, payload: dict[str, Any]) ->
             "outline": parse_outline_items(merged.get("outline", topic.get("outline", []))),
             "prerequisites": parse_lines(merged.get("prerequisites", topic.get("prerequisites", []))),
             "steps": parse_lines(merged.get("steps", topic.get("steps", []))),
-            "skills": normalize_skills(merged.get("skills", topic.get("skills", []))),
+            "skills": resolve_topic_skill_names(project, merged.get("skills", []), inherit_project_skills),
+            "skill_overrides": topic_skill_overrides(project, merged.get("skills", []), inherit_project_skills),
+            "inherit_project_skills": inherit_project_skills,
+            "skill_snapshot": ai_result.get("skill_snapshot") or skill_usage_snapshot(
+                resolve_topic_skill_names(project, merged.get("skills", []), inherit_project_skills),
+                project,
+                topic_skill_overrides(project, merged.get("skills", []), inherit_project_skills),
+                inherit_project_skills,
+            ),
+            "skill_snapshot_schema_version": 2,
             "heading_level": topic_level(merged.get("heading_level", topic.get("heading_level", 1))),
             "level": topic_level(merged.get("heading_level", topic.get("level", 1))),
             "chapter_summary": sanitize_text(merged.get("chapter_summary", topic.get("chapter_summary", ""))),
@@ -1421,6 +1872,15 @@ def update_topic_xml(project_id: str, topic_id: str, payload: dict[str, Any]) ->
     topic["updated_at"] = now_iso()
     (topic_dir(project_id, topic_id) / f"{topic_id}.xml").write_text(xml_text, encoding="utf-8")
     write_json(topic_path, topic)
+    # A manual XML save is also a project content save. Keep the project
+    # timestamp current so corpus pickers and project lists show the latest
+    # effective content, while the corpus itself continues to read live files.
+    project_path = project_dir(project_id) / "project.json"
+    project = read_json(project_path, None)
+    if isinstance(project, dict):
+        project["updated_at"] = topic["updated_at"]
+        project["stage"] = "Topic 生成"
+        write_json(project_path, project)
     return topic_summary(project_id, topic)
 
 
@@ -1575,6 +2035,7 @@ def project_summary(project: dict[str, Any]) -> dict[str, Any]:
                 cover_url = f"/static/assets/editorial/{quote(asset_file)}"
     return {
         **project,
+        "skills": project_skill_names(project),
         "mode": normalize_project_mode(project.get("mode", "new")),
         "mode_label": PROJECT_MODES[normalize_project_mode(project.get("mode", "new"))],
         "reference_project_ids": corpus_project_ids(project),
@@ -1624,6 +2085,11 @@ def create_project(payload: dict[str, Any]) -> dict[str, Any]:
         copy_project_baseline(base_project_id, project_id, directory)
     cover = save_project_cover(payload.get("cover"), directory)
     timestamp = now_iso()
+    requested_skills = payload.get("skills")
+    project_skills = normalize_skills(
+        requested_skills,
+        default_dita=requested_skills is None,
+    )
     project = {
         "id": project_id,
         "name": name,
@@ -1633,7 +2099,8 @@ def create_project(payload: dict[str, Any]) -> dict[str, Any]:
         "stage": "需求分析" if mode != "optimize" else "Topic 优化",
         "created_at": timestamp,
         "updated_at": timestamp,
-        "skills": normalize_skills(payload.get("skills")),
+        "skills": project_skills,
+        "skill_schema_version": 2,
         "mode": mode,
         "base_project_id": base_project_id or None,
         "reference_project_ids": reference_project_ids,
@@ -1679,9 +2146,78 @@ def update_project_metadata(project_id: str, payload: dict[str, Any]) -> dict[st
         project["reference_project_ids"] = references
     if "description" in payload:
         project["description"] = str(payload.get("description", "")).strip()
+    if "skills" in payload:
+        project["skills"] = normalize_skills(payload.get("skills"))
+        project["skill_schema_version"] = 2
     project["updated_at"] = now_iso()
     write_json(path, project)
     return project_summary(project)
+
+
+def migrate_legacy_projects() -> int:
+    """Upgrade projects created before the project/Topic Skill route existed.
+
+    The migration is deliberately local and idempotent.  It adds the default
+    DITA Rule to legacy project routes, marks Topics as inheriting by default,
+    and keeps any Topic-only Skills as explicit overrides.
+    """
+    migrated = 0
+    if not PROJECTS_DIR.exists():
+        return migrated
+    for project_path in PROJECTS_DIR.iterdir():
+        metadata_path = project_path / "project.json"
+        project = read_json(metadata_path, None)
+        if not project_path.is_dir() or not isinstance(project, dict) or not project.get("id"):
+            continue
+        changed = False
+        if normalize_project_mode(project.get("mode")) != project.get("mode"):
+            project["mode"] = normalize_project_mode(project.get("mode"))
+            changed = True
+        if int(project.get("skill_schema_version", 0) or 0) < 2:
+            project["skills"] = normalize_skills(project.get("skills", []), default_dita=True)
+            project["skill_schema_version"] = 2
+            changed = True
+        else:
+            normalized_project_skills = normalize_skills(project.get("skills", []))
+            if normalized_project_skills != project.get("skills", []):
+                project["skills"] = normalized_project_skills
+                changed = True
+
+        project_names = set(project_skill_names(project))
+        topics_path = project_path / "topics"
+        if topics_path.exists():
+            for topic_path in topics_path.glob("*/topic.json"):
+                topic = read_json(topic_path, None)
+                if not isinstance(topic, dict) or not topic.get("id"):
+                    continue
+                topic_changed = False
+                inherit = topic.get("inherit_project_skills", True) is not False
+                if "inherit_project_skills" not in topic:
+                    topic["inherit_project_skills"] = True
+                    topic_changed = True
+                stored_skills = normalize_skills(topic.get("skills", []))
+                if "skill_overrides" not in topic:
+                    topic["skill_overrides"] = [name for name in stored_skills if name not in project_names]
+                    topic_changed = True
+                effective = resolve_topic_skill_names(project, topic.get("skill_overrides", []), inherit)
+                if topic.get("skills") != effective:
+                    topic["skills"] = effective
+                    topic_changed = True
+                if int(topic.get("skill_snapshot_schema_version", 0) or 0) < 2:
+                    topic["skill_snapshot"] = skill_usage_snapshot(
+                        effective, project, topic.get("skill_overrides", []), inherit
+                    )
+                    topic["skill_snapshot_schema_version"] = 2
+                    topic_changed = True
+                if topic_changed:
+                    write_json(topic_path, topic)
+                    migrated += 1
+                    changed = True
+        if changed:
+            project["updated_at"] = project.get("updated_at") or now_iso()
+            write_json(metadata_path, project)
+            migrated += 1
+    return migrated
 
 
 def analysis_version_dir(project_id: str) -> Path:
@@ -1708,6 +2244,7 @@ def analysis_record_summary(record: dict[str, Any]) -> dict[str, Any]:
         "source": record.get("source", "ai"),
         "model": record.get("model"),
         "skills": record.get("skills", []),
+        "skill_snapshot": record.get("skill_snapshot", []),
         "material_ids": record.get("material_ids", []),
         "summary": record.get("summary", ""),
         "confirmed_items": record.get("confirmed_items", []),
@@ -1759,6 +2296,7 @@ def framework_record_summary(record: dict[str, Any] | None) -> dict[str, Any] | 
         "source": record.get("source", "manual"),
         "model": record.get("model"),
         "skills": record.get("skills", []),
+        "skill_snapshot": record.get("skill_snapshot", []),
         "material_ids": record.get("material_ids", []),
         "analysis_id": record.get("analysis_id"),
         "markdown": record.get("markdown", ""),
@@ -1818,6 +2356,7 @@ def save_framework(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         "source": str(payload.get("source", "manual")),
         "model": str(payload.get("model", "")),
         "skills": normalize_skills(payload.get("skills")),
+        "skill_snapshot": skill_usage_snapshot(normalize_skills(payload.get("skills")), project),
         "material_ids": parse_lines(payload.get("material_ids")),
         "analysis_id": str(payload.get("analysis_id", "")),
         "markdown": markdown,
@@ -2196,7 +2735,10 @@ def selected_skill_records(skill_names: Any) -> list[dict[str, Any]]:
 def build_topic_ai_messages(project: dict[str, Any], payload: dict[str, Any]) -> tuple[str, str, list[str]]:
     topic_type = str(payload.get("topic_type", "concept"))
     type_name = TOPIC_TYPES.get(topic_type, "Concept")
-    records = selected_skill_records(payload.get("skills") or project.get("skills", []))
+    inherit_project_skills = payload.get("inherit_project_skills", True) is not False
+    selected_skills = payload.get("skills", project.get("skills", []))
+    effective_skills = resolve_topic_skill_names(project, selected_skills, inherit_project_skills)
+    records = selected_skill_records(effective_skills)
     skill_names = [str(item["name"]) for item in records]
     skill_blocks: list[str] = []
     for skill in records:
@@ -2353,7 +2895,18 @@ def generate_ai_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any
     expected_root = "task" if topic_type == "task" else "concept"
     if root.tag != expected_root:
         raise RuntimeError(f"AI 返回的根标签为 <{root.tag}>，预期为 <{expected_root}>。")
-    return {"xml": xml_text, "validation": validation, "skills": skill_names, "model": model, "source": "ai", "generated_at": now_iso()}
+    inherit_project_skills = payload.get("inherit_project_skills", True) is not False
+    overrides = topic_skill_overrides(project, payload.get("skills", project.get("skills", [])), inherit_project_skills)
+    return {
+        "xml": xml_text,
+        "validation": validation,
+        "skills": skill_names,
+        "skill_snapshot": skill_usage_snapshot(skill_names, project),
+        "skill_snapshot": skill_usage_snapshot(skill_names, project, overrides, inherit_project_skills),
+        "model": model,
+        "source": "ai",
+        "generated_at": now_iso(),
+    }
 
 
 def normalize_analysis_result(value: Any) -> dict[str, Any]:
@@ -2533,7 +3086,7 @@ def generate_requirements_analysis(project_id: str, payload: dict[str, Any]) -> 
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "LianJinLu/0.1"
+    server_version = "LianJinLu/2.0.0"
 
     def log_message(self, format: str, *args: Any) -> None:
         print(f"[{now_iso()}] {format % args}")
@@ -2576,6 +3129,9 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/ui-demos":
             self.send_file(WEB_DIR / "ui-demos.html", "text/html; charset=utf-8")
             return
+        if path == "/main-demo":
+            self.send_file(WEB_DIR / "main-demo.html", "text/html; charset=utf-8")
+            return
         if path == "/":
             self.send_file(WEB_DIR / "index.html", "text/html; charset=utf-8")
             return
@@ -2597,7 +3153,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         try:
             if path == "/api/health":
-                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "0.1"})
+                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "2.0.0"})
             elif path == "/api/assets":
                 self.send_json(200, {"assets": list_editorial_assets()})
             elif path == "/api/settings":
@@ -2637,7 +3193,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_file(*material_file)
                     else:
                         self.send_error(404)
-                elif len(parts) == 3 and parts[1] == "materials" and parts[2] == "content":
+                elif len(parts) == 4 and parts[1] == "materials" and parts[3] == "content":
                     material = get_project_material(project_id, parts[2])
                     self.send_json(200 if material else 404, {"text": str(material.get("extracted_text", ""))} if material else {"error": "材料不存在。"})
                 elif len(parts) == 2 and parts[1] == "analysis":
@@ -2778,6 +3334,9 @@ class AppHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     ensure_dirs()
+    migrated = migrate_legacy_projects()
+    if migrated:
+        print(f"已迁移旧项目 Skill 配置：{migrated} 项记录")
     host = "127.0.0.1"
     port = 8765
     server = ThreadingHTTPServer((host, port), AppHandler)

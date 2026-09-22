@@ -1,7 +1,9 @@
-炼金炉 macOS 版
+炼金炉 V2.0.0 macOS 版
 ===============
 
-启动：双击“start_lianjinlu.command”，随后访问 http://127.0.0.1:8765
+启动：双击“炼金炉.app”即可自动启动服务并打开浏览器；也可双击“start_lianjinlu.command”，随后访问 http://127.0.0.1:8765。
+
+应用图标：macOS 应用包使用 `alchemy-furnace.icns` 像素版炼金炉图标。
 
 要求：macOS 已安装 Python 3。程序只使用 Python 标准库，不需要安装第三方 Python 包。
 
@@ -20,6 +22,7 @@
 - 直接提取：Word（.docx）、Markdown、HTML、TXT、XML、JSON、CSV、YAML、Excel（.xlsx/.xlsm）；
 - 支持在需求分析页面直接粘贴文本，也支持对文本材料二次编辑；
 - 外部框架导入支持 .xlsx/.xlsm/.docx/.md/.txt，导入后自动填充 Markdown Editor 和脑图；
+- 脑图支持大型框架紧凑布局、自动适应画布、拖拽平移、滚轮/双指缩放和全屏演示聚焦；
 - 旧版 Excel（.xls）请先另存为 .xlsx；
 - PDF：需要系统安装 pdftotext；
 - CHM：需要系统安装 extract_chmLib；

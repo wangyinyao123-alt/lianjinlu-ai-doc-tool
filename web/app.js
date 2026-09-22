@@ -15,6 +15,8 @@ const state = {
   analysisVersions: [],
   currentFramework: null,
   frameworkNodes: [],
+  frameworkView: "map",
+  frameworkPanel: "none",
   frameworkLayout: "mindmap",
   frameworkDebounce: null,
   frameworkPan: { x: 0, y: 0, scale: 1 },
@@ -23,9 +25,17 @@ const state = {
   frameworkPointers: new Map(),
   frameworkGesture: null,
   frameworkDrag: null,
+  frameworkMapResizeObserver: null,
   frameworkClickTimer: null,
+  frameworkPreviewNodeId: null,
   frameworkTopicNode: null,
   frameworkTopic: null,
+  frameworkTopicOpenPromise: null,
+  frameworkTopicOpenToken: 0,
+  frameworkTopicLoading: false,
+  topicInheritProjectSkills: true,
+  topicDraftSkills: null,
+  frameworkTopicDraftSkills: null,
   frameworkShowSummaries: false,
   frameworkPresentationStep: 0,
   frameworkPresentationOpen: false,
@@ -257,7 +267,7 @@ function renderProjects() {
           <div class="project-stage">${escapeHtml(project.mode_label || "全新开发")} · ${escapeHtml(project.stage)} · ${formatDate(project.updated_at)}</div>
           <div class="project-stage">语料库 ${project.corpus?.project_count || 0} 个项目 · ${project.corpus?.topic_count || 0} 个 Topic</div>
         </div>
-        ${project.cover_url ? `<img class="project-cover-thumb" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<span class="project-cover-thumb cover-placeholder">◎</span>`}
+        ${project.cover_url ? `<img class="project-cover-thumb" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<span class="project-cover-thumb cover-placeholder"><img class="cover-placeholder-image" src="/static/assets/alchemy-furnace-pixel.png" alt="" /></span>`}
       </div>
     </button>
   `).join("");
@@ -276,9 +286,33 @@ function renderProjectCreationOptions() {
     if (projects.some((project) => project.id === current)) base.value = current;
   }
   if (references) {
-    const selected = new Set([...references.selectedOptions].map((option) => option.value));
-    references.innerHTML = projects.map((project) => `<option value="${escapeHtml(project.id)}" ${selected.has(project.id) ? "selected" : ""}>${escapeHtml(project.name)}${project.version ? ` · ${escapeHtml(project.version)}` : ""}</option>`).join("") || `<option value="" disabled>暂无其他项目</option>`;
+    renderReferenceProjectTree(references, checkedReferenceProjectIds(references));
   }
+}
+
+const PROJECT_MODE_LABELS = { new: "全新开发", update: "版本更新", optimize: "Topic 优化" };
+const PROJECT_MODE_ORDER = ["new", "update", "optimize"];
+
+function checkedReferenceProjectIds(containerOrSelector) {
+  const container = typeof containerOrSelector === "string" ? $(containerOrSelector) : containerOrSelector;
+  return [...(container?.querySelectorAll("input[data-reference-project-id]:checked") || [])].map((input) => input.dataset.referenceProjectId);
+}
+
+function renderReferenceProjectTree(container, selectedIds = [], excludeProjectId = "") {
+  if (!container) return;
+  const selected = new Set((selectedIds || []).map((id) => String(id)));
+  const projects = (state.projects || []).filter((project) => project.id !== excludeProjectId);
+  if (!projects.length) {
+    container.innerHTML = `<div class="reference-tree-empty">暂无可引用的其他项目。</div>`;
+    return;
+  }
+  container.innerHTML = PROJECT_MODE_ORDER.map((mode) => {
+    const items = projects.filter((project) => (project.mode || "new") === mode);
+    const rows = items.length
+      ? items.map((project) => `<label class="reference-project-check"><input type="checkbox" data-reference-project-id="${escapeHtml(project.id)}" ${selected.has(String(project.id)) ? "checked" : ""} /><span class="reference-project-check-body"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.product || "未填写产品")} · ${escapeHtml(project.version || "未填写版本")} · ${project.topic_count || 0} Topic · ${project.material_count || 0} 份素材 · 最后保存 ${escapeHtml(formatDate(project.updated_at))}</small></span><em>LIVE</em></label>`).join("")
+      : `<div class="reference-mode-empty">暂无${PROJECT_MODE_LABELS[mode]}项目</div>`;
+    return `<details class="reference-mode-group" open><summary><span><i class="reference-mode-dot mode-${mode}"></i>${PROJECT_MODE_LABELS[mode]}</span><b>${items.length}</b></summary><div class="reference-mode-items">${rows}</div></details>`;
+  }).join("");
 }
 
 function toggleProjectModeFields() {
@@ -293,17 +327,49 @@ function toggleProjectModeFields() {
 }
 
 function renderReferenceProjectOptions() {
-  const select = $("#detail-reference-projects");
-  if (!select || !state.selectedProject) return;
+  const container = $("#detail-reference-projects");
+  if (!container || !state.selectedProject) return;
   const referenceIds = new Set(state.selectedProject.reference_project_ids || []);
-  const options = state.projects.filter((project) => project.id !== state.selectedProject.id).map((project) => `<option value="${escapeHtml(project.id)}" ${referenceIds.has(project.id) ? "selected" : ""}>${escapeHtml(project.name)}${project.version ? ` · ${escapeHtml(project.version)}` : ""}</option>`).join("");
-  select.innerHTML = options || `<option value="" disabled>暂无其他项目</option>`;
+  renderReferenceProjectTree(container, [...referenceIds], state.selectedProject.id);
+}
+
+function renderProjectSkillOptions() {
+  const container = $("#project-skill-options");
+  if (!container) return;
+  if (!state.skills.length) {
+    container.innerHTML = `<div class="field-hint">暂无可用 Skill，请先在“配置 Skill”中添加。</div>`;
+    return;
+  }
+  const selected = new Set(state.selectedProject?.skills || ["HIK Writing Skill", "HIK DITA Rule"]);
+  container.innerHTML = state.skills.map((skill) => {
+    const checked = skill.required || selected.has(skill.name);
+    const disabled = skill.required || !skill.enabled;
+    return `<label class="skill-choice ${disabled && !skill.required ? "is-disabled" : ""}"><input type="checkbox" data-project-skill-name="${escapeHtml(skill.name)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} /> <span><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || (skill.required ? "必选规范 Skill" : "项目级生成约束"))}</small></span>${skill.required ? "<em>必选</em>" : skill.enabled ? "" : "<em>已停用</em>"}</label>`;
+  }).join("");
+}
+
+async function saveProjectSkills() {
+  if (!state.selectedProject) return;
+  const selected = [...document.querySelectorAll("#project-skill-options input[data-project-skill-name]:checked")].map((node) => node.dataset.projectSkillName);
+  try {
+    const project = await request(`/api/projects/${encodeURIComponent(state.selectedProject.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ skills: ["HIK Writing Skill", ...selected.filter((name) => name !== "HIK Writing Skill")] }),
+    });
+    state.selectedProject = project;
+    await loadProjects();
+    renderProjectSkillOptions();
+    renderSkillOptions("#analysis-skill-options");
+    renderSkillOptions();
+    showMessage("#project-skill-message", "项目级 Skill 已保存；继承中的 Topic 会自动使用最新配置。", "success");
+  } catch (error) {
+    showMessage("#project-skill-message", error.message, "error");
+  }
 }
 
 async function saveReferenceProjects() {
   if (!state.selectedProject) return;
-  const select = $("#detail-reference-projects");
-  const ids = [...(select?.selectedOptions || [])].map((option) => option.value);
+  const ids = checkedReferenceProjectIds("#detail-reference-projects");
   try {
     const project = await request(`/api/projects/${encodeURIComponent(state.selectedProject.id)}`, { method: "PUT", body: JSON.stringify({ reference_project_ids: ids }) });
     state.selectedProject = project;
@@ -329,7 +395,7 @@ function renderProjectDetail() {
         <div class="detail-description">${escapeHtml(project.description || "暂无项目备注")}</div>
       </div>
       <div class="detail-cover-wrap">
-        ${project.cover_url ? `<img class="detail-cover" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<div class="detail-cover cover-placeholder">◎</div>`}
+        ${project.cover_url ? `<img class="detail-cover" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<div class="detail-cover cover-placeholder"><img class="cover-placeholder-image" src="/static/assets/alchemy-furnace-pixel.png" alt="" /></div>`}
         <span class="count-badge">${escapeHtml(project.mode_label || "全新开发")} · ${escapeHtml(project.stage)}</span>
       </div>
     </div>
@@ -339,20 +405,20 @@ function renderProjectDetail() {
       <div class="fact"><div class="fact-label">项目模式</div><div class="fact-value">${escapeHtml(project.mode_label || "全新开发")}</div></div>
       <div class="fact"><div class="fact-label">参考语料</div><div class="fact-value">${project.corpus?.project_count || 0} 个项目 / ${project.corpus?.topic_count || 0} 个 Topic</div></div>
     </div>
-    <div class="pipeline">
-      <p class="section-kicker">PIPELINE</p>
-      <div class="pipeline-row"><span class="pipeline-step active">项目</span><span class="pipeline-arrow">→</span><span class="pipeline-step">素材</span><span class="pipeline-arrow">→</span><span class="pipeline-step">需求分析</span><span class="pipeline-arrow">→</span><span class="pipeline-step">Topic</span></div>
-    </div>
     <div class="topic-tree-block"><div class="topic-tree-heading"><div><p class="section-kicker">TOPIC TREE / DRAG TO RESTRUCTURE</p><strong>项目 Topic</strong></div><span class="panel-note">仅显示标题</span></div><div id="topic-tree" class="topic-tree"><div class="tree-empty">正在读取 Topic…</div></div><p class="tree-hint">拖动标题调整顺序；向右拖动可设置为下一级。单击标题展开 XML Code。</p></div>
-    <div class="corpus-manager"><div class="topic-tree-heading"><div><p class="section-kicker">REFERENCE CORPUS / LIVE LINK</p><strong>参考项目语料库</strong></div><span class="panel-note">实时读取最新定稿内容</span></div><div class="two-fields"><label>选择参考项目<select id="detail-reference-projects" multiple size="4"></select></label><div class="field-hint corpus-detail-note">引用项目的框架、定稿 XML 和素材会随源项目更新自动变化，不会复制为静态快照。</div></div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-reference-projects">保存语料库</button></div><div class="inline-message" id="corpus-message" role="status"></div></div>
+    <div class="detail-tools-grid">
+      <section class="detail-tool-panel corpus-manager"><div class="topic-tree-heading"><div><p class="section-kicker">REFERENCE CORPUS / LIVE LINK</p><strong>参考项目语料库</strong></div><span class="panel-note">实时读取最后保存内容</span></div><div class="reference-picker-layout"><div id="detail-reference-projects" class="reference-project-tree" aria-label="参考项目语料库项目列表"></div></div><div class="field-hint corpus-detail-note">按模式勾选；生成时读取项目最新框架、XML 和素材。</div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-reference-projects">保存语料库</button></div><div class="inline-message" id="corpus-message" role="status"></div></section>
+      <section class="detail-tool-panel project-skill-manager"><div class="topic-tree-heading"><div><p class="section-kicker">PROJECT SKILL ROUTE / INHERITABLE</p><strong>项目级 Skill</strong></div><span class="panel-note">需求分析、框架和批量 Topic 默认使用</span></div><div id="project-skill-options" class="skill-options"><div class="tree-empty">正在读取 Skill…</div></div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-project-skills">保存项目 Skill</button></div><div class="inline-message" id="project-skill-message" role="status"></div></section>
+    </div>
     <div id="topic-expanded-editor" class="topic-expanded-editor is-hidden"></div>
-    <div class="detail-actions"><button type="button" class="primary-button" data-open-analysis="${escapeHtml(project.id)}">需求分析 / 文档框架</button><button type="button" class="secondary-button" data-create-topic="${escapeHtml(project.id)}">Topic 编辑输出</button><span class="detail-skill-note">${escapeHtml((project.skills || ["HIK Writing Skill"]).join(" · "))}</span></div>
+    <div class="detail-actions"><button type="button" class="primary-button" data-open-analysis="${escapeHtml(project.id)}">进入文档框架</button><span class="detail-skill-note">${escapeHtml((project.skills || ["HIK Writing Skill"]).join(" · "))}</span></div>
   `;
   panel.querySelector("[data-open-analysis]")?.addEventListener("click", () => openAnalysisForProject(project.id));
-  panel.querySelector("[data-create-topic]")?.addEventListener("click", () => openTopicForProject(project.id));
   renderTopicTree();
   renderReferenceProjectOptions();
   panel.querySelector("#save-reference-projects")?.addEventListener("click", saveReferenceProjects);
+  renderProjectSkillOptions();
+  panel.querySelector("#save-project-skills")?.addEventListener("click", saveProjectSkills);
   loadProjectTopics(project.id);
 }
 
@@ -538,6 +604,15 @@ function renderTopicMaterialOptions() {
   select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(material.id) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>当前项目暂无研发素材</option>`;
 }
 
+function renderFrameworkTopicMaterialOptions(selectedIds = null) {
+  const select = $("#framework-topic-materials");
+  if (!select) return;
+  const selected = selectedIds == null
+    ? new Set([...select.selectedOptions].map((option) => option.value))
+    : new Set((selectedIds || []).map((item) => String(item)));
+  select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(String(material.id)) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>当前项目暂无研发素材</option>`;
+}
+
 function toggleTopicMode() {
   const optimize = $("#topic-mode")?.value === "optimize";
   $("#topic-target-label")?.classList.toggle("is-hidden", !optimize);
@@ -549,6 +624,8 @@ function toggleTopicMode() {
 function applyTopicTarget(topicId) {
   const topic = state.projectTopics.find((item) => item.id === topicId);
   if (!topic) return;
+  state.topicInheritProjectSkills = topic.inherit_project_skills !== false;
+  state.topicDraftSkills = [...(topic.skills || [])];
   $("#topic-type").value = topic.topic_type || "concept";
   $("#topic-heading-level").value = String(topic.heading_level || topic.level || 1);
   $("#topic-title").value = topic.title || "";
@@ -563,12 +640,41 @@ function applyTopicTarget(topicId) {
 
 function renderAnalysisProjects() {
   const select = $("#analysis-project");
-  if (!select) return;
-  const currentValue = state.selectedProject?.id || select.value;
-  select.innerHTML = state.projects.length
-    ? state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join("")
-    : `<option value="">请先创建项目</option>`;
-  if (currentValue && state.projects.some((project) => project.id === currentValue)) select.value = currentValue;
+  const currentValue = state.selectedProject?.id || select?.value || "";
+  if (select) {
+    select.innerHTML = state.projects.length
+      ? state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join("")
+      : `<option value="">请先创建项目</option>`;
+    if (currentValue && state.projects.some((project) => project.id === currentValue)) select.value = currentValue;
+  }
+  renderAnalysisProjectTree();
+}
+
+function renderAnalysisProjectTree() {
+  const container = $("#analysis-project-tree");
+  if (!container) return;
+  const projects = state.projects || [];
+  if (!projects.length) {
+    container.innerHTML = `<div class="tree-empty">暂无项目，请先创建项目。</div>`;
+    return;
+  }
+  container.innerHTML = PROJECT_MODE_ORDER.map((mode) => {
+    const items = projects.filter((project) => (project.mode || "new") === mode);
+    if (!items.length) return "";
+    const rows = items.map((project) => `
+      <button type="button" class="analysis-project-link ${state.selectedProject?.id === project.id ? "is-selected" : ""}" data-analysis-project-id="${escapeHtml(project.id)}" title="打开项目：${escapeHtml(project.name)}">
+        <span class="analysis-project-dot mode-${escapeHtml(mode)}" aria-hidden="true"></span>
+        <span class="analysis-project-copy"><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.stage || "待开始")} · ${project.topic_count || 0} Topic</small></span>
+      </button>
+    `).join("");
+    return `<details class="analysis-project-group" open><summary><span><i class="reference-mode-dot mode-${escapeHtml(mode)}"></i>${PROJECT_MODE_LABELS[mode]}</span><b>${items.length}</b></summary><div class="analysis-project-group-items">${rows}</div></details>`;
+  }).join("") || `<div class="tree-empty">暂无项目。</div>`;
+  container.querySelectorAll("[data-analysis-project-id]").forEach((button) => button.addEventListener("click", async () => {
+    const projectId = button.dataset.analysisProjectId;
+    if (!projectId) return;
+    await selectProject(projectId);
+    showView("analysis-view");
+  }));
 }
 
 function renderSkillOptions(containerSelector = "#topic-skill-options") {
@@ -578,17 +684,24 @@ function renderSkillOptions(containerSelector = "#topic-skill-options") {
     container.innerHTML = `<div class="field-hint">暂无可用 Skill，请先配置 Skill。</div>`;
     return;
   }
-  const projectSkills = state.selectedProject?.skills || [];
+  const projectSkills = [...new Set([...(state.selectedProject?.skills || ["HIK Writing Skill", "HIK DITA Rule"])])];
+  const topicScoped = ["#topic-skill-options", "#framework-topic-skill-options"].includes(containerSelector);
+  const currentTopic = containerSelector === "#framework-topic-skill-options" ? state.frameworkTopic : state.currentTopic;
+  const inherit = topicScoped
+    ? (currentTopic ? currentTopic.inherit_project_skills !== false : state.topicInheritProjectSkills !== false)
+    : false;
   let selectedNames = projectSkills;
-  if (containerSelector === "#analysis-skill-options") selectedNames = projectSkills;
-  if (containerSelector === "#framework-topic-skill-options") selectedNames = state.frameworkTopic?.skills || selectedSkillNames("#analysis-skill-options");
-  if (containerSelector === "#topic-skill-options") selectedNames = state.currentTopic?.skills || projectSkills;
+  if (containerSelector === "#framework-topic-skill-options") selectedNames = currentTopic?.skills || state.frameworkTopicDraftSkills || projectSkills;
+  if (containerSelector === "#topic-skill-options") selectedNames = currentTopic?.skills || state.topicDraftSkills || projectSkills;
   const selected = new Set(selectedNames);
-  container.innerHTML = state.skills.map((skill) => {
-    const checked = skill.required || selected.has(skill.name);
-    const disabled = skill.required || !skill.enabled;
-    return `<label class="skill-choice ${disabled && !skill.required ? "is-disabled" : ""}"><input type="checkbox" data-skill-name="${escapeHtml(skill.name)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} /> <span><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || (skill.required ? "必选规范 Skill" : "自定义生成约束"))}</small></span>${skill.required ? '<em>必选</em>' : skill.enabled ? "" : '<em>已停用</em>'}</label>`;
-  }).join("");
+  const inheritanceMarkup = topicScoped ? `<div class="skill-inheritance-row"><label class="check-row"><input type="checkbox" data-skill-inherit ${inherit ? "checked" : ""} /> 继承项目 Skill</label><span>项目级配置变化后，继承中的 Topic 会自动跟随。</span></div>` : "";
+  container.innerHTML = `${inheritanceMarkup}${state.skills.map((skill) => {
+    const inherited = topicScoped && inherit && projectSkills.includes(skill.name) && !skill.required;
+    const checked = skill.required || selected.has(skill.name) || inherited;
+    const disabled = skill.required || !skill.enabled || inherited;
+    const origin = inherited ? " · 项目继承" : skill.required ? " · 全局必选" : "";
+    return `<label class="skill-choice ${disabled && !skill.required ? "is-disabled" : ""}"><input type="checkbox" data-skill-name="${escapeHtml(skill.name)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} /> <span><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || (skill.required ? "必选规范 Skill" : "自定义生成约束"))}${origin}</small></span>${skill.required ? '<em>必选</em>' : inherited ? '<em>继承</em>' : skill.enabled ? "" : '<em>已停用</em>'}</label>`;
+  }).join("")}`;
 }
 
 async function loadSkills() {
@@ -596,7 +709,14 @@ async function loadSkills() {
   state.skills = data.skills || [];
   renderSkillOptions();
   renderSkillOptions("#analysis-skill-options");
+  renderSkillOptions("#framework-topic-skill-options");
+  renderProjectSkillOptions();
   renderSkillList();
+}
+
+function skillInheritanceEnabled(containerSelector = "#topic-skill-options") {
+  const input = $(`${containerSelector} input[data-skill-inherit]`);
+  return input ? input.checked : true;
 }
 
 function selectedSkillNames(containerSelector = "#topic-skill-options") {
@@ -748,7 +868,7 @@ function parseFrameworkMarkdown(markdown) {
       title = title.replace(/\s+\[task\]\s*$/i, "").trim();
       const level = heading[1].length;
       while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
-      const node = { id: `framework_node_${nodes.length + 1}`, title, level, topic_type: isTask ? "task" : "concept", summary: "", lineIndex, parentId: stack.length ? stack[stack.length - 1].id : null, is_document_title: nodes.length === 0 && level === 1 };
+      const node = { id: `framework_node_${nodes.length + 1}`, title, level, topic_type: isTask ? "task" : "concept", summary: "", body: [], lineIndex, parentId: stack.length ? stack[stack.length - 1].id : null, is_document_title: false };
       nodes.push(node);
       stack.push(node);
       activeNode = node;
@@ -757,9 +877,256 @@ function parseFrameworkMarkdown(markdown) {
     if (activeNode && /^\s*>\s*/.test(raw)) {
       const summary = raw.replace(/^\s*>\s*/, "").replace(/^章节概述\s*[:：]\s*/, "").trim();
       if (summary) activeNode.summary = summary;
+      return;
+    }
+    if (activeNode && raw.trim() && !/^\s*```/.test(raw)) {
+      const body = raw.trim().replace(/^[-*•]\s+/, "").replace(/^\d+[.)、]\s+/, "").trim();
+      if (body && !/^---+$/.test(body)) activeNode.body.push(body);
     }
   });
+  const first = nodes[0];
+  if (first?.level === 1) {
+    const hasOtherH1 = nodes.some((node, index) => index > 0 && node.level === 1);
+    const hasChild = nodes.some((node) => node.parentId === first.id);
+    first.is_document_title = !hasOtherH1 || hasChild;
+  }
   return nodes;
+}
+
+function frameworkHeadingFromPlainLine(line, hasDocumentTitle = false) {
+  const value = String(line || "").replace(/\u00a0/g, " ").trim();
+  if (!value) return null;
+  const chapter = value.match(/^第\s*[0-9一二三四五六七八九十百千万]+\s*(章|篇|部分)\s*[:：.、]?\s*(.*)$/);
+  if (chapter) return { level: 1 + (hasDocumentTitle ? 1 : 0), title: chapter[2] || chapter[0] };
+  const section = value.match(/^第\s*[0-9一二三四五六七八九十百千万]+\s*节\s*[:：.、]?\s*(.*)$/);
+  if (section) return { level: 2 + (hasDocumentTitle ? 1 : 0), title: section[1] || section[0] };
+  const chinese = value.match(/^(（?[一二三四五六七八九十百千万]+[）)、.．]|\([一二三四五六七八九十百千万]+\))\s*(.*)$/);
+  if (chinese) {
+    const bracketed = /^[（(]/.test(chinese[1]);
+    return { level: (bracketed ? 2 : 1) + (hasDocumentTitle ? 1 : 0), title: chinese[2] || chinese[0] };
+  }
+  const numbered = value.match(/^(\d+(?:\.\d+){0,4})[、.)．]?\s*(.+)$/);
+  if (numbered) return { level: Math.min(6, numbered[1].split(".").length + (hasDocumentTitle ? 1 : 0)), title: numbered[2] };
+  return null;
+}
+
+function convertPlainFrameworkToMarkdown(rawText) {
+  const source = String(rawText || "").replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").trim();
+  if (!source) return "";
+  const sourceLines = source.split("\n");
+  // 已经是 Markdown 时保留原文，避免重复转换用户手写的层级和正文。
+  if (sourceLines.some((line) => /^\s{0,3}#{1,6}\s+/.test(line))) return `${source}\n`;
+  const meaningful = sourceLines.map((line) => line.trim()).filter(Boolean);
+  const hasStructuredHeading = meaningful.some((line) => frameworkHeadingFromPlainLine(line, false));
+  const firstLooksLikeHeading = Boolean(frameworkHeadingFromPlainLine(meaningful[0], false));
+  const hasDocumentTitle = !firstLooksLikeHeading && hasStructuredHeading;
+  const output = [];
+  let current = null;
+  if (hasDocumentTitle) {
+    output.push(`# ${meaningful[0]}`, "");
+  }
+  sourceLines.forEach((rawLine) => {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      if (current && output[output.length - 1] !== "") output.push("");
+      return;
+    }
+    if (hasDocumentTitle && trimmed === meaningful[0] && !current) {
+      current = { summary: false };
+      return;
+    }
+    const indent = Math.max(0, rawLine.search(/\S|$/));
+    const detected = frameworkHeadingFromPlainLine(trimmed, hasDocumentTitle);
+    if (detected) {
+      const title = detected.title.replace(/\s+\[(task|concept)\]\s*$/i, "").trim();
+      const type = /\[task\]\s*$/i.test(detected.title) ? " [task]" : "";
+      output.push(`${"#".repeat(Math.max(1, detected.level))} ${title}${type}`);
+      current = { summary: false, level: detected.level };
+      return;
+    }
+    if (!current) {
+      const level = Math.min(6, 1 + Math.floor(indent / 2));
+      output.push(`${"#".repeat(level)} ${trimmed}`);
+      current = { summary: false, level };
+      return;
+    }
+    const clean = trimmed.replace(/^(?:[-*•]|\d+[.)、])\s*/, "").trim();
+    if (!clean) return;
+    output.push(`${current.summary ? "> " : "> 章节概述："}${clean}`);
+    current.summary = true;
+  });
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+}
+
+function insertFrameworkClipboardText(editor, rawText) {
+  if (!editor || !String(rawText || "").trim()) return;
+  const converted = convertPlainFrameworkToMarkdown(rawText);
+  const start = Number(editor.selectionStart || 0);
+  const end = Number(editor.selectionEnd || 0);
+  editor.value = `${editor.value.slice(0, start)}${converted}${editor.value.slice(end)}`;
+  const cursor = start + converted.length;
+  editor.setSelectionRange(cursor, cursor);
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+async function pasteFrameworkFromClipboard(editor = $("#framework-markdown")) {
+  if (!editor) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) throw new Error("剪切板中没有可读取的文本。");
+    insertFrameworkClipboardText(editor, text);
+    showMessage("#analysis-message", "已从剪切板粘贴并转换为 Markdown。", "success");
+  } catch (error) {
+    showMessage("#analysis-message", `读取剪切板失败：${error.message || "请使用 Ctrl/Cmd + V 粘贴"}`, "error");
+  }
+}
+
+function handleFrameworkMarkdownPaste(event) {
+  const editor = event.currentTarget;
+  const text = event.clipboardData?.getData("text/plain") || "";
+  if (!text.trim()) return;
+  event.preventDefault();
+  insertFrameworkClipboardText(editor, text);
+}
+
+function renderFrameworkMarkdownFocusPreview() {
+  const preview = $("#framework-markdown-focus-preview");
+  if (!preview) return;
+  const focusEditor = $("#framework-markdown-focus-editor");
+  const source = focusEditor ? focusEditor.value : $("#framework-markdown")?.value || "";
+  renderFrameworkOutlinePreview(preview, source);
+}
+
+function renderFrameworkOutlinePreview(target = $("#framework-outline-preview"), source = $("#framework-markdown")?.value || "") {
+  if (!target) return;
+  const nodes = parseFrameworkMarkdown(source);
+  if (!nodes.length) {
+    target.innerHTML = `<div class="tree-empty">输入 Markdown 后显示章节预览。</div>`;
+    $("#framework-outline-count") && ($("#framework-outline-count").textContent = "0 个章节");
+    return;
+  }
+  target.innerHTML = nodes.map((node, index) => {
+    const level = Math.max(1, Math.min(6, Number(node.level) || 1));
+    const body = (node.body || []).map((paragraph) => `<p class="framework-outline-preview-body">${escapeHtml(paragraph)}</p>`).join("");
+    const selected = state.frameworkPreviewNodeId === node.id ? " is-selected" : "";
+    const topicHint = node.is_document_title ? "" : " · 双击打开 Topic 编辑器";
+    return `<article class="framework-outline-preview-item level-${level}${selected}" style="--outline-depth:${Math.max(0, level - 1)}" data-framework-preview-node="${escapeHtml(node.id)}" data-framework-preview-line="${node.lineIndex}" tabindex="0" role="button" aria-label="${escapeHtml(node.title)}${escapeHtml(topicHint)}"><span class="framework-outline-preview-index">${String(index + 1).padStart(2, "0")}</span><div><strong>${escapeHtml(node.title)}</strong>${node.summary ? `<p class="framework-outline-preview-summary">${escapeHtml(node.summary)}</p>` : ""}${body}</div></article>`;
+  }).join("");
+  $("#framework-outline-count") && ($("#framework-outline-count").textContent = `${nodes.length} 个章节`);
+  bindFrameworkOutlinePreviewInteractions(target, nodes);
+}
+
+function frameworkPreviewEditorFor(target) {
+  return target?.id === "framework-markdown-focus-preview"
+    ? $("#framework-markdown-focus-editor")
+    : $("#framework-markdown");
+}
+
+function frameworkPreviewTargets() {
+  return [$("#framework-outline-preview"), $("#framework-markdown-focus-preview")].filter(Boolean);
+}
+
+function markFrameworkPreviewNode(nodeId, scroll = false) {
+  state.frameworkPreviewNodeId = nodeId || null;
+  frameworkPreviewTargets().forEach((preview) => {
+    preview.querySelectorAll("[data-framework-preview-node]").forEach((item) => {
+      item.classList.toggle("is-selected", item.dataset.frameworkPreviewNode === state.frameworkPreviewNodeId);
+    });
+    if (scroll && nodeId) {
+      const selected = [...preview.querySelectorAll("[data-framework-preview-node]")].find((item) => item.dataset.frameworkPreviewNode === nodeId);
+      if (selected && selected.offsetParent !== null) selected.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+}
+
+function frameworkEditorLineRange(editor, lineIndex) {
+  const lines = String(editor?.value || "").split(/\r?\n/);
+  const index = Math.max(0, Math.min(lines.length - 1, Number(lineIndex) || 0));
+  let start = 0;
+  for (let i = 0; i < index; i += 1) start += lines[i].length + 1;
+  return { start, end: start + lines[index].length };
+}
+
+function focusFrameworkEditorNode(node, editor) {
+  if (!node || !editor) return;
+  const range = frameworkEditorLineRange(editor, node.lineIndex);
+  editor.focus({ preventScroll: true });
+  editor.setSelectionRange(range.start, range.end);
+  const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight) || 24;
+  editor.scrollTop = Math.max(0, (Number(node.lineIndex) || 0) * lineHeight - editor.clientHeight * .35);
+  markFrameworkPreviewNode(node.id, true);
+}
+
+function frameworkNodeAtEditorCursor(editor) {
+  if (!editor) return null;
+  const nodes = parseFrameworkMarkdown(editor.value);
+  if (!nodes.length) return null;
+  const lineIndex = String(editor.value || "").slice(0, editor.selectionStart || 0).split(/\r?\n/).length - 1;
+  return [...nodes].reverse().find((node) => node.lineIndex <= lineIndex) || nodes[0];
+}
+
+function syncFrameworkPreviewSelectionFromEditor(editor) {
+  const node = frameworkNodeAtEditorCursor(editor);
+  if (node) markFrameworkPreviewNode(node.id, true);
+}
+
+function bindFrameworkOutlinePreviewInteractions(target, nodes) {
+  target.querySelectorAll("[data-framework-preview-node]").forEach((item) => {
+    const getNode = () => nodes.find((node) => node.id === item.dataset.frameworkPreviewNode);
+    item.addEventListener("click", () => {
+      const node = getNode();
+      if (node) focusFrameworkEditorNode(node, frameworkPreviewEditorFor(target));
+    });
+    item.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const node = getNode();
+      if (!node) return;
+      markFrameworkPreviewNode(node.id, true);
+      if (!node.is_document_title) openFrameworkTopicEditor(node);
+    });
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const node = getNode();
+        if (node) focusFrameworkEditorNode(node, frameworkPreviewEditorFor(target));
+      }
+    });
+  });
+}
+
+function openFrameworkMarkdownFullscreen() {
+  const focus = $("#framework-markdown-focus");
+  const mainEditor = $("#framework-markdown");
+  const focusEditor = $("#framework-markdown-focus-editor");
+  if (!focus || !mainEditor || !focusEditor) return;
+  focusEditor.value = mainEditor.value;
+  focus.classList.add("is-open");
+  focus.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-markdown-focus-open");
+  renderFrameworkMarkdownFocusPreview();
+  updateFrameworkFocusLineCount();
+  window.requestAnimationFrame(() => focusEditor.focus());
+}
+
+function closeFrameworkMarkdownFullscreen() {
+  const focus = $("#framework-markdown-focus");
+  const focusEditor = $("#framework-markdown-focus-editor");
+  const mainEditor = $("#framework-markdown");
+  if (!focus || !focusEditor || !mainEditor) return;
+  if (mainEditor.value !== focusEditor.value) {
+    mainEditor.value = focusEditor.value;
+    handleFrameworkMarkdownInput();
+  }
+  focus.classList.remove("is-open");
+  focus.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-markdown-focus-open");
+}
+
+function updateFrameworkFocusLineCount() {
+  const editor = $("#framework-markdown-focus-editor");
+  const target = $("#framework-focus-line-count");
+  if (editor && target) target.textContent = `${editor.value.split(/\r?\n/).length} 行 · ${parseFrameworkMarkdown(editor.value).length} 个章节`;
 }
 
 function frameworkMarkdownFromOutline(outline, projectName = "文档") {
@@ -821,21 +1188,29 @@ function frameworkNodePositions(nodes, layout) {
     if (node.parentId && children.has(node.parentId)) children.get(node.parentId).push(node);
   });
   const roots = nodes.filter((node) => !node.parentId);
+  const isLargeMap = nodes.length > 36;
+  const isVeryLargeMap = nodes.length > 80;
   const sizes = new Map(nodes.map((node) => {
     const level = Number(node.level) || 1;
-    const w = node.is_document_title ? 248 : level === 2 ? 210 : level === 3 ? 196 : 184;
+    const w = node.is_document_title
+      ? (isLargeMap ? 224 : 248)
+      : level === 2
+        ? (isLargeMap ? 188 : 210)
+        : level === 3
+          ? (isLargeMap ? 176 : 196)
+          : (isLargeMap ? 164 : 184);
     // TASK 标签独立显示在标题上方，不再占用标题右侧宽度。
     const titleWidth = w - 24;
-    const titleLines = frameworkDisplayLines(node.title, titleWidth, 4, 12);
+    const titleLines = frameworkDisplayLines(node.title, titleWidth, isLargeMap ? 3 : 4, isLargeMap ? 11 : 12);
     const hasSummary = Boolean(String(node.summary || "").trim());
     const expanded = state.frameworkShowSummaries;
-    const summaryLines = hasSummary && expanded ? frameworkDisplayLines(node.summary, w - 26, 3, 9) : [];
+    const summaryLines = hasSummary && expanded ? frameworkDisplayLines(node.summary, w - 26, isLargeMap ? 2 : 3, 9) : [];
     const summaryHeight = hasSummary && expanded ? 22 + summaryLines.length * 13 : 0;
-    const height = Math.max(58, 26 + titleLines.length * 17 + summaryHeight);
+    const height = Math.max(isLargeMap ? 54 : 58, 26 + titleLines.length * (isLargeMap ? 16 : 17) + summaryHeight);
     return [node.id, { w, h: height, titleLines, summaryLines, hasSummary, expanded }];
   }));
-  const gap = 18;
-  const columnGap = 48;
+  const gap = isVeryLargeMap ? 9 : isLargeMap ? 12 : 18;
+  const columnGap = isVeryLargeMap ? 24 : isLargeMap ? 32 : 48;
   const subtreeHeights = new Map();
   const measure = (node) => {
     if (subtreeHeights.has(node.id)) return subtreeHeights.get(node.id);
@@ -850,10 +1225,10 @@ function frameworkNodePositions(nodes, layout) {
   if (layout === "fishbone") {
     const fishboneSpines = [];
     const fishboneBranches = [];
-    const branchGap = 54;
-    const spineMargin = 34;
-    const sectionGap = 72;
-    const branchLead = 92;
+    const branchGap = isVeryLargeMap ? 34 : isLargeMap ? 44 : 54;
+    const spineMargin = isVeryLargeMap ? 22 : isLargeMap ? 26 : 34;
+    const sectionGap = isVeryLargeMap ? 42 : isLargeMap ? 52 : 72;
+    const branchLead = isVeryLargeMap ? 72 : isLargeMap ? 80 : 92;
     let sectionTop = 24;
 
     const placeTree = (node, depth, top) => {
@@ -962,12 +1337,20 @@ function clampFrameworkPan() {
   const viewWidth = width / scale;
   const viewHeight = height / scale;
   const margin = 24;
-  const minX = -margin;
-  const minY = -margin;
-  const maxX = Math.max(minX, state.frameworkWorld.width - viewWidth + margin);
-  const maxY = Math.max(minY, state.frameworkWorld.height - viewHeight + margin);
-  state.frameworkPan.x = Math.min(maxX, Math.max(minX, state.frameworkPan.x));
-  state.frameworkPan.y = Math.min(maxY, Math.max(minY, state.frameworkPan.y));
+  const worldWidth = state.frameworkWorld.width;
+  const worldHeight = state.frameworkWorld.height;
+  if (worldWidth <= viewWidth) state.frameworkPan.x = (worldWidth - viewWidth) / 2;
+  else {
+    const minX = -margin;
+    const maxX = worldWidth - viewWidth + margin;
+    state.frameworkPan.x = Math.min(maxX, Math.max(minX, state.frameworkPan.x));
+  }
+  if (worldHeight <= viewHeight) state.frameworkPan.y = (worldHeight - viewHeight) / 2;
+  else {
+    const minY = -margin;
+    const maxY = worldHeight - viewHeight + margin;
+    state.frameworkPan.y = Math.min(maxY, Math.max(minY, state.frameworkPan.y));
+  }
 }
 
 function updateFrameworkMapViewport() {
@@ -983,7 +1366,9 @@ function updateFrameworkMapViewport() {
 function fitFrameworkMap() {
   if (!state.frameworkWorld) return;
   const { width, height } = frameworkMapViewportSize();
-  const scale = Math.min(2.5, Math.max(0.05, Math.min((width - 32) / state.frameworkWorld.width, (height - 32) / state.frameworkWorld.height)));
+  const availableWidth = Math.max(1, width - 32);
+  const availableHeight = Math.max(1, height - 32);
+  const scale = Math.min(2.5, Math.max(0.08, Math.min(availableWidth / state.frameworkWorld.width, availableHeight / state.frameworkWorld.height)));
   state.frameworkPan.scale = scale;
   state.frameworkPan.x = (state.frameworkWorld.width - width / scale) / 2;
   state.frameworkPan.y = (state.frameworkWorld.height - height / scale) / 2;
@@ -995,7 +1380,7 @@ function setFrameworkScaleAt(nextScale, screenX, screenY) {
   const { width, height } = frameworkMapViewportSize();
   const x = Math.min(width, Math.max(0, Number(screenX) || width / 2));
   const y = Math.min(height, Math.max(0, Number(screenY) || height / 2));
-  const scale = Math.min(2.5, Math.max(0.05, nextScale));
+  const scale = Math.min(2.5, Math.max(0.08, nextScale));
   const worldX = state.frameworkPan.x + x / state.frameworkPan.scale;
   const worldY = state.frameworkPan.y + y / state.frameworkPan.scale;
   state.frameworkPan.scale = scale;
@@ -1018,6 +1403,82 @@ function updateFrameworkLayoutControls() {
   const summaryButton = $("#framework-summary-toggle");
   if (summaryButton) summaryButton.textContent = state.frameworkShowSummaries ? "收起概述" : "展开概述";
   if (summaryButton) summaryButton.classList.toggle("is-active", state.frameworkShowSummaries);
+}
+
+function updateFrameworkViewControls() {
+  const isOutline = state.frameworkView === "outline";
+  $("#framework-map")?.classList.toggle("is-hidden", isOutline);
+  $("#framework-outline-preview-pane")?.classList.toggle("is-hidden", !isOutline);
+  document.querySelectorAll("#framework-map-pane .framework-map-tools").forEach((node) => node.classList.toggle("is-hidden", isOutline));
+  $("#framework-summary-toggle")?.classList.toggle("is-hidden", isOutline);
+  $("#framework-summary-toggle")?.setAttribute("aria-hidden", isOutline ? "true" : "false");
+  $("#framework-map-hint")?.classList.toggle("is-hidden", isOutline);
+  $("#framework-outline-hint")?.classList.toggle("is-hidden", !isOutline);
+  document.querySelectorAll("[data-framework-view]").forEach((button) => {
+    const active = button.dataset.frameworkView === state.frameworkView;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  const mapTitle = $("#framework-map-title");
+  if (mapTitle) mapTitle.textContent = isOutline ? "章节预览" : state.frameworkLayout === "fishbone" ? "FISHBONE PREVIEW" : "MINDMAP PREVIEW";
+  if (isOutline) renderFrameworkOutlinePreview($("#framework-outline-preview"));
+}
+
+function setFrameworkView(view) {
+  state.frameworkView = view === "outline" ? "outline" : "map";
+  updateFrameworkViewControls();
+  if (state.frameworkView === "map") window.requestAnimationFrame(updateFrameworkMapViewport);
+}
+
+function updateFrameworkPanelControls() {
+  const mapOpen = state.frameworkPanel === "map";
+  const topicOpen = state.frameworkPanel === "topic";
+  const body = $("#framework-workbench-body");
+  const mapButton = $("#framework-toggle-map");
+  const topicButton = $("#framework-toggle-topic");
+  body?.classList.toggle("is-map-open", mapOpen);
+  mapButton?.classList.toggle("is-active", mapOpen);
+  topicButton?.classList.toggle("is-active", topicOpen);
+  mapButton?.setAttribute("aria-expanded", mapOpen ? "true" : "false");
+  topicButton?.setAttribute("aria-expanded", topicOpen ? "true" : "false");
+  if (mapOpen && state.frameworkWorld) {
+    window.requestAnimationFrame(() => {
+      state.frameworkNeedsFit = true;
+      fitFrameworkMap();
+    });
+  }
+}
+
+function setFrameworkPanel(panel) {
+  const requested = ["map", "topic"].includes(panel) ? panel : "none";
+  const dialog = $("#framework-topic-dialog");
+  if (requested === "topic" && !state.frameworkTopicNode) {
+    showMessage("#analysis-message", "请先单击一个框架节点，再打开 Topic 编辑器。", "error");
+    return false;
+  }
+  if (requested !== "topic" && dialog?.open) {
+    dialog.close();
+    dialog.classList.remove("is-drawer");
+  }
+  state.frameworkPanel = requested;
+  updateFrameworkPanelControls();
+  return true;
+}
+
+async function toggleFrameworkTopicPanel() {
+  const dialog = $("#framework-topic-dialog");
+  if (state.frameworkPanel === "topic" && dialog?.open) {
+    dialog.close();
+    return;
+  }
+  // 节点内容仍在异步加载时，避免一次点击启动第二个请求并让两个结果
+  // 互相覆盖。节点入口会继续允许切换到另一个节点。
+  if (state.frameworkTopicLoading) return;
+  if (!state.frameworkTopicNode) {
+    showMessage("#analysis-message", "请先单击一个框架节点，再打开 Topic 编辑器。", "error");
+    return;
+  }
+  await openFrameworkTopicEditor(state.frameworkTopicNode);
 }
 
 function updateFrameworkThemeControls() {
@@ -1127,6 +1588,19 @@ function setupFrameworkMapGestures() {
   }, { passive: false });
 }
 
+function setupFrameworkMapResizeObserver() {
+  const container = $("#framework-map");
+  if (!container || state.frameworkMapResizeObserver || !window.ResizeObserver) return;
+  state.frameworkMapResizeObserver = new ResizeObserver(() => {
+    if (!state.frameworkWorld) return;
+    window.requestAnimationFrame(() => {
+      if (state.frameworkNeedsFit) fitFrameworkMap();
+      else updateFrameworkMapViewport();
+    });
+  });
+  state.frameworkMapResizeObserver.observe(container);
+}
+
 function renderFrameworkMap() {
   const container = $("#framework-map");
   if (!container) return;
@@ -1136,6 +1610,7 @@ function renderFrameworkMap() {
   if (!nodes.length) {
     container.innerHTML = `<div class="framework-map-empty">生成或输入 Markdown 后显示图形。</div>`;
     state.frameworkWorld = null;
+    updateFrameworkViewControls();
     return;
   }
   const layout = frameworkNodePositions(nodes, state.frameworkLayout);
@@ -1143,12 +1618,20 @@ function renderFrameworkMap() {
   state.frameworkWorld = { width: layout.width, height: layout.height, layout: state.frameworkLayout };
   updateFrameworkLayoutControls();
   const esc = (value) => escapeHtml(value);
-  const rootNode = nodes.find((node) => node.is_document_title) || nodes.find((node) => !node.parentId);
+  const rootNode = nodes.find((node) => node.is_document_title) || null;
   const branchMap = new Map();
-  const branchRoots = rootNode ? nodes.filter((node) => node.parentId === rootNode.id) : [];
+  const nodeChildren = new Map(nodes.map((node) => [node.id, []]));
+  nodes.forEach((node) => {
+    if (node.parentId && nodeChildren.has(node.parentId)) nodeChildren.get(node.parentId).push(node);
+  });
+  // 导入的 Markdown 可能包含多个 H1 根节点。除文档标题的直属子节点外，
+  // 也要把其他根节点作为独立分支，否则它们会全部落到 branch 0，显示成同一种颜色。
+  const branchRoots = [];
+  if (rootNode) (nodeChildren.get(rootNode.id) || []).forEach((node) => branchRoots.push(node));
+  nodes.filter((node) => !node.parentId && node.id !== rootNode?.id).forEach((node) => branchRoots.push(node));
   const assignBranch = (node, index) => {
     branchMap.set(node.id, index);
-    nodes.filter((child) => child.parentId === node.id).forEach((child) => assignBranch(child, index));
+    (nodeChildren.get(node.id) || []).forEach((child) => assignBranch(child, index));
   };
   branchRoots.forEach((node, index) => assignBranch(node, index));
   if (rootNode) branchMap.set(rootNode.id, -1);
@@ -1163,20 +1646,17 @@ function renderFrameworkMap() {
   };
   const lines = [];
   if (state.frameworkLayout === "fishbone") {
+    const fishboneBranchByNode = new Map((layout.fishboneBranches || []).map((item) => [item.nodeId, item]));
     nodes.forEach((node) => {
       const to = layout.positions.get(node.id);
-      const fishboneBranch = layout.fishboneBranches?.find((item) => item.nodeId === node.id);
+      const fishboneBranch = fishboneBranchByNode.get(node.id);
       if (!to || !fishboneBranch) return;
       lines.push(`<path class="framework-map-branch framework-map-fish-branch framework-branch-${branchIndexFor(node)} level-${Math.min(6, Math.max(1, Number(node.level) || 1))}" style="${branchStyleFor(node)}" data-framework-parent="${esc(node.parentId || "")}" data-framework-child="${esc(node.id)}" d="M ${fishboneBranch.joinX} ${fishboneBranch.spineY} C ${fishboneBranch.joinX + 18} ${fishboneBranch.spineY}, ${to.x - 18} ${to.y + to.h / 2}, ${to.x} ${to.y + to.h / 2}" />`);
     });
   } else {
     // XMind 风格：一个父节点只引出一条主干，子节点从主干分叉，避免所有连接线直接挤在父节点上。
-    const children = new Map(nodes.map((node) => [node.id, []]));
-    nodes.forEach((node) => {
-      if (node.parentId && children.has(node.parentId)) children.get(node.parentId).push(node);
-    });
     nodes.forEach((parent) => {
-      const childList = children.get(parent.id) || [];
+      const childList = nodeChildren.get(parent.id) || [];
       if (!childList.length) return;
       const from = layout.positions.get(parent.id);
       const childPositions = childList.map((child) => ({ node: child, pos: layout.positions.get(child.id) })).filter((item) => item.pos);
@@ -1230,6 +1710,7 @@ function renderFrameworkMap() {
     return `<g class="framework-map-node ${levelClass} framework-branch-${branchIndex}${alignClass} ${isTask ? "is-task" : ""} ${node.is_document_title ? "is-document-title is-root" : "is-topic"}" style="--framework-branch-bg:${palette.bg};--framework-branch-fg:${palette.fg};--framework-branch-line:${palette.line};--framework-branch-light:${palette.light || palette.bg};--framework-branch-lighter:${palette.lighter || palette.light || palette.bg};--framework-shadow-color:${shadowColor};" data-framework-branch="${branchIndex}" data-framework-node="${esc(node.id)}" transform="translate(${pos.x} ${pos.y})">${shadowMarkup}<rect width="${pos.w}" height="${pos.h}" rx="0"></rect>${titleMarkup}${typeMarkup}${summaryMarkup}</g>`;
   }).join("");
   container.innerHTML = `<svg class="framework-map-svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="文档框架${state.frameworkLayout === "fishbone" ? "鱼骨图" : "脑图"}">${lines.join("")}${boxes}</svg>`;
+  updateFrameworkViewControls();
   if (shouldFit) {
     state.frameworkPan = { x: 0, y: 0, scale: 1 };
     state.frameworkNeedsFit = false;
@@ -1240,9 +1721,14 @@ function renderFrameworkMap() {
   container.querySelectorAll("[data-framework-node]").forEach((node) => {
     node.addEventListener("click", (event) => {
       clearTimeout(state.frameworkClickTimer);
+      const target = state.frameworkNodes.find((item) => item.id === node.dataset.frameworkNode);
+      if (!target || target.is_document_title) return;
+      // 单击先落地选中状态，双击判断只延迟“打开编辑器”这一步。
+      // 这样用户单击节点后立即点击顶部 Topic 编辑器按钮时，不会因为
+      // 220ms 的双击判定窗口而被误判为未选择节点。
+      state.frameworkTopicNode = target;
       state.frameworkClickTimer = setTimeout(() => {
-        const target = state.frameworkNodes.find((item) => item.id === node.dataset.frameworkNode);
-        if (target && !target.is_document_title) openFrameworkTopicEditor(target);
+        openFrameworkTopicEditor(target);
       }, 220);
     });
     node.addEventListener("dblclick", () => {
@@ -1285,7 +1771,7 @@ function frameworkPresentationSvgSize() {
 function fitFrameworkPresentation() {
   const { width, height } = frameworkPresentationViewport();
   const size = frameworkPresentationSvgSize();
-  const scale = Math.min(1.35, Math.max(.05, Math.min((width - 70) / size.width, (height - 70) / size.height)));
+  const scale = Math.min(1.35, Math.max(.08, Math.min((width - 70) / size.width, (height - 70) / size.height)));
   state.frameworkPresentationPan.scale = scale;
   state.frameworkPresentationPan.x = (width - size.width * scale) / 2;
   state.frameworkPresentationPan.y = (height - size.height * scale) / 2;
@@ -1297,7 +1783,7 @@ function setFrameworkPresentationScale(nextScale, screenX, screenY) {
   const pan = state.frameworkPresentationPan;
   const x = Math.min(width, Math.max(0, Number(screenX) || width / 2));
   const y = Math.min(height, Math.max(0, Number(screenY) || height / 2));
-  const scale = Math.min(2.8, Math.max(.2, nextScale));
+  const scale = Math.min(2.8, Math.max(.08, nextScale));
   const worldX = (x - pan.x) / pan.scale;
   const worldY = (y - pan.y) / pan.scale;
   pan.scale = scale;
@@ -1313,6 +1799,9 @@ function focusFrameworkPresentationNode(nodeId, animated = true) {
   const node = [...document.querySelectorAll("#framework-presentation-world [data-framework-node]")].find((element) => element.dataset.frameworkNode === nodeId);
   if (!node) return;
   const pan = state.frameworkPresentationPan;
+  // 大型框架整体适配时会得到较小缩放；演示聚焦节点时提升到可读比例，
+  // 避免节点虽然居中但文字仍然无法辨认。
+  if (pan.scale < .62) pan.scale = .62;
   const centerNodeInStage = () => {
     const stage = $("#framework-presentation-stage");
     if (!stage) return;
@@ -1471,8 +1960,13 @@ function handleFrameworkMarkdownInput() {
   if (!editor) return;
   state.frameworkNodes = parseFrameworkMarkdown(editor.value);
   $("#framework-line-count").textContent = `${editor.value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
+  const focusEditor = $("#framework-markdown-focus-editor");
+  if (focusEditor && document.activeElement !== focusEditor) focusEditor.value = editor.value;
+  updateFrameworkFocusLineCount();
+  renderFrameworkMarkdownFocusPreview();
   updateFrameworkStatus("有未保存修改", "is-dirty");
   renderFrameworkMap();
+  renderFrameworkOutlinePreview($("#framework-outline-preview"), editor.value);
   if (state.frameworkPresentationOpen) window.requestAnimationFrame(renderFrameworkPresentation);
   clearTimeout(state.frameworkDebounce);
   state.frameworkDebounce = setTimeout(() => saveFramework("autosave"), 900);
@@ -1481,19 +1975,28 @@ function handleFrameworkMarkdownInput() {
 async function loadProjectFramework(projectId) {
   if (!projectId) return;
   state.frameworkWorld = null;
+  state.frameworkPreviewNodeId = null;
   state.frameworkNeedsFit = true;
   state.frameworkPan = { x: 0, y: 0, scale: 1 };
   try {
     const data = await request(`/api/projects/${encodeURIComponent(projectId)}/framework`);
     state.currentFramework = data;
-    if (data.markdown) $("#framework-markdown").value = data.markdown;
-    else if (state.currentAnalysis?.topic_outline?.length) $("#framework-markdown").value = frameworkMarkdownFromOutline(state.currentAnalysis.topic_outline, state.selectedProject?.name || "文档");
+    // 切换项目时先清空旧项目内容，避免“没有框架的项目”沿用上一个项目的 Markdown。
+    // 已有保存框架优先；只有当前分析明确属于该项目时才使用分析结果兜底。
+    const projectAnalysis = state.currentAnalysis?.project_id === projectId ? state.currentAnalysis : null;
+    $("#framework-markdown").value = data.markdown || (projectAnalysis?.topic_outline?.length ? frameworkMarkdownFromOutline(projectAnalysis.topic_outline, state.selectedProject?.name || "文档") : "");
     state.frameworkLayout = data.layout || "mindmap";
     updateFrameworkLayoutControls();
     state.frameworkNodes = parseFrameworkMarkdown($("#framework-markdown").value);
     updateFrameworkStatus(data.markdown ? "已保存" : "未生成");
     renderFrameworkMap();
     $("#framework-line-count").textContent = `${$("#framework-markdown").value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
+    const focusEditor = $("#framework-markdown-focus-editor");
+    if (focusEditor) focusEditor.value = $("#framework-markdown").value;
+    updateFrameworkFocusLineCount();
+    renderFrameworkMarkdownFocusPreview();
+    renderFrameworkOutlinePreview($("#framework-outline-preview"), $("#framework-markdown").value);
+    updateFrameworkViewControls();
     if (data.supporting_analysis) renderAnalysisResult(data.supporting_analysis);
   } catch (error) {
     showMessage("#analysis-message", error.message, "error");
@@ -1535,6 +2038,11 @@ async function generateFrameworkWithAI(event) {
     state.frameworkNeedsFit = true;
     renderFrameworkMap();
     $("#framework-line-count").textContent = `${$("#framework-markdown").value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
+    const focusEditor = $("#framework-markdown-focus-editor");
+    if (focusEditor) focusEditor.value = $("#framework-markdown").value;
+    updateFrameworkFocusLineCount();
+    renderFrameworkMarkdownFocusPreview();
+    renderFrameworkOutlinePreview($("#framework-outline-preview"), $("#framework-markdown").value);
     updateFrameworkStatus("已生成，未保存修改", "is-dirty");
     renderAnalysisResult(state.currentAnalysis);
     showMessage("#analysis-message", "文档框架已生成，可直接编辑 Markdown 或切换图形布局。", "success");
@@ -1558,21 +2066,22 @@ function exportFrameworkMarkdown() {
   showMessage("#analysis-message", "Markdown 框架已下载。", "success");
 }
 
-function frameworkTopicPayload(node, prompt, skills) {
+function frameworkTopicPayload(node, prompt, skills, options = {}) {
   const summary = String(node?.summary || "").trim();
   return {
     topic_type: node?.topic_type === "task" ? "task" : "concept",
     title: String(node?.title || "").trim(),
     shortdesc: summary || `说明“${String(node?.title || "本章节").trim()}”相关内容。`,
-    brief: summary,
+    brief: options.brief ?? summary,
     chapter_summary: summary,
     generation_prompt: String(prompt || "").trim(),
     skills: skills || selectedSkillNames("#analysis-skill-options"),
+    inherit_project_skills: true,
     heading_level: Math.max(1, Math.min(3, Number(node?.level || 2) - 1)),
     framework_node_key: `line:${node?.lineIndex ?? ""}`,
-    material_ids: state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id),
-    include_image_placeholder: false,
-    include_ref_placeholder: false,
+    material_ids: options.materialIds ?? (state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id)),
+    include_image_placeholder: Boolean(options.includeImagePlaceholder),
+    include_ref_placeholder: Boolean(options.includeRefPlaceholder),
     ai_generate: true,
   };
 }
@@ -1591,34 +2100,106 @@ function renderFrameworkTopicResult(topic) {
 async function openFrameworkTopicEditor(node) {
   const projectId = $("#analysis-project")?.value || state.selectedProject?.id;
   if (!projectId || !node) return;
-  state.frameworkTopicNode = node;
+  const currentNode = state.frameworkNodes.find((item) => item.id === node.id) || node;
+  if (state.frameworkTopicLoading && state.frameworkTopicNode?.id === currentNode.id && state.frameworkTopicOpenPromise) {
+    return state.frameworkTopicOpenPromise;
+  }
+  const openToken = ++state.frameworkTopicOpenToken;
+  state.frameworkTopicNode = currentNode;
   state.frameworkTopic = null;
-  const existingData = await request(`/api/projects/${encodeURIComponent(projectId)}/topics`).catch(() => ({ topics: [] }));
-  const topic = (existingData.topics || []).find((item) => item.framework_node_key === `line:${node.lineIndex}`) || (existingData.topics || []).find((item) => item.title === node.title && item.topic_type === node.topic_type);
-  if (topic) state.frameworkTopic = topic;
-  $("#framework-topic-title").value = topic?.title || node.title;
-  $("#framework-topic-type").value = topic?.topic_type === "task" ? "task" : node.topic_type === "task" ? "task" : "concept";
-  $("#framework-topic-level").value = String(topic?.heading_level || Math.max(1, Math.min(3, node.level - 1)));
-  $("#framework-topic-summary").value = topic?.chapter_summary || topic?.shortdesc || node.summary || "";
-  $("#framework-topic-prompt").value = topic?.generation_prompt || $("#analysis-note")?.value || "";
-  $("#framework-topic-context").textContent = `来自框架第 ${node.level} 级节点 · ${state.projectMaterials.length} 份材料 · 可在生成前调整 Skill 和提示词。`;
-  renderSkillOptions("#framework-topic-skill-options");
-  renderFrameworkTopicResult(topic);
-  $("#framework-topic-message").textContent = "";
+  state.frameworkTopicDraftSkills = null;
+  state.frameworkPanel = "topic";
+  state.frameworkTopicLoading = true;
+  updateFrameworkPanelControls();
+  const project = state.selectedProject || state.projects.find((item) => item.id === projectId) || {};
   const dialog = $("#framework-topic-dialog");
+  // 先显示弹窗和当前节点的最小上下文，再等待已有 Topic 查询结果。
+  // 本地数据读取或磁盘较慢时，用户仍能立即看到点击已经生效。
+  $("#framework-topic-project-name").textContent = project.name || "当前项目";
+  $("#framework-topic-project-product").textContent = project.product || "未填写产品";
+  $("#framework-topic-project-version").textContent = project.version || "未填写版本";
+  $("#framework-topic-title").value = currentNode.title || "";
+  $("#framework-topic-type").value = currentNode.topic_type === "task" ? "task" : "concept";
+  $("#framework-topic-level").value = String(Math.max(1, Math.min(3, currentNode.level - 1)));
+  $("#framework-topic-summary").value = currentNode.summary || "";
+  $("#framework-topic-brief").value = currentNode.summary || "";
+  $("#framework-topic-prompt").value = $("#analysis-note")?.value || "";
+  $("#framework-topic-context").textContent = `正在读取“${currentNode.title}”的 Topic 数据…`;
+  $("#framework-topic-message").textContent = "正在读取已有 Topic…";
+  renderFrameworkTopicMaterialOptions(state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id));
+  renderSkillOptions("#framework-topic-skill-options");
+  renderFrameworkTopicResult(null);
+  dialog?.classList.remove("is-drawer");
   if (dialog && !dialog.open) dialog.showModal();
+  const task = (async () => {
+    const existingData = await request(`/api/projects/${encodeURIComponent(projectId)}/topics`).catch(() => ({ topics: [] }));
+    // 如果用户在请求返回前切换了节点，旧请求只做清理，不得覆盖新节点。
+    if (openToken !== state.frameworkTopicOpenToken || state.frameworkTopicNode?.id !== currentNode.id) return;
+    const topic = (existingData.topics || []).find((item) => item.framework_node_key === `line:${currentNode.lineIndex}`) || (existingData.topics || []).find((item) => item.title === currentNode.title && item.topic_type === currentNode.topic_type);
+    if (topic) state.frameworkTopic = topic;
+    $("#framework-topic-title").value = topic?.title || currentNode.title;
+    $("#framework-topic-type").value = topic?.topic_type === "task" ? "task" : currentNode.topic_type === "task" ? "task" : "concept";
+    $("#framework-topic-level").value = String(topic?.heading_level || Math.max(1, Math.min(3, currentNode.level - 1)));
+    $("#framework-topic-summary").value = topic?.chapter_summary || topic?.shortdesc || currentNode.summary || "";
+    $("#framework-topic-brief").value = topic?.brief || topic?.chapter_summary || currentNode.summary || "";
+    $("#framework-topic-prompt").value = topic?.generation_prompt || $("#analysis-note")?.value || "";
+    $("#framework-topic-context").textContent = `来自框架第 ${currentNode.level} 级节点 · ${state.projectMaterials.length} 份材料 · 可在生成前调整 Skill 和提示词。`;
+    renderFrameworkTopicMaterialOptions(topic?.material_ids ?? state.currentFramework?.material_ids ?? state.projectMaterials.map((item) => item.id));
+    $("#framework-topic-image-placeholder").checked = Boolean(topic?.include_image_placeholder);
+    $("#framework-topic-ref-placeholder").checked = Boolean(topic?.include_ref_placeholder);
+    renderSkillOptions("#framework-topic-skill-options");
+    renderFrameworkTopicResult(topic);
+    $("#framework-topic-message").textContent = "";
+  })();
+  state.frameworkTopicOpenPromise = task;
+  try {
+    await task;
+  } finally {
+    if (openToken === state.frameworkTopicOpenToken) {
+      state.frameworkTopicLoading = false;
+      state.frameworkTopicOpenPromise = null;
+      updateFrameworkPanelControls();
+    }
+  }
 }
 
 function frameworkTopicDialogPayload() {
   const node = state.frameworkTopicNode || {};
   const summary = $("#framework-topic-summary")?.value.trim() || "";
+  const brief = $("#framework-topic-brief")?.value.trim() || "";
+  const materialIds = [...($("#framework-topic-materials")?.selectedOptions || [])].map((option) => option.value);
   return {
-    ...frameworkTopicPayload({ ...node, title: $("#framework-topic-title").value.trim(), topic_type: $("#framework-topic-type").value, level: Number($("#framework-topic-level").value) + 1, summary }, $("#framework-topic-prompt").value, selectedSkillNames("#framework-topic-skill-options")),
+    ...frameworkTopicPayload({ ...node, title: $("#framework-topic-title").value.trim(), topic_type: $("#framework-topic-type").value, level: Number($("#framework-topic-level").value) + 1, summary }, $("#framework-topic-prompt").value, selectedSkillNames("#framework-topic-skill-options"), {
+      brief: brief || summary,
+      materialIds,
+      includeImagePlaceholder: $("#framework-topic-image-placeholder")?.checked,
+      includeRefPlaceholder: $("#framework-topic-ref-placeholder")?.checked,
+    }),
     title: $("#framework-topic-title").value.trim(),
     shortdesc: summary || `说明“${$("#framework-topic-title").value.trim()}”相关内容。`,
     chapter_summary: summary,
     heading_level: Number($("#framework-topic-level").value) || 1,
+    inherit_project_skills: skillInheritanceEnabled("#framework-topic-skill-options"),
   };
+}
+
+function clearFrameworkTopicForm() {
+  const node = state.frameworkTopicNode;
+  if (!node) return;
+  state.frameworkTopic = null;
+  state.frameworkTopicDraftSkills = null;
+  $("#framework-topic-title").value = "";
+  $("#framework-topic-summary").value = "";
+  $("#framework-topic-brief").value = "";
+  $("#framework-topic-prompt").value = "";
+  $("#framework-topic-image-placeholder").checked = false;
+  $("#framework-topic-ref-placeholder").checked = false;
+  const materials = $("#framework-topic-materials");
+  if (materials) [...materials.options].forEach((option) => { option.selected = false; });
+  $("#framework-topic-xml").value = "";
+  renderFrameworkTopicResult(null);
+  renderSkillOptions("#framework-topic-skill-options");
+  showMessage("#framework-topic-message", "已清空本次 Topic 输入和 XML，可重新填写。", "success");
 }
 
 async function generateFrameworkTopic(forceRegenerate = false) {
@@ -1819,7 +2400,7 @@ function renderSkillList() {
   }
   list.innerHTML = state.skills.map((skill) => `
     <button type="button" class="skill-list-item ${state.currentSkillId === skill.id ? "is-selected" : ""}" data-skill-id="${escapeHtml(skill.id)}">
-      <span class="skill-list-mark ${skill.required ? "is-required" : ""}">${skill.required ? "✓" : "◆"}</span><span class="skill-list-copy"><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || "未填写描述")}</small></span><span class="skill-list-state">${skill.required ? "必选" : skill.enabled ? "启用" : "停用"}</span>
+      <span class="skill-list-mark ${skill.required ? "is-required" : ""}">${skill.required ? "✓" : "◆"}</span><span class="skill-list-copy"><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || "未填写描述")}</small></span><span class="skill-list-state">${skill.required ? "必选" : skill.source === "builtin" ? (skill.enabled ? "内置 · 启用" : "内置 · 停用") : skill.enabled ? "启用" : "停用"}</span>
     </button>
   `).join("");
   list.querySelectorAll("[data-skill-id]").forEach((node) => node.addEventListener("click", () => editSkill(node.dataset.skillId)));
@@ -1906,13 +2487,14 @@ function editSkill(skillId) {
   $("#skill-content").value = skill.content || "";
   state.skillAttachments = (skill.attachments || []).map((item) => ({ ...item }));
   $("#skill-enabled").checked = skill.enabled !== false;
-  $("#skill-editor-title").textContent = skill.required ? "HIK Writing Skill" : "编辑 Skill";
-  $("#skill-name").disabled = Boolean(skill.required);
-  $("#skill-description").disabled = Boolean(skill.required);
-  $("#skill-content").readOnly = Boolean(skill.required);
+  $("#skill-editor-title").textContent = skill.source === "builtin" ? skill.name : "编辑 Skill";
+  // 内置 Skill 的名称和必选状态固定，但内容、说明和附件可以由用户维护。
+  $("#skill-name").disabled = skill.source === "builtin";
+  $("#skill-description").disabled = false;
+  $("#skill-content").readOnly = false;
   $("#skill-enabled").disabled = Boolean(skill.required);
-  $("#delete-skill-button").disabled = Boolean(skill.required);
-  $("#save-skill-button").disabled = Boolean(skill.required);
+  $("#delete-skill-button").disabled = skill.source === "builtin";
+  $("#save-skill-button").disabled = false;
   renderSkillAttachments();
   renderSkillList();
 }
@@ -2041,11 +2623,14 @@ function renderValidation(validation, reportSelector = "#topic-validation", badg
 
 function renderTopicResult(topic) {
   state.currentTopic = topic;
+  state.topicInheritProjectSkills = topic?.inherit_project_skills !== false;
   $("#topic-xml").value = topic.xml || "";
   const sourceLabel = topic.generation_source === "ai" ? `AI 生成${topic.generation_model ? ` · ${topic.generation_model}` : ""}` : "本地模板";
-  $("#topic-meta").textContent = `${topic.title} · ${topic.topic_type === "task" ? "Task" : topic.topic_type === "appendix" ? "附录类 Concept" : "Concept"} · ${sourceLabel} · 已保存到当前项目`;
+  const skillLabel = (topic.skills || []).join(" → ");
+  $("#topic-meta").textContent = `${topic.title} · ${topic.topic_type === "task" ? "Task" : topic.topic_type === "appendix" ? "附录类 Concept" : "Concept"} · ${sourceLabel} · Skill：${skillLabel || "HIK Writing Skill"} · ${topic.inherit_project_skills === false ? "独立配置" : "继承项目"}`;
   $("#save-topic-xml").disabled = false;
   renderValidation(topic.validation);
+  renderSkillOptions();
 }
 
 function renderExpandedTopic(topic) {
@@ -2116,6 +2701,7 @@ async function submitTopic(mode) {
       skills: selectedSkillNames(),
       heading_level: Number($("#topic-heading-level").value) || 1,
       material_ids: [...($("#topic-materials")?.selectedOptions || [])].map((option) => option.value),
+      inherit_project_skills: skillInheritanceEnabled(),
       include_image_placeholder: $("#topic-image-placeholder").checked,
       include_ref_placeholder: $("#topic-ref-placeholder").checked,
       ai_generate: mode === "ai",
@@ -2182,6 +2768,8 @@ function clearTopicForm() {
   $("#topic-form").reset();
   $("#topic-project").value = state.selectedProject?.id || "";
   state.currentTopic = null;
+  state.topicInheritProjectSkills = true;
+  state.topicDraftSkills = null;
   $("#topic-xml").value = "";
   $("#topic-meta").textContent = "生成后可直接编辑 XML，并保存到当前项目的 topics 目录。";
   $("#save-topic-xml").disabled = true;
@@ -2252,8 +2840,8 @@ async function createProject(event) {
         description: $("#project-description").value.trim(),
         mode: $("#project-mode").value,
         base_project_id: $("#project-base-project").value,
-        reference_project_ids: [...($("#project-reference-projects")?.selectedOptions || [])].map((option) => option.value),
-        skills: ["HIK Writing Skill", ...splitInput("#project-skills")],
+        reference_project_ids: checkedReferenceProjectIds("#project-reference-projects"),
+        skills: ["HIK Writing Skill", "HIK DITA Rule", ...splitInput("#project-skills")],
         cover: state.coverSelection || { type: "asset", file: editorialAssets[0]?.file },
       }),
     });
@@ -2306,6 +2894,7 @@ async function boot() {
     applyFrameworkTheme(event.target.value);
   });
   $("#new-project-button").addEventListener("click", openDialog);
+  $("#analysis-back-button")?.addEventListener("click", () => showView("projects-view"));
   document.querySelectorAll("[data-mode-filter]").forEach((card) => {
     const applyModeFilter = () => {
       const mode = card.dataset.modeFilter || "new";
@@ -2352,6 +2941,32 @@ async function boot() {
     await Promise.all([loadProjectMaterials(projectId), loadProjectAnalysis(projectId), loadProjectFramework(projectId)]);
   });
   $("#framework-markdown")?.addEventListener("input", handleFrameworkMarkdownInput);
+  $("#framework-markdown")?.addEventListener("click", (event) => syncFrameworkPreviewSelectionFromEditor(event.currentTarget));
+  $("#framework-markdown")?.addEventListener("keyup", (event) => syncFrameworkPreviewSelectionFromEditor(event.currentTarget));
+  $("#framework-markdown")?.addEventListener("paste", handleFrameworkMarkdownPaste);
+  $("#framework-markdown-paste")?.addEventListener("click", () => pasteFrameworkFromClipboard($("#framework-markdown")));
+  $("#framework-markdown-preview")?.addEventListener("click", () => {
+    setFrameworkPanel("map");
+    setFrameworkView("outline");
+  });
+  document.querySelectorAll("[data-framework-view]").forEach((button) => button.addEventListener("click", () => setFrameworkView(button.dataset.frameworkView)));
+  $("#framework-markdown-fullscreen")?.addEventListener("click", openFrameworkMarkdownFullscreen);
+  $("#framework-markdown-focus-close")?.addEventListener("click", closeFrameworkMarkdownFullscreen);
+  $("#framework-markdown-focus-paste")?.addEventListener("click", () => pasteFrameworkFromClipboard($("#framework-markdown-focus-editor")));
+  $("#framework-markdown-focus-editor")?.addEventListener("input", (event) => {
+    const mainEditor = $("#framework-markdown");
+    if (mainEditor && mainEditor.value !== event.currentTarget.value) mainEditor.value = event.currentTarget.value;
+    handleFrameworkMarkdownInput();
+  });
+  $("#framework-markdown-focus-editor")?.addEventListener("click", (event) => syncFrameworkPreviewSelectionFromEditor(event.currentTarget));
+  $("#framework-markdown-focus-editor")?.addEventListener("keyup", (event) => syncFrameworkPreviewSelectionFromEditor(event.currentTarget));
+  $("#framework-markdown-focus-editor")?.addEventListener("paste", handleFrameworkMarkdownPaste);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && $("#framework-markdown-focus")?.classList.contains("is-open")) {
+      event.preventDefault();
+      closeFrameworkMarkdownFullscreen();
+    }
+  });
   $("#regenerate-framework-button")?.addEventListener("click", () => generateFrameworkWithAI());
   $("#batch-generate-topics-button")?.addEventListener("click", batchGenerateFrameworkTopics);
   $("#save-framework-button")?.addEventListener("click", () => saveFramework("manual"));
@@ -2391,12 +3006,19 @@ async function boot() {
   $("#framework-map-fit")?.addEventListener("click", fitFrameworkMap);
   $("#framework-summary-toggle")?.addEventListener("click", toggleFrameworkSummaries);
   $("#framework-map-fullscreen")?.addEventListener("click", toggleFrameworkFullscreen);
+  $("#framework-toggle-map")?.addEventListener("click", () => {
+    setFrameworkPanel(state.frameworkPanel === "map" ? "none" : "map");
+  });
+  $("#framework-toggle-topic")?.addEventListener("click", () => toggleFrameworkTopicPanel());
   setupFrameworkPresentation();
   document.addEventListener("fullscreenchange", () => {
     updateFrameworkFullscreenLabel();
     window.setTimeout(() => { if (state.frameworkWorld) fitFrameworkMap(); }, 80);
   });
   setupFrameworkMapGestures();
+  setupFrameworkMapResizeObserver();
+  updateFrameworkViewControls();
+  updateFrameworkPanelControls();
   $("#topic-form").addEventListener("submit", createTopic);
   $("#template-generate-topic").addEventListener("click", generateTemplateTopic);
   $("#topic-type").addEventListener("change", toggleTopicFields);
@@ -2413,6 +3035,18 @@ async function boot() {
   $("#save-topic-xml").addEventListener("click", saveTopicXml);
   $("#framework-topic-form")?.addEventListener("submit", (event) => { event.preventDefault(); generateFrameworkTopic(false); });
   $("#close-framework-topic-dialog")?.addEventListener("click", () => $("#framework-topic-dialog")?.close());
+  $("#framework-topic-dialog")?.addEventListener("close", () => {
+    const dialog = $("#framework-topic-dialog");
+    dialog?.classList.remove("is-drawer");
+    // 关闭时使未完成的读取请求失效，避免旧请求完成后把 loading 状态
+    // 留在界面上，导致下一次打开被误判为“仍在加载”。
+    state.frameworkTopicOpenToken += 1;
+    state.frameworkTopicLoading = false;
+    state.frameworkTopicOpenPromise = null;
+    state.frameworkPanel = "none";
+    updateFrameworkPanelControls();
+  });
+  $("#clear-framework-topic-form")?.addEventListener("click", clearFrameworkTopicForm);
   $("#regenerate-framework-topic")?.addEventListener("click", () => generateFrameworkTopic(true));
   $("#save-framework-topic-xml")?.addEventListener("click", saveFrameworkTopicXml);
   $("#copy-framework-topic-xml")?.addEventListener("click", copyFrameworkTopicXml);
@@ -2424,6 +3058,21 @@ async function boot() {
   $("#skill-form").addEventListener("submit", saveSkill);
   $("#skill-import-file").addEventListener("change", importSkillFile);
   $("#skill-attachment-files").addEventListener("change", handleSkillAttachments);
+  document.addEventListener("change", (event) => {
+    const inheritInput = event.target.closest?.("input[data-skill-inherit]");
+    if (!inheritInput) return;
+    const container = inheritInput.closest(".skill-options");
+    const selector = container?.id ? `#${container.id}` : "";
+    if (!selector) return;
+    const selected = selectedSkillNames(selector);
+    if (selector === "#topic-skill-options") {
+      state.topicInheritProjectSkills = inheritInput.checked;
+      state.topicDraftSkills = selected;
+    } else if (selector === "#framework-topic-skill-options") {
+      state.frameworkTopicDraftSkills = selected;
+    }
+    renderSkillOptions(selector);
+  });
   $("#cancel-skill-edit").addEventListener("click", resetSkillEditor);
   $("#delete-skill-button").addEventListener("click", deleteCurrentSkill);
   $("#settings-form").addEventListener("submit", saveSettings);

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10100f">
+  <link rel="icon" type="image/png" href="/static/assets/alchemy-furnace-pixel.png">
+  <title>炼金炉 · Archive Workbench Demo</title>
+  <link rel="stylesheet" href="/static/main-demo.css?v=20260922-archive">
+</head>
+<body>
+<div class="archive-app" id="archive-app">
+  <div class="archive-grain" aria-hidden="true"></div>
+  <header class="archive-topbar">
+    <a class="archive-brand" href="/" aria-label="返回炼金炉"><span class="brand-seal"><span>AL</span><i></i></span><span><b data-edit="brand">炼金炉</b><small>HIK DOCUMENT ARCHIVE / 0.3</small></span></a>
+    <div class="archive-command"><span class="command-mark">FIELD NOTE</span><span class="command-slash">/</span><span data-edit="caseName">产品文档开发档案</span></div>
+    <div class="archive-top-actions"><span class="secure-state"><i></i> LOCAL / SECURE</span><button class="top-action" id="reset-demo" title="恢复示例内容">RESET</button><a class="back-link" href="/">正式工作台 ↗</a></div>
+  </header>
+  <div class="archive-layout">
+    <aside class="archive-rail">
+      <div class="rail-heading"><span>ARCHIVE INDEX</span><b>01—05</b></div>
+      <nav class="archive-nav" aria-label="设计稿页面导航">
+        <button class="archive-nav-item is-active" data-view="projects-view"><span class="nav-number">01</span><span><b>研究总览</b><small>PROJECT REGISTER</small></span><i>↗</i></button>
+        <button class="archive-nav-item" data-view="analysis-view"><span class="nav-number">02</span><span><b>需求分析</b><small>FRAMEWORK STUDIO</small></span><i>↗</i></button>
+        <button class="archive-nav-item" data-view="topic-view"><span class="nav-number">03</span><span><b>Topic 工作台</b><small>XML SPECIMEN</small></span><i>↗</i></button>
+        <button class="archive-nav-item" data-view="skills-view"><span class="nav-number">04</span><span><b>Skill 资料库</b><small>RULES &amp; EVIDENCE</small></span><i>↗</i></button>
+        <button class="archive-nav-item" data-view="settings-view"><span class="nav-number">05</span><span><b>AI 连接</b><small>PROVIDER ROUTE</small></span><i>↗</i></button>
+      </nav>
+      <div class="rail-diagram" aria-hidden="true"><div class="rail-orbit orbit-a"></div><div class="rail-orbit orbit-b"></div><span class="rail-cross">✦</span><span class="rail-coordinate">N 31°14′<br>E 121°28′</span></div>
+      <div class="rail-footer"><span><i class="status-light"></i> ACTIVE DOSSIER</span><small>TEXT IS EDITABLE<br>DRAFT SAVED LOCALLY</small></div>
+    </aside>
+    <main class="archive-main">
+      <div class="archive-view-stack">
+        <section id="projects-view" class="archive-view is-visible" data-view-panel>
+          <div class="view-topline"><span>CASE FILE / 001</span><span>REV. 03 · 22 SEP 2026</span><span>CLASSIFICATION: INTERNAL</span></div>
+          <div class="dossier-hero">
+            <div class="dossier-copy"><p class="archive-kicker" data-edit="projectsKicker">// OPERATING MODEL / DOCUMENT ALCHEMY</p><h1 data-edit="projectsTitle">把需求投进档案，<br><em>炼出可交付的结构。</em></h1><p class="dossier-lede" data-edit="projectsCopy">从原始材料、写作规范到 Topic XML，所有证据都在同一份本地档案里留下痕迹。选择模式，开始一次新的文档实验。</p><div class="dossier-actions"><button class="archive-button button-yellow" data-demo-action="create">＋ 新建项目 <span>→</span></button><button class="text-link" data-demo-action="open-analysis">打开需求分析 <span>↗</span></button></div></div>
+            <div class="engraving-hero" aria-label="炼金炉技术线稿插图"><div class="engraving-label label-top">FIG. 01 / ALCHEMICAL ENGINE</div><div class="engraving-crosshair crosshair-one"></div><div class="engraving-crosshair crosshair-two"></div><svg viewBox="0 0 420 370" role="img" aria-label="带轨道和测量标记的炼金炉铜版线稿"><defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(25)"><line x1="0" y1="0" x2="0" y2="8" stroke="#10100f" stroke-width="1" opacity=".55"/></pattern><pattern id="fineHatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#10100f" stroke-width=".65" opacity=".4"/></pattern></defs><g class="engraving-lines"><ellipse cx="220" cy="185" rx="164" ry="82" transform="rotate(-20 220 185)"/><ellipse cx="220" cy="185" rx="132" ry="188" transform="rotate(24 220 185)"/><circle cx="220" cy="184" r="114"/><circle cx="220" cy="184" r="68" stroke-dasharray="3 5"/><path d="M104 247h231M125 267h189M155 287h132M192 88v-31h57v31M220 57v-21M183 67h79"/><path d="M161 144c7-24 39-39 59-40 28-2 58 15 68 42v107c-14 27-44 43-76 43s-61-16-76-43z"/><path d="M145 205c17-12 42-17 75-17 37 0 64 6 82 18M146 219c20-10 42-14 74-14 34 0 61 5 80 15"/><path d="M190 235c9-28 48-28 58 0v34h-58z" fill="url(#hatch)"/><path d="M198 248c12-17 29-17 42 0M164 166c-22-15-38-15-52-5l-16 18 20 17M277 166c23-16 43-13 60 0l13 15-20 17M126 178c-9 13-8 34 4 45M312 178c10 15 8 34-4 46M183 122c16 10 57 11 76 0M175 136c25 14 71 14 90 0"/><path d="M190 88c2 16 57 16 60 0" fill="url(#fineHatch)"/><path d="M42 274h31M49 281h18M370 274h31M376 281h18"/></g><g class="engraving-fill"><path d="M161 144c7-24 39-39 59-40 28-2 58 15 68 42v107c-14 27-44 43-76 43s-61-16-76-43z" fill="url(#fineHatch)"/><path d="M190 235c9-28 48-28 58 0v34h-58z" fill="url(#hatch)"/></g><g class="engraving-accent"><circle cx="220" cy="184" r="7"/><path d="M62 184h26M352 184h26M220 23v22M220 326v22"/><text x="217" y="17">N</text><text x="382" y="188">E</text></g></svg><div class="engraving-label label-bottom">SPECIMEN / LOCAL MATERIAL → XML</div></div>
+          </div>
+          <div class="archive-metrics"><div><span>PROJECTS</span><strong>03</strong><small>ACTIVE DOSSIERS</small></div><div><span>TOPICS</span><strong class="accent-blue">126</strong><small>STRUCTURED UNITS</small></div><div><span>SKILLS</span><strong>04</strong><small>RULE SETS LOADED</small></div><div><span>GUID POLICY</span><strong class="accent-red">OFF</strong><small>PLACEHOLDER MODE</small></div></div>
+          <section class="register-section"><div class="section-heading"><div><p class="archive-kicker">REGISTRY / PROJECT MODES</p><h2 data-edit="registerTitle">三种方式，进入同一份档案。</h2></div><span class="annotation">SELECT A ROUTE <b>→</b></span></div><div class="mode-register"><article class="register-card register-new"><span class="card-stamp">01 / FROM ZERO</span><div class="card-glyph glyph-new">✦</div><h3 data-edit="newTitle">全新开发</h3><p data-edit="newCopy">从需求材料建立框架，逐 Topic 生成第一版 XML。</p><button data-demo-action="create">打开路线 <span>↗</span></button></article><article class="register-card register-update"><span class="card-stamp">02 / UPDATE FILE</span><div class="card-glyph glyph-update">◌</div><h3 data-edit="updateTitle">版本更新</h3><p data-edit="updateCopy">导入上版本框架，让 AI 标记新增、变更和待确认内容。</p><button data-demo-action="open-analysis">打开路线 <span>↗</span></button></article><article class="register-card register-refine"><span class="card-stamp">03 / REFINE TOPIC</span><div class="card-glyph glyph-refine">⌁</div><h3 data-edit="refineTitle">Topic 优化</h3><p data-edit="refineCopy">以既有 XML 为底稿，带着优化方向重新生成。</p><button data-demo-action="open-topic">打开路线 <span>↗</span></button></article></div></section>
+          <section class="evidence-strip"><div class="evidence-intro"><p class="archive-kicker">EVIDENCE WALL / LOCAL ASSETS</p><h2 data-edit="evidenceTitle">素材不是附件，<br><em>它们是证据。</em></h2><p data-edit="evidenceCopy">每一份材料、Skill 和定稿 XML 都可回溯、复用、对比。</p></div><div class="evidence-plates"><article class="evidence-plate plate-paper"><div class="plate-art"><span>REQ / 001</span><i></i><b>WORD<br>PDF</b></div><strong contenteditable="true" data-editable-content="plateOne">需求材料</strong><small>SOURCE EVIDENCE</small></article><article class="evidence-plate plate-sphere"><div class="plate-art"><span>RULE / 002</span><i></i><b>HIK<br>STYLE</b></div><strong contenteditable="true" data-editable-content="plateTwo">Skill 规则</strong><small>STYLE EVIDENCE</small></article><article class="evidence-plate plate-xml"><div class="plate-art"><span>OUT / 003</span><i></i><b>XML<br>TODO</b></div><strong contenteditable="true" data-editable-content="plateThree">Topic XML</strong><small>OUTPUT EVIDENCE</small></article></div></section>
+        </section>
+
+        <section id="analysis-view" class="archive-view" data-view-panel>
+          <div class="view-topline"><span>CASE FILE / 001 — ANALYSIS</span><span>FRAMEWORK STUDIO / LIVE</span><span>WINDOW 02</span></div>
+          <div class="tab-heading"><div><p class="archive-kicker" data-edit="analysisKicker">// FRAMEWORK STUDIO / EVIDENCE FIRST</p><h1 data-edit="analysisTitle">把材料，编成一份<br><em>可编辑的结构图。</em></h1></div><div class="tab-heading-note"><span class="red-mark">●</span><b>ACTIVE ANALYSIS</b><small>Markdown is the source of truth.</small></div></div>
+          <div class="command-deck"><div class="deck-field"><span>PROJECT</span><strong contenteditable="true" data-editable-content="analysisProject">伺服驱动器用户手册</strong></div><div class="deck-field"><span>MATERIALS</span><strong>03 SOURCES</strong><small>Word · PDF · MD</small></div><div class="deck-field"><span>SKILLS</span><strong>02 LOADED</strong><small>HIK Writing · DITA</small></div><button class="archive-button button-blue" data-demo-action="toast">生成框架 <span>→</span></button><button class="deck-action" data-demo-action="toast">重新生成</button></div>
+          <div class="analysis-window window-frame"><div class="window-bar"><div class="window-dots"><i></i><i></i><i></i></div><span>FRAMEWORK / MARKDOWN + MAP</span><div class="window-tools"><button class="window-tool is-active" data-panel-mode="markdown">MARKDOWN</button><button class="window-tool" data-panel-mode="map">MIND MAP</button><button class="window-tool" data-panel-mode="outline">OUTLINE</button></div></div><div class="analysis-window-body"><section class="markdown-pane"><div class="pane-label"><span>MARKDOWN EDITOR</span><small>12 LINES · AUTO-SAVED</small></div><textarea id="demo-markdown" spellcheck="false"># 伺服驱动器用户手册
+
+## 产品概述
+
+> 介绍产品定位、适用范围和主要功能。
+
+## 开始使用
+
+### 创建工程 [task]
+
+> 指导用户完成工程创建和基础配置。
+
+### 配置设备 [task]
+
+> 设置设备参数并确认通信状态。</textarea><div class="editor-foot"><span>⌘ + S 保存草稿</span><span>点击右侧节点定位章节</span></div></section><section class="map-pane" data-panel-content="map"><div class="pane-label"><span>FRAMEWORK MAP / ORBITAL PLOT</span><small>DRAG · ZOOM · SELECT</small></div><div class="framework-map-art"><div class="map-radar"><span class="radar-cross"></span><i class="radar-orbit orbit-one"></i><i class="radar-orbit orbit-two"></i><i class="radar-orbit orbit-three"></i><b class="map-node node-root">产品<br>手册</b><b class="map-node node-one">产品<br>概述</b><b class="map-node node-two">开始<br>使用</b><b class="map-node node-three">配置<br>设备</b><b class="map-node node-four">故障<br>排查</b><span class="map-axis axis-x">X / TOPIC DEPTH</span><span class="map-axis axis-y">Y / EVIDENCE DENSITY</span></div></div></section><section class="outline-pane" data-panel-content="outline"><div class="pane-label"><span>CHAPTER PREVIEW</span><small>04 SECTIONS</small></div><div class="outline-list"><button><b>01</b><span>产品概述</span><small>CONCEPT</small></button><button><b>02</b><span>开始使用</span><small>CONCEPT</small></button><button><b>02.1</b><span>创建工程</span><small>TASK</small></button><button><b>02.2</b><span>配置设备</span><small>TASK</small></button></div></section></div><div class="window-status"><span><i></i> FRAMEWORK UPDATED</span><span>HIK WRITING REQUIRED · TODO_REF MODE</span></div></div>
+        </section>
+
+        <section id="topic-view" class="archive-view" data-view-panel>
+          <div class="view-topline"><span>CASE FILE / 001 — TOPIC</span><span>XML SPECIMEN / EDITABLE</span><span>WINDOW 03</span></div>
+          <div class="tab-heading"><div><p class="archive-kicker" data-edit="topicKicker">// TOPIC WORKBENCH / XML SPECIMEN</p><h1 data-edit="topicTitle">从章节，炼出一个<br><em>可以交付的 Topic。</em></h1></div><div class="tab-heading-note"><span class="blue-mark">＋</span><b>NO GUID OUTPUT</b><small>Manual placeholders stay visible.</small></div></div>
+          <div class="topic-window window-frame"><div class="window-bar"><div class="window-dots"><i></i><i></i><i></i></div><span>TOPIC / 02.1 CREATE PROJECT</span><div class="window-tools"><button class="window-tool is-active">CONCEPT</button><button class="window-tool">TASK</button><button class="window-tool" data-demo-action="toast">COPY XML</button></div></div><div class="topic-window-body"><aside class="topic-tree-pane"><div class="pane-label"><span>TOPIC TREE</span><small>DRAG TO RESTRUCTURE</small></div><button class="topic-tree-row is-selected"><b>02.1</b><span>创建工程</span><i>●</i></button><button class="topic-tree-row"><b>02.2</b><span>配置设备</span><i></i></button><button class="topic-tree-row"><b>02.3</b><span>查看状态</span><i></i></button><button class="topic-tree-row"><b>03</b><span>故障排查</span><i></i></button><div class="tree-annotation">点击标题展开 XML<br>拖拽调整层级关系</div></aside><section class="xml-pane"><div class="pane-label"><span>XML CODE / LIVE EDITOR</span><small>DITA CONCEPT · 38 LINES</small></div><textarea class="xml-editor" spellcheck="false">&lt;concept id="TODO_REF"&gt;
+  &lt;title&gt;创建工程&lt;/title&gt;
+  &lt;shortdesc&gt;指导用户完成工程创建。&lt;/shortdesc&gt;
+  &lt;conbody&gt;
+    &lt;p&gt;在主界面中，选择 &lt;uicontrol&gt;新建工程&lt;/uicontrol&gt;。&lt;/p&gt;
+    &lt;ol&gt;
+      &lt;li&gt;输入工程名称。&lt;/li&gt;
+      &lt;li&gt;选择设备型号。&lt;/li&gt;
+      &lt;li&gt;单击&lt;uicontrol&gt;确定&lt;/uicontrol&gt;。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;fig&gt;
+      &lt;title&gt;新建工程窗口&lt;/title&gt;
+      &lt;image href="TODO_IMAGE" /&gt;
+    &lt;/fig&gt;
+  &lt;/conbody&gt;
+&lt;/concept&gt;</textarea><div class="xml-foot"><span>PLACEHOLDER REPORT <b>TODO_REF · TODO_IMAGE</b></span><button class="archive-button button-yellow" data-demo-action="toast">重新生成 <span>↻</span></button><button class="deck-action" data-demo-action="toast">下载 / XML</button></div></section></div></div>
+          <div class="topic-review-strip"><div><span>GENERATED FROM</span><strong>章节概述 + 2 Skills + 3 素材</strong></div><div><span>HUMAN REVIEW</span><strong>待检查 02 项</strong></div><div><span>LAST VERSION</span><strong>v0.3 / 12 min ago</strong></div></div>
+        </section>
+
+        <section id="skills-view" class="archive-view" data-view-panel>
+          <div class="view-topline"><span>CASE FILE / 001 — SKILLS</span><span>RULES &amp; EVIDENCE / LOCAL</span><span>WINDOW 04</span></div>
+          <div class="tab-heading"><div><p class="archive-kicker" data-edit="skillsKicker">// SKILL REGISTRY / LOCAL KNOWLEDGE</p><h1 data-edit="skillsTitle">让每一条规则，<br><em>都有自己的档案卡。</em></h1></div><div class="tab-heading-note"><span class="yellow-mark">✦</span><b>04 SKILLS LOADED</b><small>Attachments become evidence.</small></div></div>
+          <div class="skills-window window-frame"><div class="window-bar"><div class="window-dots"><i></i><i></i><i></i></div><span>SKILL REGISTRY / VERSIONED</span><div class="window-tools"><button class="window-tool" data-demo-action="toast">＋ IMPORT SKILL</button><button class="window-tool is-active">LOCAL ONLY</button></div></div><div class="skills-window-body"><aside class="skill-list-pane"><div class="pane-label"><span>AVAILABLE SKILLS</span><small>04 RECORDS</small></div><button class="skill-record is-selected"><b>01</b><span><strong>HIK Writing Skill</strong><small>REQUIRED / EDITABLE</small></span><i>●</i></button><button class="skill-record"><b>02</b><span><strong>HIK DITA Rule</strong><small>STRUCTURE / XML</small></span><i></i></button><button class="skill-record"><b>03</b><span><strong>产品术语 Skill</strong><small>PROJECT / INHERITED</small></span><i></i></button><button class="skill-record"><b>04</b><span><strong>故障排查语气</strong><small>TOPIC / OPTIONAL</small></span><i></i></button></aside><section class="skill-sheet"><div class="sheet-stamp">REQUIRED</div><div class="pane-label"><span>SKILL SHEET / 01</span><small>UPDATED 22 SEP 2026 · v1.4</small></div><h2 contenteditable="true" data-editable-content="skillName">HIK Writing Skill</h2><p contenteditable="true" data-editable-content="skillDescription">海康机器人中文技术文档写作规范。控制标题、短描述、操作步骤、术语和审校边界。</p><div class="skill-rule-grid"><div><span>APPLIES TO</span><strong>ANALYSIS + TOPIC</strong></div><div><span>PRIORITY</span><strong class="red-ink">REQUIRED</strong></div><div><span>ATTACHMENTS</span><strong>02 FILES</strong></div></div><div class="attachment-shelf"><div class="attachment-heading"><span>ATTACHMENT EVIDENCE</span><button class="deck-action" data-demo-action="toast">＋ ADD FILE</button></div><article><b>PDF</b><span>HIK_写作规范_v1.4.pdf<small>2.4 MB · LOCAL</small></span><i>↗</i></article><article><b>MD</b><span>writing-style-examples.md<small>18 KB · LOCAL</small></span><i>↗</i></article></div><div class="skill-actions"><button class="archive-button button-yellow" data-demo-action="toast">保存 Skill <span>→</span></button><span>HIK Writing 永远默认选中。</span></div></section></div></div>
+        </section>
+
+        <section id="settings-view" class="archive-view" data-view-panel>
+          <div class="view-topline"><span>CASE FILE / 001 — PROVIDER</span><span>SECURE CONNECTION CONSOLE</span><span>WINDOW 05</span></div>
+          <div class="tab-heading"><div><p class="archive-kicker" data-edit="settingsKicker">// PROVIDER ROUTE / SYSTEM CREDENTIAL</p><h1 data-edit="settingsTitle">把模型接入档案，<br><em>但让证据留在本地。</em></h1></div><div class="tab-heading-note"><span class="green-mark">●</span><b>KEYCHAIN AVAILABLE</b><small>API Key never enters project files.</small></div></div>
+          <div class="settings-grid"><section class="connection-window window-frame"><div class="window-bar"><div class="window-dots"><i></i><i></i><i></i></div><span>AI PROVIDER / CONNECTION FORM</span><span class="window-code">LOCAL KEYCHAIN</span></div><div class="settings-form-demo"><label>PROVIDER<select><option>OpenAI 兼容接口</option><option>Anthropic</option><option>自定义 Endpoint</option></select></label><label>BASE URL<input value="https://api.example.com/v1"></label><label>API KEY<input type="password" value="local-demo-key"></label><div class="settings-actions"><button class="archive-button button-blue" data-demo-action="toast">测试连接 <span>→</span></button><button class="deck-action" data-demo-action="toast">保存配置</button></div></div><div class="connection-log"><span><i></i> 14:32:08 / TLS ROUTE READY</span><span>LOCAL KEYCHAIN / ENCRYPTED</span></div></section><section class="provider-diagram"><div class="diagram-heading"><span>ROUTE / DATA BOUNDARY</span><b>NO CLOUD STORAGE</b></div><div class="boundary-figure"><div class="boundary-ring ring-outer"></div><div class="boundary-ring ring-inner"></div><div class="boundary-core">AI<br><small>MODEL</small></div><div class="boundary-node node-local">原始素材<br><small>LOCAL</small></div><div class="boundary-node node-key">API KEY<br><small>KEYCHAIN</small></div><div class="boundary-node node-output">XML<br><small>REVIEW</small></div><span class="boundary-line line-a"></span><span class="boundary-line line-b"></span><span class="boundary-line line-c"></span></div><p contenteditable="true" data-editable-content="settingsNote">模型只负责分析和生成；项目材料、框架和最终 XML 始终保存在本机。</p></section></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="archive-toast" id="archive-toast" role="status"></div>
+  <div class="edit-hint">点击文字直接编辑 · Tab 切换窗口 · 草稿保存在本地</div>
+</div>
+<script src="/static/main-demo.js?v=20260922-archive"></script>
+</body>
+</html>

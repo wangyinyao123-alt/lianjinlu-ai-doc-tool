@@ -4,18 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fcfaf2" />
+    <link rel="icon" type="image/png" href="/static/assets/alchemy-furnace-pixel.png" />
     <title>炼金炉 · UI Direction Lab</title>
-    <link rel="stylesheet" href="/static/ui-demos.css?v=20260914-8" />
+    <link rel="stylesheet" href="/static/ui-demos.css?v=20260921-2" />
   </head>
   <body>
     <canvas id="ambient-canvas" aria-hidden="true"></canvas>
     <div class="lab-shell">
       <header class="lab-topbar">
         <a class="lab-brand" href="/" aria-label="返回炼金炉">
-          <span class="brand-symbol">◎</span>
+          <span class="brand-symbol"><img src="/static/assets/alchemy-furnace-pixel.png" alt="" /></span>
           <span><b>炼金炉</b><small>UI DIRECTION LAB</small></span>
         </a>
-        <div class="lab-topbar-meta"><span>3 DIRECTIONS</span><i></i><span>FUNCTION-FIRST</span></div>
+        <div class="lab-topbar-meta"><span>4 DIRECTIONS</span><i></i><span>FUNCTION-FIRST</span></div>
         <a class="back-link" href="/">返回工作台 ↗</a>
       </header>
 
@@ -24,7 +25,7 @@
           <div>
             <p class="eyebrow">// PRODUCT INTERFACE STUDY / 2026—09</p>
             <h1>让复杂的文档开发，<em>看起来更有秩序。</em></h1>
-            <p class="intro-copy">围绕需求分析、框架编辑、可视化预览和 XML 审核，探索三种不同的工作台气质。点击下方方向切换 Demo。</p>
+            <p class="intro-copy">围绕需求分析、框架编辑、可视化预览和 XML 审核，探索四种不同的工作台气质。点击下方方向切换 Demo。</p>
           </div>
           <div class="intro-index"><span>SELECT A DIRECTION</span><strong id="direction-index">01</strong><small id="direction-name">OBSIDIAN ATELIER</small></div>
         </section>
@@ -33,6 +34,7 @@
           <button class="direction-button is-active" data-style="atelier"><span>01</span><b>Linen Atelier</b><small>明亮编辑工作室</small></button>
           <button class="direction-button" data-style="signal"><span>02</span><b>Paper Signal</b><small>浅色文档工作台</small></button>
           <button class="direction-button" data-style="archive"><span>03</span><b>Solar Archive</b><small>暖色流程档案馆</small></button>
+          <button class="direction-button" data-style="meridian"><span>04</span><b>Meridian Editorial</b><small>品牌编辑型工作台</small></button>
         </nav>
 
         <section class="font-lab" aria-label="Linen Atelier 字体方案">
@@ -56,7 +58,7 @@
         </section>
 
         <section class="all-directions">
-          <div class="all-directions-head"><div><p class="eyebrow">ALL DIRECTIONS / OVERVIEW</p><h2>三套方案，一眼比较。</h2></div><span>点击卡片查看下方完整交互 Demo</span></div>
+          <div class="all-directions-head"><div><p class="eyebrow">ALL DIRECTIONS / OVERVIEW</p><h2>四套方案，一眼比较。</h2></div><span>点击卡片查看下方完整交互 Demo</span></div>
           <div id="demo-gallery" class="demo-gallery"></div>
         </section>
 
@@ -76,6 +78,6 @@
         </section>
       </main>
     </div>
-    <script src="/static/ui-demos.js?v=20260914-8"></script>
+    <script src="/static/ui-demos.js?v=20260921-1"></script>
   </body>
 </html>
