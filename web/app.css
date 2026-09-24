@@ -1397,7 +1397,9 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
   }
 }
 @media (max-width: 1279px) {
-  .hero-character-row { display: none; }
+  /* Keep the three mode cards visible on common laptop and Windows widths.
+     They resize into the available hero area instead of disappearing. */
+  .hero-character-row { display: grid; }
 }
 @keyframes concept-float {
   0%, 100% { transform: translateY(2px) rotate(-1deg); }
