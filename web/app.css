@@ -1960,10 +1960,10 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
 
 /* Homepage mode cards now live directly beneath their matching alchemist. */
 .hero-signal {
-  min-height: 430px;
+  min-height: 500px;
 }
 .hero-concept-stage {
-  min-height: 360px;
+  min-height: 430px;
   overflow: visible;
 }
 .hero-character-row {
@@ -1988,13 +1988,17 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
 }
 .hero-mode-card {
   width: 174px;
-  min-height: 132px;
-  padding: 10px 11px;
-  gap: 4px;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
   border: 1px solid var(--ink);
   border-radius: 0;
   color: var(--ink);
   box-shadow: 4px 5px 0 rgba(23,25,30,.15);
+  background: transparent;
+  overflow: hidden;
+  isolation: isolate;
 }
 .hero-mode-card:hover {
   border-color: var(--ink);
@@ -2009,24 +2013,43 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
   outline: 2px solid var(--paper-light);
   outline-offset: 3px;
 }
-.hero-mode-card.mode-card-new { background: #ff7654; }
-.hero-mode-card.mode-card-update { background: #e8ddf3; }
-.hero-mode-card.mode-card-optimize { background: #dbe9e6; }
-.hero-mode-card .mode-card-index {
-  color: rgba(23,25,30,.66);
-  font-size: 7px;
-  line-height: 1.1;
+.hero-mode-card.mode-card-new,
+.hero-mode-card.mode-card-update,
+.hero-mode-card.mode-card-optimize {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
-.hero-mode-card strong {
-  font-family: var(--display);
-  font-size: 22px;
-  line-height: 1.1;
+.hero-mode-card:hover {
+  border-color: transparent;
+  box-shadow: none;
 }
-.hero-mode-card small {
-  min-height: 27px;
-  color: rgba(23,25,30,.72);
-  font-size: 9px;
-  line-height: 1.35;
+.hero-mode-card.is-filtered {
+  border-color: var(--paper-light);
+  box-shadow: 0 0 0 2px rgba(255, 248, 233, .82), 0 8px 18px rgba(23, 25, 30, .18);
+}
+.mode-scroll-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 8px 5px rgba(82, 44, 22, .16));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.mode-create-overlay {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  z-index: 2;
+  padding: 5px 7px;
+  border: 1px solid rgba(123, 72, 29, .35);
+  color: #6f421f;
+  background: rgba(255, 244, 207, .86);
+  box-shadow: 0 2px 5px rgba(82, 44, 22, .12);
+  backdrop-filter: blur(3px);
 }
 .hero-mode-card .mode-projects {
   max-height: 34px;
@@ -2058,6 +2081,7 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
 .hero-mode-card .mode-create-button {
   color: var(--ink);
   font-size: 8px;
+  margin-top: 0;
 }
 .hero-mode-card .mode-create-button:hover {
   color: var(--orange-deep);
@@ -2091,14 +2115,9 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
   }
   .hero-mode-card {
     width: 100%;
-    min-height: 124px;
-    padding: 9px 8px;
-  }
-  .hero-mode-card strong {
-    font-size: clamp(16px, 2vw, 22px);
-  }
-  .hero-mode-card small {
-    font-size: 8px;
+    height: auto;
+    min-height: 0;
+    padding: 0;
   }
 }
 
@@ -2114,18 +2133,9 @@ dialog::backdrop { background: rgba(23,25,30,.74); }
     gap: 4px;
   }
   .hero-mode-card {
-    min-height: 112px;
-    padding: 8px 6px;
-  }
-  .hero-mode-card .mode-card-index {
-    font-size: 6px;
-  }
-  .hero-mode-card strong {
-    font-size: 15px;
-  }
-  .hero-mode-card small {
-    min-height: 24px;
-    font-size: 7px;
+    height: auto;
+    min-height: 0;
+    padding: 0;
   }
   .hero-mode-card .mode-create-button {
     font-size: 7px;

@@ -3086,7 +3086,7 @@ def generate_requirements_analysis(project_id: str, payload: dict[str, Any]) -> 
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "LianJinLu/2.0.0"
+    server_version = "LianJinLu/2.0.1"
 
     def log_message(self, format: str, *args: Any) -> None:
         print(f"[{now_iso()}] {format % args}")
@@ -3153,7 +3153,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         try:
             if path == "/api/health":
-                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "2.0.0"})
+                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "2.0.1"})
             elif path == "/api/assets":
                 self.send_json(200, {"assets": list_editorial_assets()})
             elif path == "/api/settings":

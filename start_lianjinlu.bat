@@ -3,6 +3,11 @@ setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
 
+if exist "%~dp0炼金炉.exe" (
+  start "" "%~dp0炼金炉.exe"
+  exit /b 0
+)
+
 if not exist "%~dp0python.exe" (
   echo Python runtime not found. Please extract the complete Windows package.
   pause

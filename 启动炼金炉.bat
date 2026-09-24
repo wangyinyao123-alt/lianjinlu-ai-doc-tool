@@ -3,6 +3,11 @@ setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
 
+if exist "%~dp0炼金炉.exe" (
+  start "" "%~dp0炼金炉.exe"
+  exit /b 0
+)
+
 if not exist "%~dp0python.exe" (
   echo 未找到内置 Python 运行时，请确认已完整解压 Windows 便携包。
   pause

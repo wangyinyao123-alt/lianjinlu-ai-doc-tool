@@ -1,4 +1,4 @@
-# 炼金炉 V2.0.0
+# 炼金炉 V2.0.1
 
 HIK 文档开发工作台的阶段 1 本地原型。
 
@@ -50,8 +50,8 @@ python3 app.py
 
 Windows 版本采用免安装便携包，内置官方 Python 运行时，不需要单独安装 Python。
 
-1. 解压 Release 中的 `lianjinlu-windows-x64-v2.0.0.zip` 到本地目录；
-2. 双击 `启动炼金炉.bat`；
+1. 解压 Release 中的 `lianjinlu-windows-x64-v2.0.1.zip` 到本地目录；
+2. 双击 `炼金炉.exe`，程序会自动启动本地服务并打开浏览器；如需兼容旧方式，也可以双击 `启动炼金炉.bat`；
 3. 浏览器打开 <http://127.0.0.1:8765>；
 4. 在“AI 服务配置”中填写 API 地址、模型和 API Key。
 
