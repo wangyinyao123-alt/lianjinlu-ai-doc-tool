@@ -1,6 +1,8 @@
 const state = {
   projects: [],
   projectModeFilter: "all",
+  projectQuery: "",
+  projectSort: "updated",
   selectedProject: null,
   selectedAsset: null,
   coverSelection: null,
@@ -16,9 +18,23 @@ const state = {
   currentFramework: null,
   frameworkNodes: [],
   frameworkView: "map",
-  frameworkPanel: "none",
+  frameworkPanel: "map",
   frameworkLayout: "mindmap",
   frameworkDebounce: null,
+  frameworkSaveRequest: null,
+  frameworkSaveSequence: 0,
+  frameworkHistory: [],
+  frameworkHistoryIndex: -1,
+  frameworkLastSavedMarkdown: "",
+  activeJobs: { framework: null, topic: null, batch: null },
+  jobPollTimers: { framework: null, topic: null, batch: null },
+  jobPollResolvers: {},
+  jobCenterJobs: {},
+  generationRuns: {},
+  projectSelectionSequence: 0,
+  frameworkLoadSequence: 0,
+  frameworkRestoreSequence: 0,
+  frameworkRestorePending: false,
   frameworkPan: { x: 0, y: 0, scale: 1 },
   frameworkWorld: null,
   frameworkNeedsFit: true,
@@ -89,18 +105,269 @@ function assetUrl(asset) {
 
 function showMessage(selector, message, kind = "") {
   const node = $(selector);
+  if (node._msgTimer) clearTimeout(node._msgTimer);
   node.textContent = message;
   node.className = `inline-message ${kind}`.trim();
+  if (kind !== "error") {
+    node._msgTimer = setTimeout(() => {
+      node.classList.add("is-fading");
+      node._msgTimer = setTimeout(() => {
+        node.textContent = "";
+        node.className = "inline-message";
+        node._msgTimer = null;
+      }, 250);
+    }, 6000);
+  }
 }
 
 async function request(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options,
+    });
+  } catch (error) {
+    throw new Error("无法连接本地服务，请重新启动炼金炉；若问题持续请查看 data/app.log。");
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
   return data;
+}
+
+function setBusyButtons(selectors, busy) {
+  selectors.forEach((selector) => {
+    const button = $(selector);
+    if (button) {
+      button.disabled = Boolean(busy);
+      button.classList.toggle("is-busy", Boolean(busy));
+    }
+  });
+}
+
+function setMessageProgress(selector, on) {
+  $(selector)?.classList.toggle("is-progressing", Boolean(on));
+}
+
+function confirmDialog({ title = "确认操作", description = "", okText = "删除" } = {}) {
+  return new Promise((resolve) => {
+    const dialog = $("#confirm-dialog");
+    if (!dialog) {
+      resolve(window.confirm(description));
+      return;
+    }
+    $("#confirm-title").textContent = title;
+    $("#confirm-description").textContent = description;
+    $("#confirm-ok").textContent = okText;
+    const done = (value) => {
+      if (dialog.open) dialog.close();
+      resolve(value);
+    };
+    $("#confirm-ok").onclick = () => done(true);
+    $("#confirm-cancel").onclick = () => done(false);
+    dialog.oncancel = () => resolve(false);
+    dialog.showModal();
+  });
+}
+
+function frameworkHistoryPush(value) {
+  const text = String(value ?? "");
+  if (state.frameworkHistory[state.frameworkHistoryIndex] === text) return;
+  state.frameworkHistory = state.frameworkHistory.slice(0, state.frameworkHistoryIndex + 1);
+  state.frameworkHistory.push(text);
+  if (state.frameworkHistory.length > 80) state.frameworkHistory.shift();
+  state.frameworkHistoryIndex = state.frameworkHistory.length - 1;
+  updateFrameworkHistoryControls();
+}
+
+function updateFrameworkHistoryControls() {
+  const undo = $("#framework-undo");
+  const redo = $("#framework-redo");
+  if (undo) undo.disabled = state.frameworkHistoryIndex <= 0;
+  if (redo) redo.disabled = state.frameworkHistoryIndex < 0 || state.frameworkHistoryIndex >= state.frameworkHistory.length - 1;
+}
+
+function applyFrameworkHistory(value) {
+  const editor = $("#framework-markdown");
+  if (!editor) return;
+  editor.value = value;
+  handleFrameworkMarkdownInput({ recordHistory: false });
+  editor.focus();
+}
+
+function undoFrameworkMarkdown() {
+  if (state.frameworkHistoryIndex <= 0) return;
+  state.frameworkHistoryIndex -= 1;
+  applyFrameworkHistory(state.frameworkHistory[state.frameworkHistoryIndex]);
+  updateFrameworkHistoryControls();
+}
+
+function redoFrameworkMarkdown() {
+  if (state.frameworkHistoryIndex >= state.frameworkHistory.length - 1) return;
+  state.frameworkHistoryIndex += 1;
+  applyFrameworkHistory(state.frameworkHistory[state.frameworkHistoryIndex]);
+  updateFrameworkHistoryControls();
+}
+
+function stopJobPolling(channel = "framework") {
+  if (state.jobPollTimers[channel]) window.clearTimeout(state.jobPollTimers[channel]);
+  state.jobPollTimers[channel] = null;
+  state.activeJobs[channel] = null;
+  const entry = state.jobCenterJobs[channel];
+  if (entry && (entry.status === "running" || entry.status === "queued")) {
+    jobCenterFinish(channel, "已停止", "error");
+  }
+  const resolve = state.jobPollResolvers[channel];
+  delete state.jobPollResolvers[channel];
+  resolve?.();
+}
+
+const JOB_CHANNEL_LABELS = { framework: "AI 框架生成", topic: "Topic 生成", batch: "批量生成 Topic" };
+
+function jobCenterRegister(channel, jobId, label) {
+  state.jobCenterJobs[channel] = {
+    jobId,
+    label: label || JOB_CHANNEL_LABELS[channel] || "后台任务",
+    status: "running",
+    progress: null,
+    detail: "排队中",
+    tone: "",
+    startedAt: Date.now(),
+  };
+  renderJobCenter();
+}
+
+function jobCenterUpdate(channel, job) {
+  const entry = state.jobCenterJobs[channel];
+  if (!entry || !job || entry.jobId !== job.id) return;
+  entry.status = job.status || "running";
+  entry.progress = job.progress || null;
+  entry.detail = job.progress?.detail || (job.status === "queued" ? "排队中" : "AI 处理中…");
+  entry.tone = "";
+  renderJobCenter();
+}
+
+function jobCenterFinish(channel, detail, tone = "success") {
+  const entry = state.jobCenterJobs[channel];
+  if (!entry) return;
+  entry.status = "done";
+  entry.detail = detail;
+  entry.tone = tone;
+  renderJobCenter();
+  window.setTimeout(() => {
+    if (state.jobCenterJobs[channel]?.jobId === entry.jobId) {
+      delete state.jobCenterJobs[channel];
+      renderJobCenter();
+    }
+  }, 6000);
+}
+
+async function jobCenterCancel(channel) {
+  const entry = state.jobCenterJobs[channel];
+  if (!entry || (entry.status !== "running" && entry.status !== "queued")) return;
+  await request(`/api/jobs/${encodeURIComponent(entry.jobId)}/cancel`, { method: "POST", body: "{}" }).catch(() => {});
+  stopJobPolling(channel);
+  jobCenterFinish(channel, "已取消", "error");
+}
+
+function renderJobCenter() {
+  const panel = $("#job-center");
+  if (!panel) return;
+  const entries = Object.entries(state.jobCenterJobs);
+  if (!entries.length) {
+    panel.classList.add("is-hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("is-hidden");
+  const items = entries.map(([channel, entry]) => {
+    const running = entry.status === "running" || entry.status === "queued";
+    const progress = entry.progress;
+    const hasBar = Boolean(progress && Number(progress.total) > 0);
+    const pct = hasBar ? Math.min(100, Math.round((Number(progress.done) / Number(progress.total)) * 100)) : 0;
+    const seconds = Math.max(1, Math.round((Date.now() - entry.startedAt) / 1000));
+    const progressText = hasBar ? `${progress.done}/${progress.total}` : running ? `${seconds}s` : "";
+    const bar = !running
+      ? ""
+      : hasBar
+        ? `<div class="job-center-bar"><i style="width:${pct}%"></i></div>`
+        : `<div class="job-center-bar is-indeterminate"><i></i></div>`;
+    const detailClass = entry.tone === "error" ? "is-error" : entry.tone === "success" ? "is-success" : "";
+    return `<div class="job-center-item" data-channel="${escapeHtml(channel)}">
+      <div class="job-center-item-head"><span class="job-center-label">${escapeHtml(entry.label)}</span><span class="job-center-progress-text">${escapeHtml(progressText)}</span></div>
+      ${bar}
+      <div class="job-center-item-foot"><span class="job-center-detail ${detailClass}">${escapeHtml(entry.detail || "")}</span>${running ? `<button type="button" class="mini-button" data-job-cancel="${escapeHtml(channel)}">取消</button>` : ""}</div>
+    </div>`;
+  });
+  panel.innerHTML = `<div class="job-center-head"><strong>任务中心</strong><span>${entries.length} 个任务</span></div>${items.join("")}`;
+}
+
+async function pollJob(jobId, handlers = {}, channel = "framework", label = null) {
+  stopJobPolling(channel);
+  state.activeJobs[channel] = jobId;
+  jobCenterRegister(channel, jobId, label);
+  while (state.activeJobs[channel] === jobId) {
+    try {
+      const job = await request(`/api/jobs/${encodeURIComponent(jobId)}`);
+      // A cancellation or a newer job may have replaced this poll while the
+      // request was in flight. Do not apply a stale result to the current UI.
+      if (state.activeJobs[channel] !== jobId) return { status: "detached" };
+      if (job.status === "queued" || job.status === "running") {
+        handlers.progress?.(job);
+        jobCenterUpdate(channel, job);
+        await new Promise((resolve) => {
+          state.jobPollResolvers[channel] = resolve;
+          state.jobPollTimers[channel] = window.setTimeout(resolve, 700);
+        });
+        continue;
+      }
+      stopJobPolling(channel);
+      if (job.status === "success") {
+        jobCenterFinish(channel, "已完成", "success");
+        await handlers.success?.(job.result, job);
+      } else {
+        jobCenterFinish(channel, job.status === "cancelled" ? "已取消" : "失败", "error");
+        await handlers.failure?.(new Error(job.error || "生成任务失败。"), job);
+      }
+      return job;
+    } catch (error) {
+      if (state.activeJobs[channel] && state.activeJobs[channel] !== jobId) return { status: "detached" };
+      stopJobPolling(channel);
+      jobCenterFinish(channel, "连接中断", "error");
+      await handlers.failure?.(error);
+      return { status: "failed", error: error.message };
+    }
+  }
+  return { status: "detached" };
+}
+
+function renderFrameworkVersions(versions = []) {
+  const select = $("#framework-version-select");
+  if (!select) return;
+  select.innerHTML = `<option value="">版本历史</option>${versions.slice().reverse().map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(formatDate(item.created_at))} · ${escapeHtml(item.source || "manual")} · ${item.node_count || 0} 节点</option>`).join("")}`;
+}
+
+async function restoreFrameworkVersion(versionId) {
+  if (!versionId || !state.selectedProject?.id) return;
+  const projectId = state.selectedProject.id;
+  const restoreSequence = ++state.frameworkRestoreSequence;
+  clearTimeout(state.frameworkDebounce);
+  state.frameworkDebounce = null;
+  state.frameworkSaveSequence += 1;
+  const beforeLoad = $("#framework-markdown")?.value || "";
+  try {
+    const full = await request(`/api/projects/${encodeURIComponent(projectId)}/framework/versions/${encodeURIComponent(versionId)}`);
+    if (state.selectedProject?.id !== projectId || restoreSequence !== state.frameworkRestoreSequence || $("#framework-markdown")?.value !== beforeLoad) return;
+    $("#framework-markdown").value = full.markdown || "";
+    state.frameworkLayout = full.layout || state.frameworkLayout;
+    handleFrameworkMarkdownInput({ scheduleSave: false });
+    showMessage("#analysis-message", "已载入历史版本，确认后点击“保存框架”覆盖当前版本。", "success");
+  } catch (error) {
+    showMessage("#analysis-message", error.message, "error");
+  } finally {
+    const select = $("#framework-version-select");
+    if (select) select.value = "";
+  }
 }
 
 function formatDate(value) {
@@ -159,60 +426,32 @@ async function loadEditorialAssets() {
 
 function resetCoverSelection() {
   state.coverSelection = editorialAssets[0] ? { type: "asset", file: editorialAssets[0].file } : null;
-  const input = $("#project-cover-file");
-  if (input) input.value = "";
-  renderCoverPicker();
-}
-
-function selectCoverAsset(file) {
-  const asset = editorialAssets.find((item) => item.file === file);
-  if (!asset) return;
-  state.coverSelection = { type: "asset", file: asset.file };
+  if (state.newProject) state.newProject.image = "";
   const input = $("#project-cover-file");
   if (input) input.value = "";
   renderCoverPicker();
 }
 
 function renderCoverPicker() {
-  const gallery = $("#project-cover-gallery");
-  const preview = $("#project-cover-preview");
-  const fileName = $("#project-cover-file-name");
-  if (!gallery || !preview || !fileName) return;
-  const selection = state.coverSelection;
-  if (selection?.type === "upload") {
-    preview.src = selection.data_url;
-    preview.alt = `本地上传封面：${selection.name}`;
-    fileName.textContent = `已上传：${selection.name}`;
-  } else {
-    const asset = editorialAssets.find((item) => item.file === selection?.file) || editorialAssets[0];
-    if (asset) {
-      preview.src = assetUrl(asset);
-      preview.alt = `项目封面：${asset.label}`;
-      fileName.textContent = `当前封面：${asset.label}`;
-    } else {
-      preview.removeAttribute("src");
-      preview.alt = "尚未选择项目封面";
-      fileName.textContent = "暂无素材，请先放入素材墙或上传图片";
-    }
-  }
-  preview.onclick = selection ? () => openCoverPreview(preview.src, fileName.textContent) : null;
-  preview.classList.toggle("is-zoomable", Boolean(selection));
-  gallery.innerHTML = editorialAssets.length
-    ? editorialAssets.map((asset) => `
-      <button class="cover-option ${selection?.type === "asset" && selection.file === asset.file ? "is-selected" : ""}" type="button" data-cover-file="${escapeHtml(asset.file)}" aria-label="使用 ${escapeHtml(asset.label)} 作为项目封面">
-        <img src="${escapeHtml(assetUrl(asset))}" alt="${escapeHtml(asset.label)}" loading="lazy" />
-        <span>${escapeHtml(asset.label)}</span>
-      </button>
-    `).join("")
-    : `<p class="cover-empty">素材墙暂无图片</p>`;
-  gallery.querySelectorAll("[data-cover-file]").forEach((node) => {
-    node.addEventListener("click", () => selectCoverAsset(node.dataset.coverFile));
-    node.querySelector("img")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const asset = editorialAssets.find((item) => item.file === node.dataset.coverFile);
-      if (asset) openCoverPreview(assetUrl(asset), asset.label);
-    });
+  const preview = $("#project-card-preview");
+  if (!preview) return;
+  const look = state.newProject || (state.newProject = { color: BK_MODE_COLOR.new, image: "", picked: false });
+  const mode = $("#project-mode")?.value || "new";
+  preview.innerHTML = projectCardHtml({
+    id: "preview",
+    name: $("#project-name")?.value.trim() || "项目名称预览",
+    product: $("#project-product")?.value.trim() || "产品",
+    version: $("#project-version")?.value.trim() || "版本",
+    mode,
+  }, { preview: true });
+  skinCard(preview.firstElementChild, look.color, look.image);
+  drawSwatches($("#project-bg-swatches"), look.color, (color) => {
+    look.color = color;
+    look.picked = true;
+    renderCoverPicker();
   });
+  const note = $("#project-cover-file-name");
+  if (note) note.textContent = look.image ? `已上传：${state.coverSelection?.name || "图片"}，已与卡片颜色融合` : "当前：纯色背景";
 }
 
 function openCoverPreview(src, label = "") {
@@ -226,55 +465,353 @@ function openCoverPreview(src, label = "") {
   dialog.showModal();
 }
 
-function handleCoverUpload(event) {
-  const file = event.target.files?.[0];
+function debounce(fn, wait = 150) {
+  let timer = 0;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); };
+}
+
+// ===== 项目卡片背景：纯色 + 自定义图片 =====
+// 颜色和图片只保存在本机浏览器（localStorage），不写入项目文件；换浏览器或清除站点数据后会恢复为默认纯色。
+const BK_GROUPS = [
+  ["粉彩", ["#c9bcf3", "#dcf9b5", "#fdee82", "#fbb3dc", "#bfe0ff", "#ffd9b8", "#b9f0cf", "#ffc2c2"]],
+  ["莫兰迪", ["#9fd0a6", "#c9bde3", "#dfe8b4", "#f2dc8b", "#efbfc9", "#b5cde0", "#f2c9a4", "#e8a891"]],
+  ["明亮", ["#2bd982", "#ffe14d", "#ff9bd0", "#7dd3fc", "#ffb066", "#b9a7ff", "#5eead4", "#ff8f8f"]],
+  ["大地", ["#e5d3b3", "#d6c1a0", "#c8d5b9", "#e4c1b8", "#cbd5e1", "#d9cfe8", "#f3e2c0", "#bfcfc8"]],
+  ["冷调", ["#bfd7ff", "#c7e9fb", "#bdeee5", "#d3e3fd", "#cfd9ff", "#d6f0ff", "#b8e0d2", "#dbe4ff"]],
+  ["暖调", ["#ffd6a5", "#ffc8a2", "#ffe29a", "#ffcad4", "#f9c6aa", "#ffd9c0", "#fde2b0", "#f6bd9a"]],
+];
+const BK_MODE_COLOR = { new: "#2bd982", update: "#c9bcf3", optimize: "#dcf9b5" };
+const BK_MODE_LABEL = { new: "全新开发", update: "版本更新", optimize: "Topic 优化" };
+const BK_MODE_EN = { new: "New Topic", update: "Update", optimize: "Optimize" };
+let bkGroupIndex = 0;
+
+function bkGet(key) {
+  try { return localStorage.getItem(key) || ""; } catch (error) { return ""; }
+}
+function bkSet(key, value) {
+  try {
+    if (value) localStorage.setItem(key, value); else localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+function bkHash(text) {
+  let hash = 0;
+  for (const char of String(text)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash;
+}
+function cardColorOf(project) {
+  const defaults = BK_GROUPS[0][1];
+  return bkGet(`alchemy.cardColor.${project.id}`) || defaults[bkHash(project.id) % defaults.length];
+}
+function cardImageOf(project) {
+  return bkGet(`alchemy.cardImage.${project.id}`);
+}
+function skinCard(element, color, image) {
+  if (!element) return;
+  element.style.setProperty("--c", color);
+  element.classList.toggle("has-img", Boolean(image));
+  if (image) element.style.setProperty("--img", `url("${image}")`);
+  else element.style.removeProperty("--img");
+}
+
+// 读取图片并缩到宽 1200px 以内再存本地，避免撑满浏览器存储；original 仍用于提交给后端保存为项目封面。
+function bkReadImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取图片失败，请重新选择"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("无法解析该图片，请换一张"));
+      img.onload = () => {
+        const scale = Math.min(1, 1200 / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve({ name: file.name, original: reader.result, small: canvas.toDataURL("image/jpeg", 0.85) });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function drawSwatches(container, current, onPick) {
+  if (!container) return;
+  container.innerHTML = `<div class="bk-gt">${BK_GROUPS.map((group, index) => `<button type="button" data-group="${index}" class="${index === bkGroupIndex ? "is-on" : ""}">${group[0]}</button>`).join("")}</div><div class="bk-sw">${BK_GROUPS[bkGroupIndex][1].map((color) => `<button type="button" data-color="${color}" style="--c:${color}" class="${color === current ? "is-on" : ""}" aria-label="颜色 ${color}"></button>`).join("")}<label class="bk-custom" title="自定义颜色">＋<input type="color" value="#cccccc" aria-label="自定义颜色" /></label></div>`;
+  container.onclick = (event) => {
+    const group = event.target.closest("[data-group]");
+    if (group) { bkGroupIndex = Number(group.dataset.group); drawSwatches(container, current, onPick); return; }
+    const swatch = event.target.closest("[data-color]");
+    if (swatch) onPick(swatch.dataset.color);
+  };
+  container.querySelector('input[type="color"]').onchange = (event) => onPick(event.target.value);
+}
+
+function projectCardHtml(project, { wide = false, preview = false } = {}) {
+  const mode = project.mode || "new";
+  const meta = [project.product, project.version, project.updated_at ? formatDate(project.updated_at) : ""].filter(Boolean).join(" · ");
+  const attrs = preview ? "" : `role="button" tabindex="0" data-project-id="${escapeHtml(project.id)}"`;
+  return `<div class="book-card project-card${wide ? " is-wide" : ""}${preview ? " is-preview" : ""}" ${attrs} title="${escapeHtml(project.name)}">
+    <span class="bk-tag"><i class="bk-dot" style="background:${BK_MODE_COLOR[mode] || BK_MODE_COLOR.new}"></i>${escapeHtml(project.mode_label || BK_MODE_LABEL[mode] || "")}</span>
+    ${preview ? "" : `<button type="button" class="bk-look" data-card-look="${escapeHtml(project.id)}" aria-label="自定义卡片背景" title="自定义背景">◐</button>`}
+    <i class="bk-go" aria-hidden="true">↗</i>
+    <strong>${escapeHtml(project.name)}</strong><em class="bk-en">${escapeHtml(BK_MODE_EN[mode] || "")}</em>
+    <small>${escapeHtml(meta)}</small>
+  </div>`;
+}
+
+// 项目卡片 / 详情页头上的「背景」面板
+function applyProjectLook(projectId) {
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return;
+  document.querySelectorAll(".book-card[data-project-id]").forEach((card) => {
+    if (card.dataset.projectId === projectId) skinCard(card, cardColorOf(project), cardImageOf(project));
+  });
+  if (state.selectedProject?.id === projectId) {
+    skinCard(document.querySelector("#project-detail .detail-header"), cardColorOf(project), cardImageOf(project));
+  }
+}
+function openCardLook(projectId, anchor) {
+  const pop = $("#card-look-pop");
+  if (!pop) return;
+  pop.dataset.projectId = projectId;
+  renderCardLook();
+  pop.hidden = false;
+  const rect = anchor.getBoundingClientRect();
+  pop.style.top = `${Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - pop.offsetHeight - 12))}px`;
+  pop.style.left = `${Math.max(12, Math.min(rect.right - 300, window.innerWidth - 312))}px`;
+}
+function closeCardLook() {
+  const pop = $("#card-look-pop");
+  if (!pop) return;
+  pop.hidden = true;
+  pop.dataset.projectId = "";
+}
+function renderCardLook(message = "") {
+  const pop = $("#card-look-pop");
+  const project = state.projects.find((item) => item.id === pop?.dataset.projectId);
+  if (!pop || !project) return;
+  drawSwatches($("#card-look-swatches"), cardColorOf(project), (color) => {
+    bkSet(`alchemy.cardColor.${project.id}`, color);
+    applyProjectLook(project.id);
+    renderCardLook();
+  });
+  $("#card-look-note").textContent = message || (cardImageOf(project) ? "当前：自定义图片，已与卡片颜色融合" : "当前：纯色背景");
+}
+function setupCardLook() {
+  $("#card-look-file")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const projectId = $("#card-look-pop")?.dataset.projectId;
+    if (!file || !projectId) return;
+    if (!file.type.startsWith("image/")) { renderCardLook("请选择图片文件"); return; }
+    if (file.size > 8 * 1024 * 1024) { renderCardLook("图片超过 8 MB，请压缩后再试"); return; }
+    try {
+      const image = await bkReadImage(file);
+      if (!bkSet(`alchemy.cardImage.${projectId}`, image.small)) { renderCardLook("浏览器存储空间不足，无法保存这张图片"); return; }
+      applyProjectLook(projectId);
+      renderCardLook();
+    } catch (error) {
+      renderCardLook(error.message);
+    }
+  });
+  $("#card-look-reset")?.addEventListener("click", () => {
+    const projectId = $("#card-look-pop")?.dataset.projectId;
+    if (!projectId) return;
+    bkSet(`alchemy.cardImage.${projectId}`, "");
+    applyProjectLook(projectId);
+    renderCardLook();
+  });
+  document.addEventListener("click", (event) => {
+    const pop = $("#card-look-pop");
+    if (pop && !pop.hidden && !event.target.closest("#card-look-pop, .bk-look, #detail-look")) closeCardLook();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeCardLook();
+  });
+}
+
+// 新建项目弹窗：模式卡片 ↔ 隐藏的 #project-mode 下拉保持同步，原有逻辑照常读取下拉
+function syncModeCards() {
+  const mode = $("#project-mode")?.value || "new";
+  document.querySelectorAll('input[name="project-mode-card"]').forEach((radio) => { radio.checked = radio.value === mode; });
+  const dialog = $("#project-dialog");
+  if (dialog) dialog.dataset.mode = mode;
+  const look = state.newProject;
+  if (look && !look.picked) look.color = BK_MODE_COLOR[mode] || BK_MODE_COLOR.new;
+}
+function setupProjectDialogLook() {
+  document.querySelectorAll('input[name="project-mode-card"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      $("#project-mode").value = radio.value;
+      toggleProjectModeFields();
+      syncModeCards();
+      renderCoverPicker();
+    });
+  });
+  ["#project-name", "#project-product", "#project-version"].forEach((selector) => {
+    $(selector)?.addEventListener("input", renderCoverPicker);
+  });
+  $("#project-bg-reset")?.addEventListener("click", resetCoverSelection);
+}
+
+async function handleCoverUpload(event) {
+  const input = event.target;
+  const file = input.files?.[0];
   if (!file) return;
   if (!file.type.startsWith("image/")) {
-    showMessage("#project-message", "项目封面必须是图片文件。", "error");
-    event.target.value = "";
+    showMessage("#project-message", "项目背景必须是图片文件。", "error");
+    input.value = "";
     return;
   }
   if (file.size > 8 * 1024 * 1024) {
-    showMessage("#project-message", "项目封面大小不能超过 8 MB。", "error");
-    event.target.value = "";
+    showMessage("#project-message", "项目背景图片大小不能超过 8 MB。", "error");
+    input.value = "";
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.coverSelection = { type: "upload", name: file.name, data_url: reader.result };
+  try {
+    const image = await bkReadImage(file);
+    state.coverSelection = { type: "upload", name: file.name, data_url: image.original };
+    if (!state.newProject) state.newProject = { color: BK_MODE_COLOR.new, image: "", picked: false };
+    state.newProject.image = image.small;
     renderCoverPicker();
-    showMessage("#project-message", "本地封面已选择，提交项目后保存到本地。", "success");
-  };
-  reader.onerror = () => showMessage("#project-message", "读取封面失败，请重新选择图片。", "error");
-  reader.readAsDataURL(file);
+    showMessage("#project-message", "背景图片已选择，创建项目后保存到本地。", "success");
+  } catch (error) {
+    showMessage("#project-message", error.message, "error");
+  } finally {
+    input.value = "";
+  }
 }
 
 function renderProjects() {
   const list = $("#project-list");
   const filter = state.projectModeFilter || "all";
-  const projects = filter === "all" ? state.projects : state.projects.filter((project) => project.mode === filter);
+  const query = String(state.projectQuery || "").trim().toLowerCase();
+  const projects = (filter === "all" ? state.projects : state.projects.filter((project) => project.mode === filter))
+    .filter((project) => !query || [project.name, project.product, project.version, project.stage, project.mode_label].some((value) => String(value || "").toLowerCase().includes(query)))
+    .slice()
+    .sort((left, right) => state.projectSort === "name"
+      ? String(left.name || "").localeCompare(String(right.name || ""), "zh-CN")
+      : String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
   $("#project-count").textContent = projects.length;
   if (!projects.length) {
-    list.innerHTML = `<div class="empty-state"><div><div class="empty-icon">＋</div><p>${filter === "all" ? "还没有项目" : `${({new:"全新开发",update:"版本更新",optimize:"Topic 优化"}[filter] || "该模式")}暂无项目`}</p><p>先创建一个文档项目。</p></div></div>`;
+    list.innerHTML = `<div class="empty-state"><div><div class="empty-icon">＋</div><p>${query ? "没有匹配的项目" : filter === "all" ? "还没有项目" : `${({new:"全新开发",update:"版本更新",optimize:"Topic 优化"}[filter] || "该模式")}暂无项目`}</p><p>${query ? "尝试更换关键词或清除搜索。" : "先创建一个文档项目。"}</p>${query ? "" : `<button type="button" class="primary-button" id="shelf-new-project">＋ 新建项目</button>`}</div></div>`;
+    list.querySelector("#shelf-new-project")?.addEventListener("click", () => openDialog(filter === "all" ? "new" : filter));
     return;
   }
-  list.innerHTML = projects.map((project) => `
-    <button class="project-card ${state.selectedProject?.id === project.id ? "is-selected" : ""}" data-project-id="${project.id}">
-      <div class="project-card-body">
-        <div class="project-card-copy">
-          <h4>${escapeHtml(project.name)}</h4>
-          <div class="project-meta"><span>${escapeHtml(project.product || "未填写产品")}</span><span>${escapeHtml(project.version || "未填写版本")}</span></div>
-          <div class="project-stage">${escapeHtml(project.mode_label || "全新开发")} · ${escapeHtml(project.stage)} · ${formatDate(project.updated_at)}</div>
-          <div class="project-stage">语料库 ${project.corpus?.project_count || 0} 个项目 · ${project.corpus?.topic_count || 0} 个 Topic</div>
-        </div>
-        ${project.cover_url ? `<img class="project-cover-thumb" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<span class="project-cover-thumb cover-placeholder"><img class="cover-placeholder-image" src="/static/assets/alchemy-furnace-pixel.png" alt="" /></span>`}
-      </div>
-    </button>
-  `).join("");
-  list.querySelectorAll("[data-project-id]").forEach((node) => {
-    node.addEventListener("click", () => selectProject(node.dataset.projectId));
+  list.innerHTML = projects.map((project, index) => projectCardHtml(project, { wide: index === 0 && projects.length > 2 })).join("");
+  list.querySelectorAll(".book-card[data-project-id]").forEach((card) => {
+    const project = projects.find((item) => item.id === card.dataset.projectId);
+    if (!project) return;
+    skinCard(card, cardColorOf(project), cardImageOf(project));
+    card.classList.toggle("is-selected", state.selectedProject?.id === project.id);
   });
+  // 事件委托：整个列表只绑一次，不再每次渲染给每张卡片重新绑定
+  list.onclick = (event) => {
+    const look = event.target.closest("[data-card-look]");
+    if (look) { openCardLook(look.dataset.cardLook, look); return; }
+    const card = event.target.closest("[data-project-id]");
+    if (card) enterProjectDetail(card.dataset.projectId);
+  };
+  list.onkeydown = (event) => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches(".book-card[data-project-id]")) {
+      event.preventDefault();
+      enterProjectDetail(event.target.dataset.projectId);
+    }
+  };
 }
+
+async function enterProjectDetail(projectId) {
+  await selectProject(projectId);
+  const view = $("#projects-view");
+  const panel = $("#project-detail");
+  if (view && panel) {
+    view.classList.add("is-detail");
+    panel.hidden = false;
+    view.scrollIntoView({ behavior: "instant", block: "start" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+}
+
+function backToShelf() {
+  const view = $("#projects-view");
+  const panel = $("#project-detail");
+  if (view) view.classList.remove("is-detail");
+  if (panel) panel.hidden = true;
+}
+
+async function deleteProject(project) {
+  if (!project) return;
+  if (!window.confirm(`确定删除项目「${project.name}」？\n\n项目下的 Topic、材料、框架、封面与生成记录会一并删除，此操作不可恢复。`)) return;
+  if (!window.confirm("再次确认：删除后无法找回。仍要删除吗？")) return;
+  try {
+    await request(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" });
+    bkSet(`alchemy.cardColor.${project.id}`, "");
+    bkSet(`alchemy.cardImage.${project.id}`, "");
+    state.selectedProject = null;
+    await loadProjects();
+    backToShelf();
+    showMessage("#projects-message", `项目「${project.name}」已删除`, "success");
+  } catch (error) {
+    showMessage("#projects-message", error.message, "error");
+  }
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+  const active = document.activeElement;
+  if (active && (active.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName))) return;
+  const projectsView = $("#projects-view");
+  if (!projectsView?.classList.contains("is-visible") || projectsView.classList.contains("is-detail")) return;
+  event.preventDefault();
+  $("#project-search")?.focus();
+});
+
+// ===== 全局提示气泡：单一浮动层，保证永远浮在最顶层 =====
+const hintPopover = document.createElement("div");
+hintPopover.id = "hint-popover";
+hintPopover.setAttribute("role", "tooltip");
+document.body.appendChild(hintPopover);
+let hintAnchor = null;
+function showHint(target) {
+  const text = target.getAttribute("data-tip");
+  if (!text) return;
+  hintAnchor = target;
+  hintPopover.textContent = text;
+  hintPopover.classList.add("is-visible");
+  const rect = target.getBoundingClientRect();
+  const pop = hintPopover.getBoundingClientRect();
+  const maxWidth = Math.min(320, window.innerWidth - 24);
+  hintPopover.style.maxWidth = `${maxWidth}px`;
+  let left = rect.left + rect.width / 2 - pop.width / 2;
+  left = Math.max(12, Math.min(left, window.innerWidth - pop.width - 12));
+  const below = rect.top < pop.height + 14;
+  hintPopover.style.left = `${left}px`;
+  hintPopover.style.top = `${below ? rect.bottom + 9 : rect.top - pop.height - 9}px`;
+  hintPopover.classList.toggle("tip-below", below);
+}
+function hideHint() {
+  hintAnchor = null;
+  hintPopover.classList.remove("is-visible");
+}
+document.addEventListener("mouseover", (event) => {
+  const target = event.target.closest?.("[data-tip]");
+  if (target) showHint(target);
+  else if (hintAnchor) hideHint();
+});
+document.addEventListener("focusin", (event) => {
+  const target = event.target.closest?.("[data-tip]");
+  if (target) showHint(target);
+});
+document.addEventListener("focusout", hideHint);
+window.addEventListener("scroll", hideHint, true);
+window.addEventListener("resize", hideHint);
 
 function renderProjectCreationOptions() {
   const base = $("#project-base-project");
@@ -387,38 +924,38 @@ function renderProjectDetail() {
     panel.innerHTML = `<div class="empty-detail"><div><div class="empty-icon">✦</div><h3>选择一个项目</h3><p>项目数据会保存在本地 data/projects 目录中。</p></div></div>`;
     return;
   }
+  panel.dataset.mode = project.mode || "new";
   panel.innerHTML = `
     <div class="detail-header">
+      <button type="button" class="secondary-button compact-button" id="back-to-shelf">← 返回书架</button>
+      <div class="detail-cover-wrap">
+        ${project.cover_thumb_url || project.cover_url ? `<img class="detail-cover" src="${escapeHtml(project.cover_thumb_url || project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<div class="detail-cover cover-placeholder"><img class="cover-placeholder-image" src="/static/assets/alchemy-furnace-pixel.png" alt="" /></div>`}
+      </div>
       <div class="detail-copy">
-        <p class="section-kicker">PROJECT DETAIL</p>
+        <p class="section-kicker">${escapeHtml(project.mode_label || "全新开发")} · ${escapeHtml(project.stage)}</p>
         <h2>${escapeHtml(project.name)}</h2>
+        <div class="detail-facts-line">产品 ${escapeHtml(project.product || "—")} · 版本 ${escapeHtml(project.version || "—")} · 参考语料 ${project.corpus?.project_count || 0} 个项目 / ${project.corpus?.topic_count || 0} 个 Topic</div>
         <div class="detail-description">${escapeHtml(project.description || "暂无项目备注")}</div>
       </div>
-      <div class="detail-cover-wrap">
-        ${project.cover_url ? `<img class="detail-cover" src="${escapeHtml(project.cover_url)}" alt="${escapeHtml(project.name)} 项目封面" />` : `<div class="detail-cover cover-placeholder"><img class="cover-placeholder-image" src="/static/assets/alchemy-furnace-pixel.png" alt="" /></div>`}
-        <span class="count-badge">${escapeHtml(project.mode_label || "全新开发")} · ${escapeHtml(project.stage)}</span>
-      </div>
+      <button type="button" class="secondary-button compact-button" id="detail-look">更换背景</button>
+      <button type="button" class="secondary-button compact-button danger-button" id="detail-delete" title="删除整个项目（含 Topic、材料与生成记录）">删除项目</button>
     </div>
-    <div class="detail-facts">
-      <div class="fact"><div class="fact-label">产品 / 模块</div><div class="fact-value">${escapeHtml(project.product || "—")}</div></div>
-      <div class="fact"><div class="fact-label">版本</div><div class="fact-value">${escapeHtml(project.version || "—")}</div></div>
-      <div class="fact"><div class="fact-label">项目模式</div><div class="fact-value">${escapeHtml(project.mode_label || "全新开发")}</div></div>
-      <div class="fact"><div class="fact-label">参考语料</div><div class="fact-value">${project.corpus?.project_count || 0} 个项目 / ${project.corpus?.topic_count || 0} 个 Topic</div></div>
-    </div>
-    <div class="topic-tree-block"><div class="topic-tree-heading"><div><p class="section-kicker">TOPIC TREE / DRAG TO RESTRUCTURE</p><strong>项目 Topic</strong></div><span class="panel-note">仅显示标题</span></div><div id="topic-tree" class="topic-tree"><div class="tree-empty">正在读取 Topic…</div></div><p class="tree-hint">拖动标题调整顺序；向右拖动可设置为下一级。单击标题展开 XML Code。</p></div>
-    <div class="detail-tools-grid">
-      <section class="detail-tool-panel corpus-manager"><div class="topic-tree-heading"><div><p class="section-kicker">REFERENCE CORPUS / LIVE LINK</p><strong>参考项目语料库</strong></div><span class="panel-note">实时读取最后保存内容</span></div><div class="reference-picker-layout"><div id="detail-reference-projects" class="reference-project-tree" aria-label="参考项目语料库项目列表"></div></div><div class="field-hint corpus-detail-note">按模式勾选；生成时读取项目最新框架、XML 和素材。</div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-reference-projects">保存语料库</button></div><div class="inline-message" id="corpus-message" role="status"></div></section>
-      <section class="detail-tool-panel project-skill-manager"><div class="topic-tree-heading"><div><p class="section-kicker">PROJECT SKILL ROUTE / INHERITABLE</p><strong>项目级 Skill</strong></div><span class="panel-note">需求分析、框架和批量 Topic 默认使用</span></div><div id="project-skill-options" class="skill-options"><div class="tree-empty">正在读取 Skill…</div></div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-project-skills">保存项目 Skill</button></div><div class="inline-message" id="project-skill-message" role="status"></div></section>
-    </div>
+    <div class="topic-tree-block"><div class="topic-tree-heading"><div><p class="section-kicker">TOPIC 树 / 拖拽调整结构</p><strong>项目 Topic</strong></div><span class="panel-note">标题 · 生成模型</span></div><div id="topic-tree" class="topic-tree"><div class="tree-empty">正在读取 Topic…</div></div><p class="tree-hint">拖动标题调整顺序；向右拖动可设置为下一级。单击标题展开 XML Code。</p></div>
+    <details class="detail-corpus-fold">
+      <summary>参考项目语料库（${project.corpus?.project_count || 0} 个项目）<span class="fold-note">生成框架时读取，默认收起</span></summary>
+      <section class="detail-tool-panel corpus-manager"><div class="reference-picker-layout"><div id="detail-reference-projects" class="reference-project-tree" aria-label="参考项目语料库项目列表"></div></div><div class="field-hint corpus-detail-note">按模式勾选；生成时读取项目最新框架、XML 和素材。</div><div class="form-actions"><button type="button" class="secondary-button compact-button" id="save-reference-projects">保存语料库</button></div><div class="inline-message" id="corpus-message" role="status"></div></section>
+    </details>
     <div id="topic-expanded-editor" class="topic-expanded-editor is-hidden"></div>
-    <div class="detail-actions"><button type="button" class="primary-button" data-open-analysis="${escapeHtml(project.id)}">进入文档框架</button><span class="detail-skill-note">${escapeHtml((project.skills || ["HIK Writing Skill"]).join(" · "))}</span></div>
+    <div class="detail-actions"><button type="button" class="primary-button" data-open-analysis="${escapeHtml(project.id)}">进入文档框架</button></div>
   `;
+  panel.querySelector("#back-to-shelf")?.addEventListener("click", backToShelf);
+  skinCard(panel.querySelector(".detail-header"), cardColorOf(project), cardImageOf(project));
+  panel.querySelector("#detail-look")?.addEventListener("click", (event) => openCardLook(project.id, event.currentTarget));
+  panel.querySelector("#detail-delete")?.addEventListener("click", () => deleteProject(project));
   panel.querySelector("[data-open-analysis]")?.addEventListener("click", () => openAnalysisForProject(project.id));
   renderTopicTree();
   renderReferenceProjectOptions();
   panel.querySelector("#save-reference-projects")?.addEventListener("click", saveReferenceProjects);
-  renderProjectSkillOptions();
-  panel.querySelector("#save-project-skills")?.addEventListener("click", saveProjectSkills);
   loadProjectTopics(project.id);
 }
 
@@ -453,6 +990,12 @@ async function loadProjectTopics(projectId) {
     const data = await request(`/api/projects/${encodeURIComponent(projectId)}/topics`);
     if (state.selectedProject?.id !== projectId) return;
     state.projectTopics = data.topics || [];
+    const topicsSignature = `${projectId}|${state.projectTopics.map((topic) => `${topic.id}:${topic.updated_at || ""}`).join(",")}`;
+    if (topicsSignature !== state.topicsSignature) {
+      state.topicsSignature = topicsSignature;
+      state.qualityStale = true;
+      if (qualityPanelOpen()) runQualityCheck({ silent: true });
+    }
     renderTopicTree();
     renderTopicTargetOptions();
   } catch (error) {
@@ -473,9 +1016,13 @@ function renderTopicTree() {
     const level = Math.max(1, Math.min(3, Number(topic.level || topic.heading_level || 1)));
     if (level === 1) branchIndex += 1;
     const branch = Math.max(0, branchIndex) % 4;
+    const genModel = String(topic.generation_model || "").trim();
+    const genTag = genModel
+      ? `<span class="topic-gen-tag" title="由 ${escapeHtml(genModel)} 生成">${escapeHtml(genModel)}</span>`
+      : "";
     return `
     <button type="button" class="topic-tree-item" draggable="true" data-topic-id="${escapeHtml(topic.id)}" data-level="${level}" data-branch="${branch}">
-      <span class="drag-handle" aria-hidden="true">⋮⋮</span><span class="topic-tree-title">${escapeHtml(topic.title)}</span>
+      <span class="drag-handle" aria-hidden="true">⋮⋮</span><span class="topic-tree-title">${escapeHtml(topic.title)}</span>${genTag}
     </button>
   `;
   }).join("");
@@ -543,11 +1090,39 @@ async function selectProject(projectId) {
   }
 }
 
+const VIEW_HASH = { "home-view": "home", "projects-view": "projects", "analysis-view": "framework", "topic-view": "topic", "skills-view": "skills", "settings-view": "settings" };
+function syncHash(viewId) {
+  const hash = `#/${VIEW_HASH[viewId] || "home"}`;
+  const push = Boolean(state.hashPush);
+  state.hashPush = false;
+  if (location.hash !== hash) history[push ? "pushState" : "replaceState"](null, "", hash);
+}
+function viewFromHash() {
+  const key = location.hash.replace(/^#\/?/, "").split("/")[0];
+  return Object.keys(VIEW_HASH).find((id) => VIEW_HASH[id] === key) || null;
+}
+function qualityPanelOpen() {
+  const panel = $("#quality-panel");
+  return Boolean(panel) && !panel.classList.contains("is-collapsed");
+}
+function toggleQualityPanel() {
+  const panel = $("#quality-panel");
+  const button = $("#quality-toggle");
+  if (!panel || !button) return;
+  const open = panel.classList.toggle("is-collapsed") === false;
+  button.setAttribute("aria-expanded", String(open));
+  button.textContent = open ? "收起巡检" : "展开巡检";
+  if (open) runQualityCheck();
+}
+
 function showView(viewId) {
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("is-active", item.dataset.view === viewId));
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
-  const labels = { "projects-view": "项目工作台", "analysis-view": "需求分析", "topic-view": "新建 Topic", "skills-view": "配置 Skill", "settings-view": "AI 服务配置" };
-  $("#breadcrumb-view").textContent = labels[viewId] || "项目工作台";
+  document.body.classList.toggle("is-home", viewId === "home-view");
+  document.body.dataset.view = viewId;
+  syncHash(viewId);
+  const labels = { "home-view": "首页", "projects-view": "项目工作台", "analysis-view": "框架工作台", "topic-view": "Topic 工作台", "skills-view": "配置 Skill", "settings-view": "AI 服务配置" };
+  $("#breadcrumb-view").textContent = labels[viewId] || "首页";
   if (viewId === "analysis-view") {
     renderAnalysisProjects();
     renderSkillOptions("#analysis-skill-options");
@@ -574,9 +1149,11 @@ function showView(viewId) {
         loadProjectTopics(projectId);
         loadProjectMaterials(projectId);
       }
+      if (qualityPanelOpen()) runQualityCheck({ silent: true });
     }
   }
   if (viewId === "skills-view") renderSkillList();
+  if (viewId === "settings-view") loadAgentProfiles();
 }
 
 function renderTopicProjects() {
@@ -601,7 +1178,7 @@ function renderTopicMaterialOptions() {
   const select = $("#topic-materials");
   if (!select) return;
   const selected = new Set([...select.selectedOptions].map((option) => option.value));
-  select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(material.id) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>当前项目暂无研发素材</option>`;
+  select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(material.id) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>${workspaceState.configured && workspaceState.exists ? "未上传材料，生成时读取工作区目录" : "当前项目暂无研发素材"}</option>`;
 }
 
 function renderFrameworkTopicMaterialOptions(selectedIds = null) {
@@ -610,7 +1187,7 @@ function renderFrameworkTopicMaterialOptions(selectedIds = null) {
   const selected = selectedIds == null
     ? new Set([...select.selectedOptions].map((option) => option.value))
     : new Set((selectedIds || []).map((item) => String(item)));
-  select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(String(material.id)) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>当前项目暂无研发素材</option>`;
+  select.innerHTML = state.projectMaterials.map((material) => `<option value="${escapeHtml(material.id)}" ${selected.has(String(material.id)) ? "selected" : ""}>${escapeHtml(material.name)} · ${escapeHtml(formatAnalysisStatus(material.extract_status))}</option>`).join("") || `<option value="" disabled>${workspaceState.configured && workspaceState.exists ? "未上传材料，生成时读取工作区目录" : "当前项目暂无研发素材"}</option>`;
 }
 
 function toggleTopicMode() {
@@ -658,8 +1235,14 @@ function renderAnalysisProjectTree() {
     container.innerHTML = `<div class="tree-empty">暂无项目，请先创建项目。</div>`;
     return;
   }
+  const query = String($("#analysis-project-search")?.value || "").trim().toLowerCase();
+  const matchQuery = (project) => !query || [project.name, project.product, project.stage].some((value) => String(value || "").toLowerCase().includes(query));
+  if (query && !projects.some(matchQuery)) {
+    container.innerHTML = `<div class="tree-empty">没有匹配的项目。</div>`;
+    return;
+  }
   container.innerHTML = PROJECT_MODE_ORDER.map((mode) => {
-    const items = projects.filter((project) => (project.mode || "new") === mode);
+    const items = projects.filter((project) => (project.mode || "new") === mode && matchQuery(project));
     if (!items.length) return "";
     const rows = items.map((project) => `
       <button type="button" class="analysis-project-link ${state.selectedProject?.id === project.id ? "is-selected" : ""}" data-analysis-project-id="${escapeHtml(project.id)}" title="打开项目：${escapeHtml(project.name)}">
@@ -736,7 +1319,12 @@ function renderAnalysisMaterials() {
   const summary = $("#analysis-material-summary-text");
   if (summary) summary.textContent = state.projectMaterials.length ? "已保存到当前项目" : "尚未导入材料";
   if (!state.projectMaterials.length) {
-    list.innerHTML = `<span class="field-hint">还没有材料，请使用右侧“添加材料”。</span>`;
+    const hasWorkspace = Boolean(workspaceState.configured && workspaceState.exists);
+    list.innerHTML = `<span class="field-hint">${
+      hasWorkspace
+        ? `未上传材料；生成时会直接读取工作区「${escapeHtml(workspaceState.name || workspaceState.directory)}」里的 ${workspaceState.readableCount} 个可读文件。`
+        : "还没有材料，请使用右侧“添加材料”，或把需求所在目录设为工作区。"
+    }</span>`;
     return;
   }
   list.innerHTML = state.projectMaterials.map((material) => `
@@ -761,19 +1349,22 @@ async function editAnalysisMaterial(materialId) {
     if (text === null) return;
     await request(`/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}`, { method: "PUT", body: JSON.stringify({ text }) });
     await loadProjectMaterials(projectId);
-    showMessage("#analysis-message", "材料内容已保存。", "success");
-  } catch (error) { showMessage("#analysis-message", error.message, "error"); }
+    showMessage("#materials-message", "材料内容已保存。", "success");
+  } catch (error) { showMessage("#materials-message", error.message, "error"); }
 }
 
 async function loadProjectMaterials(projectId) {
   if (!projectId) {
     state.projectMaterials = [];
     renderAnalysisMaterials();
+    resetWorkspaceState();
     return;
   }
+  loadProjectWorkspace(projectId);
   try {
     const data = await request(`/api/projects/${encodeURIComponent(projectId)}/materials`);
-    if (state.selectedProject?.id !== projectId && $("#analysis-project")?.value !== projectId) return;
+    const topicProjectId = $("#topic-project")?.value;
+    if (state.selectedProject?.id !== projectId && $("#analysis-project")?.value !== projectId && topicProjectId !== projectId) return;
     state.projectMaterials = data.materials || [];
     renderAnalysisMaterials();
     renderTopicMaterialOptions();
@@ -786,13 +1377,13 @@ async function loadProjectMaterials(projectId) {
 async function deleteAnalysisMaterial(materialId) {
   const material = state.projectMaterials.find((item) => item.id === materialId);
   if (!material || !state.selectedProject) return;
-  if (!window.confirm(`确定删除“${material.name}”吗？原始文件和提取文本都会被删除。`)) return;
+  if (!(await confirmDialog({ title: "删除材料", description: `确定删除“${material.name}”吗？原始文件和提取文本都会被删除。`, okText: "删除" }))) return;
   try {
     await request(`/api/projects/${encodeURIComponent(state.selectedProject.id)}/materials/${encodeURIComponent(materialId)}`, { method: "DELETE" });
     await loadProjectMaterials(state.selectedProject.id);
-    showMessage("#analysis-message", "材料已删除。", "success");
+    showMessage("#materials-message", "材料已删除。", "success");
   } catch (error) {
-    showMessage("#analysis-message", error.message, "error");
+    showMessage("#materials-message", error.message, "error");
   }
 }
 
@@ -801,18 +1392,20 @@ async function handleAnalysisMaterialFiles(event) {
   event.target.value = "";
   const projectId = $("#analysis-project")?.value;
   if (!projectId) {
-    showMessage("#analysis-message", "请先选择项目，再上传材料。", "error");
+    showMessage("#materials-message", "请先选择项目，再上传材料。", "error");
     return;
   }
   const button = $("#run-analysis-button");
   if (button) button.disabled = true;
+  const statusBadge = $("#analysis-status-badge");
+  if (statusBadge) { statusBadge.textContent = "生成中"; statusBadge.className = "count-badge"; }
   try {
     for (const file of files) {
       if (file.size > 48 * 1024 * 1024) {
-        showMessage("#analysis-message", `材料“${file.name}”不能超过 48 MB。`, "error");
+        showMessage("#materials-message", `材料“${file.name}”不能超过 48 MB。`, "error");
         continue;
       }
-      showMessage("#analysis-message", `正在保存材料：${file.name}…`);
+      showMessage("#materials-message", `正在保存材料：${file.name}…`);
       const dataUrl = await readFileAsDataUrl(file);
       await request(`/api/projects/${encodeURIComponent(projectId)}/materials`, {
         method: "POST",
@@ -821,9 +1414,9 @@ async function handleAnalysisMaterialFiles(event) {
     }
     await loadProjectMaterials(projectId);
     await loadProjects();
-    showMessage("#analysis-message", files.length ? "材料已保存。请检查提取状态后开始 AI 分析。" : "", files.length ? "success" : "");
+    showMessage("#materials-message", files.length ? "材料已保存。请检查提取状态后开始 AI 分析。" : "", files.length ? "success" : "");
   } catch (error) {
-    showMessage("#analysis-message", error.message, "error");
+    showMessage("#materials-message", error.message, "error");
   } finally {
     if (button) button.disabled = false;
   }
@@ -832,16 +1425,359 @@ async function handleAnalysisMaterialFiles(event) {
 async function savePastedMaterial() {
   const projectId = $("#analysis-project")?.value;
   const text = $("#analysis-pasted-text")?.value.trim();
-  if (!projectId) return showMessage("#analysis-message", "请先选择项目。", "error");
-  if (!text) return showMessage("#analysis-message", "请先粘贴文本。", "error");
+  if (!projectId) return showMessage("#materials-message", "请先选择项目。", "error");
+  if (!text) return showMessage("#materials-message", "请先粘贴文本。", "error");
   const name = `粘贴文本-${new Date().toISOString().slice(0,19).replace(/[T:]/g, "-")}.txt`;
   const dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`;
   try {
     await request(`/api/projects/${encodeURIComponent(projectId)}/materials`, { method: "POST", body: JSON.stringify({ name, mime_type: "text/plain", data_url: dataUrl }) });
     $("#analysis-pasted-text").value = "";
     $("#analysis-pasted-text").classList.add("is-hidden"); $("#save-pasted-material").classList.add("is-hidden");
-    await loadProjectMaterials(projectId); showMessage("#analysis-message", "粘贴文本已保存为材料。", "success");
-  } catch (error) { showMessage("#analysis-message", error.message, "error"); }
+    await loadProjectMaterials(projectId); showMessage("#materials-message", "粘贴文本已保存为材料。", "success");
+  } catch (error) { showMessage("#materials-message", error.message, "error"); }
+}
+
+/* ---------------------------- 项目工作区（直读目录） ---------------------------- */
+/* 工作区不复制文件：登记目录路径后，生成框架 / Topic 时由后端直接读取目录内容。 */
+const workspaceState = {
+  projectId: "",
+  configured: false,
+  exists: false,
+  directory: "",
+  name: "",
+  recursive: true,
+  problem: "",
+  files: [],
+  fileCount: 0,
+  readableCount: 0,
+  scannedAt: "",
+  limits: {},
+  previewFiles: [],
+  previewDirectory: "",
+  busy: false,
+};
+
+function workspaceProjectId() {
+  return $("#analysis-project")?.value || state.selectedProject?.id || $("#topic-project")?.value || "";
+}
+
+function resetWorkspaceState() {
+  workspaceState.projectId = "";
+  workspaceState.configured = false;
+  workspaceState.exists = false;
+  workspaceState.directory = "";
+  workspaceState.name = "";
+  workspaceState.problem = "";
+  workspaceState.files = [];
+  workspaceState.fileCount = 0;
+  workspaceState.readableCount = 0;
+  renderWorkspaceStrip();
+  renderTopicWorkspaceNote();
+}
+
+function renderWorkspaceStrip() {
+  const strip = $("#workspace-strip");
+  const title = $("#workspace-strip-title");
+  const note = $("#workspace-strip-note");
+  const edit = $("#workspace-strip-edit");
+  const refresh = $("#workspace-strip-refresh");
+  const clear = $("#workspace-strip-clear");
+  const configured = Boolean(workspaceState.configured && workspaceState.directory);
+  if (strip) {
+    strip.classList.toggle("is-empty", !configured);
+    strip.classList.toggle("is-missing", configured && !workspaceState.exists);
+  }
+  if (!configured) {
+    if (title) title.textContent = "未设置工作区";
+    if (note) note.textContent = "设置后，生成框架与 Topic 时 Agent 会直接读取该目录，无需导入";
+    if (edit) edit.textContent = "设置目录";
+    refresh?.setAttribute("hidden", "");
+    clear?.setAttribute("hidden", "");
+    return;
+  }
+  if (title) title.textContent = workspaceState.name || workspaceState.directory;
+  if (note) {
+    note.textContent = workspaceState.exists
+      ? `${workspaceState.directory} · ${workspaceState.fileCount} 个文件（${workspaceState.readableCount} 个可读）· 生成时自动读取`
+      : `${workspaceState.directory} · ${workspaceState.problem || "目录不可用，请重新设置"}`;
+    note.title = workspaceState.directory;
+  }
+  if (edit) edit.textContent = "更换";
+  refresh?.removeAttribute("hidden");
+  clear?.removeAttribute("hidden");
+}
+
+function renderTopicWorkspaceNote() {
+  const notes = [$("#topic-workspace-note"), ...document.querySelectorAll(".workspace-inline-note-shared")].filter(Boolean);
+  notes.forEach((note) => {
+    if (!workspaceState.configured || !workspaceState.directory) {
+      note.textContent = "未设置工作区";
+      note.classList.remove("is-on");
+      note.removeAttribute("title");
+      return;
+    }
+    note.textContent = workspaceState.exists
+      ? `工作区 ${workspaceState.name || ""}（${workspaceState.readableCount} 个可读文件）`
+      : "工作区目录不可用";
+    note.classList.toggle("is-on", workspaceState.exists);
+    note.title = workspaceState.directory;
+  });
+}
+
+async function loadProjectWorkspace(projectId, options = {}) {
+  if (!projectId) {
+    resetWorkspaceState();
+    return;
+  }
+  workspaceState.projectId = projectId;
+  try {
+    const data = await request(
+      `/api/projects/${encodeURIComponent(projectId)}/workspace${options.refresh ? "?refresh=1" : ""}`
+    );
+    if (workspaceState.projectId !== projectId) return;
+    workspaceState.configured = Boolean(data.configured);
+    workspaceState.exists = Boolean(data.exists);
+    workspaceState.directory = data.directory || "";
+    workspaceState.name = data.name || "";
+    workspaceState.recursive = data.recursive !== false;
+    workspaceState.problem = data.problem || "";
+    workspaceState.files = Array.isArray(data.files) ? data.files : [];
+    workspaceState.fileCount = Number(data.file_count || 0);
+    workspaceState.readableCount = Number(data.readable_count || 0);
+    workspaceState.scannedAt = data.scanned_at || "";
+    workspaceState.limits = data.limits || {};
+  } catch (error) {
+    workspaceState.configured = false;
+    workspaceState.directory = "";
+    showMessage("#materials-message", `工作区读取失败：${error.message}`, "error");
+  }
+  renderWorkspaceStrip();
+  renderTopicWorkspaceNote();
+  renderAnalysisMaterials();
+}
+
+function setWorkspaceSummary(text, isEmpty = false) {
+  const node = $("#workspace-summary");
+  if (!node) return;
+  node.textContent = text;
+  node.classList.toggle("is-empty", Boolean(isEmpty));
+}
+
+function updateWorkspaceSaveButton() {
+  const button = $("#workspace-save");
+  if (!button) return;
+  const path = ($("#workspace-path")?.value || "").trim();
+  button.disabled = workspaceState.busy || !path;
+  button.textContent = workspaceState.busy ? "正在保存…" : "设为工作区";
+}
+
+function renderWorkspacePreviewList() {
+  const list = $("#workspace-list");
+  if (!list) return;
+  if (!workspaceState.previewFiles.length) {
+    list.innerHTML = "";
+    return;
+  }
+  list.innerHTML = workspaceState.previewFiles
+    .map((file) => {
+      const relative = String(file.relative || file.name || "");
+      const tag = file.readable
+        ? String(file.extension || "").replace(".", "").toUpperCase() || "FILE"
+        : file.reason || "读不出文字";
+      return `<div class="dir-file${file.readable ? " is-workspace-file" : " is-unsupported"}" data-workspace-file="${escapeHtml(relative)}"${file.readable ? ' role="button" tabindex="0" title="单击查看 Agent 实际读到的内容"' : ""}>
+        <span class="dir-file-name" title="${escapeHtml(relative)}">${escapeHtml(file.name)}</span>
+        <span class="dir-file-dir" title="${escapeHtml(relative)}">${escapeHtml(relative.includes("/") ? relative.slice(0, relative.lastIndexOf("/")) : "根目录")}</span>
+        <span class="dir-file-size">${escapeHtml(formatFileSize(file.size || 0))}</span>
+        <span class="dir-file-tag">${escapeHtml(tag)}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function openWorkspaceDialog() {
+  const projectId = workspaceProjectId();
+  if (!projectId) {
+    showMessage("#materials-message", "请先选择项目，再设置工作区。", "error");
+    showMessage("#topic-message", "请先选择项目，再设置工作区。", "error");
+    return;
+  }
+  workspaceState.projectId = projectId;
+  workspaceState.previewFiles = [];
+  workspaceState.previewDirectory = "";
+  workspaceState.busy = false;
+  const pathInput = $("#workspace-path");
+  if (pathInput) pathInput.value = workspaceState.configured ? workspaceState.directory : "";
+  const recursive = $("#workspace-recursive");
+  if (recursive) recursive.checked = workspaceState.recursive !== false;
+  const list = $("#workspace-list");
+  if (list) list.innerHTML = "";
+  setWorkspaceSummary(
+    workspaceState.configured && workspaceState.directory
+      ? `当前工作区：${workspaceState.directory} · ${workspaceState.fileCount} 个文件（${workspaceState.readableCount} 个可读）`
+      : "尚未读取目录。",
+    !workspaceState.configured
+  );
+  showMessage("#workspace-message", "");
+  const clear = $("#workspace-clear");
+  if (clear) clear.hidden = !workspaceState.configured;
+  updateWorkspaceSaveButton();
+  const dialog = $("#workspace-dialog");
+  if (dialog && !dialog.open) dialog.showModal();
+  setTimeout(() => $("#workspace-path")?.focus(), 60);
+}
+
+async function previewWorkspaceDirectory() {
+  const raw = ($("#workspace-path")?.value || "").trim();
+  if (!raw) {
+    showMessage("#workspace-message", "请先填写或选择目录路径。", "error");
+    return;
+  }
+  const recursive = $("#workspace-recursive")?.checked !== false;
+  const button = $("#workspace-preview-button");
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-busy");
+  }
+  showMessage("#workspace-message", "正在读取目录…");
+  try {
+    const data = await request(`/api/fs/scan-directory?path=${encodeURIComponent(raw)}&recursive=${recursive ? 1 : 0}`);
+    workspaceState.previewDirectory = data.directory || raw;
+    workspaceState.previewFiles = (Array.isArray(data.files) ? data.files : []).map((file) => ({
+      relative: file.relative || file.name || "",
+      name: file.name || "",
+      extension: file.extension || "",
+      size: Number(file.size || 0),
+      readable: Boolean(file.supported),
+      reason: file.reason || (file.supported ? file.note || "" : "读不出文字"),
+    }));
+    const pathInput = $("#workspace-path");
+    if (pathInput) pathInput.value = workspaceState.previewDirectory;
+    const readable = workspaceState.previewFiles.filter((file) => file.readable).length;
+    const suffix = data.truncated ? `；文件过多，只列出前 ${data.max_files} 个` : "";
+    setWorkspaceSummary(
+      `${data.name || raw} · 共 ${workspaceState.previewFiles.length} 个文件，${readable} 个可读（${formatFileSize(data.supported_bytes || 0)}）${suffix}`,
+      workspaceState.previewFiles.length === 0
+    );
+    renderWorkspacePreviewList();
+    updateWorkspaceSaveButton();
+    showMessage(
+      "#workspace-message",
+      readable ? "确认无误后点“设为工作区”。" : "该目录下没有能读出文字的文档，换个目录试试。",
+      readable ? "" : "error"
+    );
+  } catch (error) {
+    workspaceState.previewFiles = [];
+    workspaceState.previewDirectory = "";
+    renderWorkspacePreviewList();
+    setWorkspaceSummary("尚未读取目录。", true);
+    updateWorkspaceSaveButton();
+    showMessage("#workspace-message", error.message, "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-busy");
+    }
+  }
+}
+
+async function browseWorkspaceDirectory() {
+  const pathInput = $("#workspace-path");
+  const bridge = window.pywebview && window.pywebview.api;
+  if (!bridge || typeof bridge.pick_directory !== "function") {
+    showMessage("#workspace-message", "浏览器模式拿不到文件夹路径，请直接粘贴完整路径（以 / 或盘符开头）。", "");
+    pathInput?.focus();
+    return;
+  }
+  const button = $("#workspace-browse");
+  if (button) button.disabled = true;
+  try {
+    const picked = await bridge.pick_directory(($("#workspace-path")?.value || "").trim());
+    if (picked) {
+      if (pathInput) pathInput.value = picked;
+      await previewWorkspaceDirectory();
+    }
+  } catch (error) {
+    showMessage("#workspace-message", `无法打开目录选择器，请直接粘贴路径。${error?.message || ""}`, "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function saveProjectWorkspace() {
+  const projectId = workspaceState.projectId || workspaceProjectId();
+  const path = ($("#workspace-path")?.value || "").trim();
+  if (!projectId || !path) return;
+  workspaceState.busy = true;
+  updateWorkspaceSaveButton();
+  showMessage("#workspace-message", "正在登记工作区…");
+  try {
+    const result = await request(`/api/projects/${encodeURIComponent(projectId)}/workspace`, {
+      method: "POST",
+      body: JSON.stringify({ path, recursive: $("#workspace-recursive")?.checked !== false }),
+    });
+    workspaceState.busy = false;
+    await loadProjectWorkspace(projectId, { refresh: true });
+    await loadProjects();
+    const summary = `工作区已设为 ${result.directory || path}：${result.file_count || 0} 个文件，${result.readable_count || 0} 个可读。生成时 Agent 会直接读取。`;
+    showMessage("#materials-message", summary, "success");
+    showMessage("#workspace-message", summary, "success");
+    $("#workspace-dialog")?.close();
+  } catch (error) {
+    workspaceState.busy = false;
+    showMessage("#workspace-message", error.message, "error");
+  } finally {
+    updateWorkspaceSaveButton();
+  }
+}
+
+async function clearProjectWorkspace() {
+  const projectId = workspaceState.projectId || workspaceProjectId();
+  if (!projectId || !workspaceState.configured) return;
+  if (
+    !(await confirmDialog({
+      title: "移除工作区",
+      description: "移除后生成只使用上传的素材；目录里的文件不会被删除。确定移除吗？",
+      okText: "移除",
+    }))
+  ) {
+    return;
+  }
+  try {
+    await request(`/api/projects/${encodeURIComponent(projectId)}/workspace`, { method: "DELETE" });
+    workspaceState.configured = false;
+    workspaceState.directory = "";
+    await loadProjectWorkspace(projectId, { refresh: true });
+    await loadProjects();
+    showMessage("#materials-message", "工作区已移除。", "success");
+    $("#workspace-dialog")?.close();
+  } catch (error) {
+    showMessage("#workspace-message", error.message, "error");
+  }
+}
+
+async function openWorkspaceFilePreview(relative) {
+  const projectId = workspaceState.projectId || workspaceProjectId();
+  if (!projectId || !relative) return;
+  const dialog = $("#workspace-file-dialog");
+  const title = $("#workspace-file-title");
+  const meta = $("#workspace-file-meta");
+  const body = $("#workspace-file-text");
+  if (!dialog) return;
+  if (title) title.textContent = relative;
+  if (meta) meta.textContent = "正在读取…";
+  if (body) body.textContent = "";
+  if (!dialog.open) dialog.showModal();
+  try {
+    const data = await request(
+      `/api/projects/${encodeURIComponent(projectId)}/workspace/file?relative=${encodeURIComponent(relative)}`
+    );
+    if (meta) {
+      meta.textContent = `${data.status === "success" ? "可读" : "读取异常"} · ${data.chars} 字符${data.truncated ? "（仅显示前 8000 字符）" : ""} · ${data.message || ""}`;
+    }
+    if (body) body.textContent = data.text || "（没有读出文本）";
+  } catch (error) {
+    if (meta) meta.textContent = error.message;
+  }
 }
 
 async function importFrameworkExcel(event) {
@@ -1361,6 +2297,10 @@ function updateFrameworkMapViewport() {
   svg.setAttribute("viewBox", `${state.frameworkPan.x} ${state.frameworkPan.y} ${width / state.frameworkPan.scale} ${height / state.frameworkPan.scale}`);
   const scaleNode = $("#framework-map-scale");
   if (scaleNode) scaleNode.textContent = `${Math.round(state.frameworkPan.scale * 100)}%`;
+  const rangeNode = $("#framework-map-zoom-range");
+  if (rangeNode && document.activeElement !== rangeNode) {
+    rangeNode.value = Math.round(state.frameworkPan.scale * 100);
+  }
 }
 
 function fitFrameworkMap() {
@@ -1399,7 +2339,7 @@ function updateFrameworkLayoutControls() {
   if (select) select.value = state.frameworkLayout;
   document.querySelectorAll("[data-framework-layout]").forEach((item) => item.classList.toggle("is-active", item.dataset.frameworkLayout === state.frameworkLayout));
   const title = $("#framework-map-title");
-  if (title) title.textContent = state.frameworkLayout === "fishbone" ? "FISHBONE PREVIEW" : "MINDMAP PREVIEW";
+  if (title) title.textContent = state.frameworkLayout === "fishbone" ? "鱼骨图预览" : "脑图预览";
   const summaryButton = $("#framework-summary-toggle");
   if (summaryButton) summaryButton.textContent = state.frameworkShowSummaries ? "收起概述" : "展开概述";
   if (summaryButton) summaryButton.classList.toggle("is-active", state.frameworkShowSummaries);
@@ -1420,7 +2360,7 @@ function updateFrameworkViewControls() {
     button.setAttribute("aria-selected", active ? "true" : "false");
   });
   const mapTitle = $("#framework-map-title");
-  if (mapTitle) mapTitle.textContent = isOutline ? "章节预览" : state.frameworkLayout === "fishbone" ? "FISHBONE PREVIEW" : "MINDMAP PREVIEW";
+  if (mapTitle) mapTitle.textContent = isOutline ? "章节预览" : state.frameworkLayout === "fishbone" ? "鱼骨图预览" : "脑图预览";
   if (isOutline) renderFrameworkOutlinePreview($("#framework-outline-preview"));
 }
 
@@ -1955,9 +2895,10 @@ function setupFrameworkPresentation() {
   });
 }
 
-function handleFrameworkMarkdownInput() {
+function handleFrameworkMarkdownInput(options = {}) {
   const editor = $("#framework-markdown");
   if (!editor) return;
+  if (options.recordHistory !== false) frameworkHistoryPush(editor.value);
   state.frameworkNodes = parseFrameworkMarkdown(editor.value);
   $("#framework-line-count").textContent = `${editor.value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
   const focusEditor = $("#framework-markdown-focus-editor");
@@ -1968,12 +2909,22 @@ function handleFrameworkMarkdownInput() {
   renderFrameworkMap();
   renderFrameworkOutlinePreview($("#framework-outline-preview"), editor.value);
   if (state.frameworkPresentationOpen) window.requestAnimationFrame(renderFrameworkPresentation);
+  if (options.scheduleSave === false) return;
   clearTimeout(state.frameworkDebounce);
-  state.frameworkDebounce = setTimeout(() => saveFramework("autosave"), 900);
+  const projectId = options.projectId || $("#analysis-project")?.value || "";
+  state.frameworkDebounce = projectId
+    ? setTimeout(() => saveFramework("autosave", projectId), 900)
+    : null;
 }
 
 async function loadProjectFramework(projectId) {
   if (!projectId) return;
+  clearTimeout(state.frameworkDebounce);
+  state.frameworkDebounce = null;
+  // Invalidate responses from a previous project's queued save. The queued
+  // request itself keeps its captured project ID and may finish safely, but it
+  // must not update the newly selected project's status.
+  state.frameworkSaveSequence += 1;
   state.frameworkWorld = null;
   state.frameworkPreviewNodeId = null;
   state.frameworkNeedsFit = true;
@@ -1988,6 +2939,15 @@ async function loadProjectFramework(projectId) {
     state.frameworkLayout = data.layout || "mindmap";
     updateFrameworkLayoutControls();
     state.frameworkNodes = parseFrameworkMarkdown($("#framework-markdown").value);
+    state.frameworkHistory = [$("#framework-markdown").value];
+    state.frameworkHistoryIndex = 0;
+    state.frameworkLastSavedMarkdown = $("#framework-markdown").value;
+    updateFrameworkHistoryControls();
+    const projectContext = $("#framework-project-context");
+    if (projectContext) projectContext.textContent = `${state.selectedProject?.name || "当前项目"} · ${state.selectedProject?.mode_label || "全新开发"}`;
+    const breadcrumbProject = $("#analysis-breadcrumb-project");
+    if (breadcrumbProject) breadcrumbProject.textContent = state.selectedProject?.name || "未选择项目";
+    renderFrameworkVersions(data.versions || []);
     updateFrameworkStatus(data.markdown ? "已保存" : "未生成");
     renderFrameworkMap();
     $("#framework-line-count").textContent = `${$("#framework-markdown").value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
@@ -2003,21 +2963,41 @@ async function loadProjectFramework(projectId) {
   }
 }
 
-async function saveFramework(source = "manual") {
-  const projectId = $("#analysis-project")?.value;
+async function saveFramework(source = "manual", projectIdOverride = "") {
+  const projectId = projectIdOverride || $("#analysis-project")?.value;
   const editor = $("#framework-markdown");
-  if (!projectId || !editor || !editor.value.trim()) {
-    if (source !== "autosave") showMessage("#analysis-message", "请先生成或输入 Markdown 框架。", "error");
+  if (!projectId || !editor) {
+    if (source !== "autosave") showMessage("#analysis-message", "请先选择项目。", "error");
     return;
   }
+  const saveSequence = ++state.frameworkSaveSequence;
+  const markdownSnapshot = editor.value;
+  const payload = {
+    markdown: markdownSnapshot,
+    layout: state.frameworkLayout,
+    source,
+    skills: selectedSkillNames("#analysis-skill-options"),
+    material_ids: state.projectMaterials.map((item) => item.id),
+    analysis_id: state.currentAnalysis?.id || "",
+    node_count: state.frameworkNodes.length,
+    supporting_analysis: state.currentAnalysis,
+  };
+  const saveRequest = () => request(`/api/projects/${encodeURIComponent(projectId)}/framework`, { method: "PUT", body: JSON.stringify(payload) });
+  const queuedSave = (state.frameworkSaveRequest || Promise.resolve()).catch(() => {}).then(saveRequest);
+  state.frameworkSaveRequest = queuedSave;
   try {
-    const framework = await request(`/api/projects/${encodeURIComponent(projectId)}/framework`, { method: "PUT", body: JSON.stringify({ markdown: editor.value, layout: state.frameworkLayout, source, skills: selectedSkillNames("#analysis-skill-options"), material_ids: state.projectMaterials.map((item) => item.id), analysis_id: state.currentAnalysis?.id || "", node_count: state.frameworkNodes.length, supporting_analysis: state.currentAnalysis }) });
+    const framework = await queuedSave;
+    if (saveSequence !== state.frameworkSaveSequence) return;
     state.currentFramework = framework;
+    state.frameworkLastSavedMarkdown = markdownSnapshot;
+    renderFrameworkVersions(framework.versions || []);
     updateFrameworkStatus("已保存", "is-saved");
     if (source !== "autosave") showMessage("#analysis-message", "框架已保存，并生成一个新的本地版本。", "success");
   } catch (error) {
     updateFrameworkStatus("保存失败", "is-error");
     if (source !== "autosave") showMessage("#analysis-message", error.message, "error");
+  } finally {
+    if (state.frameworkSaveRequest === queuedSave) state.frameworkSaveRequest = null;
   }
 }
 
@@ -2025,32 +3005,63 @@ async function generateFrameworkWithAI(event) {
   if (event) event.preventDefault();
   const projectId = $("#analysis-project")?.value;
   if (!projectId) { showMessage("#analysis-message", "请先创建并选择项目。", "error"); return; }
-  if (!state.projectMaterials.length) { showMessage("#analysis-message", "请先添加至少一份需求材料。", "error"); return; }
+  if (!state.projectMaterials.length && !(workspaceState.configured && workspaceState.exists)) {
+    showMessage("#analysis-message", "请先添加需求材料，或把需求所在目录设为工作区。", "error");
+    return;
+  }
   const button = $("#run-analysis-button");
-  if (button) button.disabled = true;
-  showMessage("#analysis-message", "正在根据材料和 Skill 生成 Markdown 框架…");
+  const statusBadge = $("#analysis-status-badge");
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-busy");
+  }
+  setBusyButtons(["#batch-generate-topics-button"], true);
+  showMessage("#analysis-message", "正在排队生成 Markdown 框架…");
+  setMessageProgress("#analysis-message", true);
+  $("#cancel-framework-job")?.classList.remove("is-hidden");
   try {
-    const result = await request(`/api/projects/${encodeURIComponent(projectId)}/framework/generate`, { method: "POST", body: JSON.stringify({ analysis_note: $("#analysis-note").value.trim(), skills: selectedSkillNames("#analysis-skill-options"), layout: state.frameworkLayout }) });
-    state.currentFramework = result;
-    $("#framework-markdown").value = result.markdown || "";
-    state.currentAnalysis = result.supporting_analysis || null;
-    state.frameworkNodes = parseFrameworkMarkdown($("#framework-markdown").value);
-    state.frameworkNeedsFit = true;
-    renderFrameworkMap();
-    $("#framework-line-count").textContent = `${$("#framework-markdown").value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
-    const focusEditor = $("#framework-markdown-focus-editor");
-    if (focusEditor) focusEditor.value = $("#framework-markdown").value;
-    updateFrameworkFocusLineCount();
-    renderFrameworkMarkdownFocusPreview();
-    renderFrameworkOutlinePreview($("#framework-outline-preview"), $("#framework-markdown").value);
-    updateFrameworkStatus("已生成，未保存修改", "is-dirty");
-    renderAnalysisResult(state.currentAnalysis);
-    showMessage("#analysis-message", "文档框架已生成，可直接编辑 Markdown 或切换图形布局。", "success");
-    await loadProjects();
+    const queued = await request(`/api/projects/${encodeURIComponent(projectId)}/framework/generate-async`, { method: "POST", body: JSON.stringify({ analysis_note: $("#analysis-note").value.trim(), skills: selectedSkillNames("#analysis-skill-options"), layout: state.frameworkLayout }) });
+    await pollJob(queued.job_id, {
+      progress: (job) => showMessage("#analysis-message", job.status === "queued" ? "生成任务排队中…" : "AI 正在生成框架，页面仍可操作…"),
+      success: async (result) => {
+        state.currentFramework = result;
+        $("#framework-markdown").value = result.markdown || "";
+        state.currentAnalysis = result.supporting_analysis || null;
+        state.frameworkNodes = parseFrameworkMarkdown($("#framework-markdown").value);
+        state.frameworkHistory = [$("#framework-markdown").value];
+        state.frameworkHistoryIndex = 0;
+        state.frameworkLastSavedMarkdown = $("#framework-markdown").value;
+        updateFrameworkHistoryControls();
+        state.frameworkNeedsFit = true;
+        renderFrameworkMap();
+        $("#framework-line-count").textContent = `${$("#framework-markdown").value.split(/\r?\n/).length} 行 · ${state.frameworkNodes.length} 个节点`;
+        const focusEditor = $("#framework-markdown-focus-editor");
+        if (focusEditor) focusEditor.value = $("#framework-markdown").value;
+        updateFrameworkFocusLineCount();
+        renderFrameworkMarkdownFocusPreview();
+        renderFrameworkOutlinePreview($("#framework-outline-preview"), $("#framework-markdown").value);
+        renderFrameworkVersions(result.versions || []);
+        updateFrameworkStatus("已生成并保存", "is-saved");
+        renderAnalysisResult(state.currentAnalysis);
+        showMessage("#analysis-message", "文档框架已生成并保存，可直接编辑 Markdown。", "success");
+        await loadProjects();
+      },
+      failure: (error) => {
+        updateFrameworkStatus("生成失败", "is-error");
+        if (statusBadge) { statusBadge.textContent = "生成失败"; statusBadge.className = "count-badge is-invalid"; }
+        showMessage("#analysis-message", error.message, "error");
+      },
+    }, "framework");
   } catch (error) {
     showMessage("#analysis-message", error.message, "error");
   } finally {
-    if (button) button.disabled = false;
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-busy");
+    }
+    setBusyButtons(["#batch-generate-topics-button"], false);
+    setMessageProgress("#analysis-message", false);
+    $("#cancel-framework-job")?.classList.add("is-hidden");
   }
 }
 
@@ -2066,6 +3077,41 @@ function exportFrameworkMarkdown() {
   showMessage("#analysis-message", "Markdown 框架已下载。", "success");
 }
 
+// Stable identity for a framework node: its title path from the document root.
+// Unlike `line:<index>` keys, this survives inserting or deleting other lines;
+// regeneration and batch runs keep matching the same Topic until the title or
+// its position in the hierarchy actually changes.
+function frameworkNodeKey(nodes, node) {
+  const list = Array.isArray(nodes) ? nodes : [];
+  const byId = new Map(list.map((item) => [item.id, item]));
+  const chain = [];
+  let current = node;
+  while (current) {
+    chain.unshift(String(current.title || "").trim());
+    current = current.parentId ? byId.get(current.parentId) : null;
+  }
+  return `fw:${chain.join(" > ")}`;
+}
+
+// Parent chapter title plus sibling node list, so the generator knows which
+// content belongs to other Topics and stops duplicating neighbouring sections.
+function frameworkNodeRelatives(nodes, node) {
+  const list = Array.isArray(nodes) ? nodes : [];
+  const parent = node?.parentId ? list.find((item) => item.id === node.parentId) : null;
+  const siblings = list.filter((item) => (
+    item.parentId && item.parentId === node?.parentId && item.id !== node?.id
+    && !item.is_document_title && String(item.title || "").trim()
+  ));
+  return {
+    parent_title: parent ? String(parent.title || "").trim() : "",
+    sibling_topics: siblings.slice(0, 30).map((item) => ({
+      title: String(item.title || "").trim(),
+      topic_type: item.topic_type === "task" ? "task" : "concept",
+      shortdesc: String(item.summary || "").trim(),
+    })),
+  };
+}
+
 function frameworkTopicPayload(node, prompt, skills, options = {}) {
   const summary = String(node?.summary || "").trim();
   return {
@@ -2078,7 +3124,8 @@ function frameworkTopicPayload(node, prompt, skills, options = {}) {
     skills: skills || selectedSkillNames("#analysis-skill-options"),
     inherit_project_skills: true,
     heading_level: Math.max(1, Math.min(3, Number(node?.level || 2) - 1)),
-    framework_node_key: `line:${node?.lineIndex ?? ""}`,
+    framework_node_key: frameworkNodeKey(state.frameworkNodes, node),
+    ...frameworkNodeRelatives(state.frameworkNodes, node),
     material_ids: options.materialIds ?? (state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id)),
     include_image_placeholder: Boolean(options.includeImagePlaceholder),
     include_ref_placeholder: Boolean(options.includeRefPlaceholder),
@@ -2129,13 +3176,19 @@ async function openFrameworkTopicEditor(node) {
   renderFrameworkTopicMaterialOptions(state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id));
   renderSkillOptions("#framework-topic-skill-options");
   renderFrameworkTopicResult(null);
-  dialog?.classList.remove("is-drawer");
+  // Topic 编辑器默认以右侧抽屉呈现，不遮挡左侧框架图。
+  dialog?.classList.add("is-drawer");
   if (dialog && !dialog.open) dialog.showModal();
   const task = (async () => {
     const existingData = await request(`/api/projects/${encodeURIComponent(projectId)}/topics`).catch(() => ({ topics: [] }));
     // 如果用户在请求返回前切换了节点，旧请求只做清理，不得覆盖新节点。
     if (openToken !== state.frameworkTopicOpenToken || state.frameworkTopicNode?.id !== currentNode.id) return;
-    const topic = (existingData.topics || []).find((item) => item.framework_node_key === `line:${currentNode.lineIndex}`) || (existingData.topics || []).find((item) => item.title === currentNode.title && item.topic_type === currentNode.topic_type);
+    const topics = existingData.topics || [];
+    const stableKey = frameworkNodeKey(state.frameworkNodes, currentNode);
+    const legacyKey = `line:${currentNode.lineIndex}`;
+    const topic = topics.find((item) => item.framework_node_key === stableKey)
+      || topics.find((item) => item.framework_node_key === legacyKey)
+      || topics.find((item) => item.title === currentNode.title && item.topic_type === currentNode.topic_type);
     if (topic) state.frameworkTopic = topic;
     $("#framework-topic-title").value = topic?.title || currentNode.title;
     $("#framework-topic-type").value = topic?.topic_type === "task" ? "task" : currentNode.topic_type === "task" ? "task" : "concept";
@@ -2202,6 +3255,30 @@ function clearFrameworkTopicForm() {
   showMessage("#framework-topic-message", "已清空本次 Topic 输入和 XML，可重新填写。", "success");
 }
 
+async function runTopicGenerationJob({ payload, endpoint, messageEl, buttons = [], runningText, queuedText, jobLabel, progressText, onResult }) {
+  // 两套 Topic 表单（框架抽屉 / Topic 工作台）共用的生成执行路径：
+  // 禁用按钮 → 提交异步任务 → 轮询 Job → 回传结果，错误统一向上抛。
+  buttons.forEach((button) => { if (button) { button.disabled = true; button.classList.add("is-busy"); } });
+  showMessage(messageEl, runningText);
+  setMessageProgress(messageEl, true);
+  try {
+    const queued = await request(endpoint, { method: "POST", body: JSON.stringify(payload) });
+    let topic = null;
+    let topicError = null;
+    await pollJob(queued.job_id, {
+      progress: (job) => showMessage(messageEl, job.status === "queued" ? (queuedText || "Topic 生成任务排队中…") : (progressText || "AI 正在生成 Topic XML，页面仍可操作…")),
+      success: (result) => { topic = result; },
+      failure: (error) => { topicError = error; },
+    }, "topic", jobLabel);
+    if (topicError) throw topicError;
+    await onResult?.(topic);
+    return topic;
+  } finally {
+    buttons.forEach((button) => { if (button) { button.disabled = false; button.classList.remove("is-busy"); } });
+    setMessageProgress(messageEl, false);
+  }
+}
+
 async function generateFrameworkTopic(forceRegenerate = false) {
   const projectId = $("#analysis-project")?.value || state.selectedProject?.id;
   const node = state.frameworkTopicNode;
@@ -2211,25 +3288,28 @@ async function generateFrameworkTopic(forceRegenerate = false) {
     showMessage("#framework-topic-message", "Topic 标题不能为空。", "error");
     return;
   }
-  const buttons = [$("#generate-framework-topic"), $("#regenerate-framework-topic"), $("#save-framework-topic-xml")];
-  buttons.forEach((button) => { if (button) button.disabled = true; });
-  showMessage("#framework-topic-message", forceRegenerate || state.frameworkTopic ? "正在根据最新提示词重新生成 XML…" : "正在生成 Topic XML…");
+  const endpoint = state.frameworkTopic?.id
+    ? `/api/projects/${encodeURIComponent(projectId)}/topics/${encodeURIComponent(state.frameworkTopic.id)}/generate-async`
+    : `/api/projects/${encodeURIComponent(projectId)}/topics/generate-async`;
   try {
-    let topic;
-    if (state.frameworkTopic?.id) {
-      topic = await request(`/api/projects/${encodeURIComponent(projectId)}/topics/${encodeURIComponent(state.frameworkTopic.id)}/generate`, { method: "POST", body: JSON.stringify(payload) });
-    } else {
-      topic = await request(`/api/projects/${encodeURIComponent(projectId)}/topics/generate`, { method: "POST", body: JSON.stringify(payload) });
-    }
-    renderFrameworkTopicResult(topic);
-    state.frameworkTopicNode.topic_id = topic.id;
-    showMessage("#framework-topic-message", "Topic XML 已生成并保存，可继续手工修改。", "success");
-    await loadProjectTopics(projectId);
+    await runTopicGenerationJob({
+      payload,
+      endpoint,
+      messageEl: "#framework-topic-message",
+      buttons: [$("#generate-framework-topic"), $("#regenerate-framework-topic"), $("#save-framework-topic-xml")],
+      runningText: forceRegenerate || state.frameworkTopic ? "正在根据最新提示词重新生成 XML…" : "正在生成 Topic XML…",
+      jobLabel: `Topic：${payload.title || "未命名"}`,
+      onResult: async (topic) => {
+        renderFrameworkTopicResult(topic);
+        state.frameworkTopicNode.topic_id = topic.id;
+        showMessage("#framework-topic-message", "Topic XML 已生成并保存，可继续手工修改。", "success");
+        await loadProjectTopics(projectId);
+      },
+    });
     await loadProjects();
   } catch (error) {
     showMessage("#framework-topic-message", error.message, "error");
   } finally {
-    buttons.forEach((button) => { if (button) button.disabled = false; });
     if (!state.frameworkTopic) $("#save-framework-topic-xml").disabled = true;
   }
 }
@@ -2276,34 +3356,139 @@ function downloadFrameworkTopic() {
   showMessage("#framework-topic-message", `已下载 ${extension.toUpperCase()} 文件。`, "success");
 }
 
-async function batchGenerateFrameworkTopics() {
-  const projectId = $("#analysis-project")?.value || state.selectedProject?.id;
-  const nodes = state.frameworkNodes.filter((node) => !node.is_document_title && node.title.trim());
+function frameworkCanvasContext() {
+  const projectId = $("#analysis-project")?.value || state.selectedProject?.id || "";
+  const raw = (state.frameworkNodes || []).filter((node) => !node.is_document_title && String(node.title || "").trim());
+  const projectName = (state.projects || []).find((item) => item.id === projectId)?.name
+    || state.selectedProject?.name
+    || "当前项目";
+  return {
+    projectId,
+    projectName,
+    nodes: raw.map((node) => {
+      const relatives = frameworkNodeRelatives(state.frameworkNodes, node);
+      const summary = String(node.summary || "").trim();
+      return {
+        title: String(node.title || "").trim(),
+        topic_type: node.topic_type === "task" ? "task" : "concept",
+        shortdesc: summary || `说明“${String(node.title || "").trim()}”相关内容。`,
+        chapter_summary: summary,
+        heading_level: Math.max(1, Math.min(3, Number(node.level || 2) - 1)),
+        framework_node_key: frameworkNodeKey(state.frameworkNodes, node),
+        parent_title: relatives.parent_title,
+        sibling_topics: relatives.sibling_topics,
+      };
+    }),
+  };
+}
+
+function batchGenerateFrameworkTopics() {
+  const { projectId, nodes, projectName } = frameworkCanvasContext();
   if (!projectId) { showMessage("#analysis-message", "请先选择项目。", "error"); return; }
   if (!nodes.length) { showMessage("#analysis-message", "当前框架没有可生成的 Topic 节点。", "error"); return; }
-  const button = $("#batch-generate-topics-button");
-  if (button) button.disabled = true;
-  const data = await request(`/api/projects/${encodeURIComponent(projectId)}/topics`).catch(() => ({ topics: [] }));
-  let completed = 0; let failed = 0;
-  showMessage("#analysis-message", `开始批量生成，共 ${nodes.length} 个 Topic…`);
+  state.parallelBatch = { projectId, nodes };
+  if (typeof window.openTopicCanvas === "function") {
+    window.openTopicCanvas({ projectId, nodes, projectName });
+    return;
+  }
+  openParallelBatchDialog();
+}
+
+// 顶部导航「Topic 画布」入口：不要求先停在框架编辑器，直接按当前框架打开画布。
+function openTopicCanvasView() {
+  if (typeof window.openTopicCanvas !== "function") {
+    showMessage("#analysis-message", "画布组件未加载，请重启应用。", "error");
+    return;
+  }
+  const { projectId, nodes, projectName } = frameworkCanvasContext();
+  state.parallelBatch = { projectId, nodes };
+  window.openTopicCanvas({ projectId, nodes, projectName });
+}
+
+function renderParallelNodeList(statusMap = {}) {
+  const list = $("#parallel-node-list");
+  if (!list) return;
+  const nodes = state.parallelBatch?.nodes || [];
+  list.innerHTML = nodes.map((node) => {
+    const status = statusMap[node.title] || "pending";
+    const icons = { pending: "○", running: "◐", created: "●", updated: "●", failed: "×", cancelled: "×", skipped: "－" };
+    return `<div class="parallel-node-item is-${status}" data-node-title="${escapeHtml(node.title)}"><span class="parallel-node-icon">${icons[status] || "○"}</span><span class="parallel-node-title">${escapeHtml(node.title)}</span>${statusMap[`${node.title}::error`] ? `<span class="parallel-node-error">${escapeHtml(statusMap[`${node.title}::error`])}</span>` : ""}</div>`;
+  }).join("");
+}
+
+function openParallelBatchDialog() {
+  const nodes = state.parallelBatch?.nodes || [];
+  $("#parallel-node-count").textContent = String(nodes.length);
+  const message = $("#parallel-batch-message");
+  if (message) { message.textContent = ""; message.className = "inline-message"; }
+  renderParallelProfileOptions();
+  renderParallelNodeList();
+  const dialog = $("#parallel-batch-dialog");
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+async function startParallelBatch(event) {
+  event.preventDefault();
+  const batch = state.parallelBatch;
+  if (!batch?.projectId || !batch.nodes.length) return;
+  const workersSelect = $("#parallel-workers");
+  const maxWorkers = Math.max(1, workersSelect?.options.length || 2);
+  const workers = Math.max(1, Math.min(maxWorkers, Number(workersSelect.value) || 1));
+  const profileIds = [...$("#parallel-profile-options").querySelectorAll("input[type=checkbox]:checked")].map((input) => input.value);
+  const startButton = $("#start-parallel-batch");
+  if (startButton) startButton.disabled = true;
+  showMessage("#parallel-batch-message", `正在派发 ${batch.nodes.length} 个节点到 ${workers} 个并行 Agent…`);
+  const statusMap = {};
+  batch.nodes.forEach((node) => { statusMap[node.title] = "pending"; });
   try {
-    for (const node of nodes) {
-      const existing = (data.topics || []).find((item) => item.framework_node_key === `line:${node.lineIndex}`);
-      const payload = frameworkTopicPayload(node, $("#analysis-note")?.value || "", selectedSkillNames("#analysis-skill-options"));
-      try {
-        if (existing) await request(`/api/projects/${encodeURIComponent(projectId)}/topics/${encodeURIComponent(existing.id)}/generate`, { method: "POST", body: JSON.stringify(payload) });
-        else await request(`/api/projects/${encodeURIComponent(projectId)}/topics/generate`, { method: "POST", body: JSON.stringify(payload) });
-        completed += 1;
-      } catch (error) {
-        failed += 1;
-      }
-      showMessage("#analysis-message", `批量生成进度：${completed + failed}/${nodes.length}（成功 ${completed}，失败 ${failed}）`);
-    }
-    await loadProjectTopics(projectId);
+    const body = {
+      nodes: batch.nodes,
+      common: {
+        generation_prompt: $("#analysis-note")?.value || "",
+        skills: selectedSkillNames("#analysis-skill-options"),
+        inherit_project_skills: true,
+        material_ids: state.currentFramework?.material_ids || state.projectMaterials.map((item) => item.id),
+      },
+      workers,
+      profile_ids: profileIds,
+    };
+    const queued = await request(`/api/projects/${encodeURIComponent(batch.projectId)}/topics/batch-generate-parallel-async`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const job = await pollJob(queued.job_id, {
+      progress: (current) => {
+        const progress = current?.progress;
+        if (!progress) return;
+        (progress.completed_titles || []).forEach((title) => { if (statusMap[title] !== "failed") statusMap[title] = "created"; });
+        (progress.failed_titles || []).forEach((title) => { statusMap[title] = "failed"; });
+        const pendingTitles = batch.nodes.map((node) => node.title).filter((title) => statusMap[title] === "pending");
+        pendingTitles.slice(0, workers).forEach((title) => { statusMap[title] = "running"; });
+        renderParallelNodeList(statusMap);
+        showMessage("#parallel-batch-message", `并行生成进度：${progress.done}/${progress.total}…`);
+      },
+    }, "batch-parallel");
+    await loadProjectTopics(batch.projectId);
     await loadProjects();
-    showMessage("#analysis-message", `批量生成完成：成功 ${completed} 个，失败 ${failed} 个。`, failed ? "error" : "success");
+    const result = job?.status === "success" ? job.result : null;
+    if (result) {
+      (result.items || []).forEach((item) => {
+        statusMap[item.title] = item.status === "failed" ? "failed" : item.status;
+        if (item.status === "failed" && item.error) statusMap[`${item.title}::error`] = item.error;
+      });
+      renderParallelNodeList(statusMap);
+      const failedItems = (result.items || []).filter((item) => item.status === "failed");
+      const detail = failedItems.length
+        ? `，失败：${failedItems.slice(0, 3).map((item) => item.title).join("、")}${failedItems.length > 3 ? " 等" : ""}`
+        : "";
+      showMessage("#parallel-batch-message", `并行生成完成：成功 ${result.succeeded}/${result.total}${detail}`, result.failed ? "error" : "success");
+    } else if (job?.status === "cancelled") {
+      showMessage("#parallel-batch-message", "并行生成已取消，已完成的结果已保存。", "error");
+    }
+  } catch (error) {
+    showMessage("#parallel-batch-message", `并行生成失败：${error.message}`, "error");
   } finally {
-    if (button) button.disabled = false;
+    if (startButton) startButton.disabled = false;
   }
 }
 
@@ -2403,7 +3588,10 @@ function renderSkillList() {
       <span class="skill-list-mark ${skill.required ? "is-required" : ""}">${skill.required ? "✓" : "◆"}</span><span class="skill-list-copy"><strong>${escapeHtml(skill.name)}</strong><small>${escapeHtml(skill.description || "未填写描述")}</small></span><span class="skill-list-state">${skill.required ? "必选" : skill.source === "builtin" ? (skill.enabled ? "内置 · 启用" : "内置 · 停用") : skill.enabled ? "启用" : "停用"}</span>
     </button>
   `).join("");
-  list.querySelectorAll("[data-skill-id]").forEach((node) => node.addEventListener("click", () => editSkill(node.dataset.skillId)));
+  list.onclick = (event) => {
+    const node = event.target.closest("[data-skill-id]");
+    if (node) editSkill(node.dataset.skillId);
+  };
 }
 
 function formatFileSize(size) {
@@ -2547,7 +3735,7 @@ async function deleteCurrentSkill() {
   if (!state.currentSkillId) return;
   const skill = state.skills.find((item) => item.id === state.currentSkillId);
   if (!skill || skill.required) return;
-  if (!window.confirm(`确定删除“${skill.name}”吗？`)) return;
+  if (!(await confirmDialog({ title: "删除 Skill", description: `确定删除“${skill.name}”吗？删除后使用该 Skill 的项目将回退到默认约束。`, okText: "删除" }))) return;
   try {
     await request(`/api/skills/${encodeURIComponent(skill.id)}`, { method: "DELETE" });
     resetSkillEditor();
@@ -2642,11 +3830,15 @@ function renderExpandedTopic(topic) {
     return;
   }
   panel.classList.remove("is-hidden");
-  panel.innerHTML = `<div class="expanded-editor-heading"><div><p class="section-kicker">XML CODE / EXPANDED TOPIC</p><h3>${escapeHtml(topic.title)}</h3><span>${escapeHtml(topic.topic_type === "task" ? "Task" : topic.topic_type === "appendix" ? "附录类 Concept" : "Concept")} · ${topic.level || topic.heading_level || 1} 级标题</span></div><div class="expanded-editor-tools"><span class="count-badge" id="tree-status-badge">未校验</span><button type="button" class="secondary-button compact-button" id="close-expanded-topic">收起</button></div></div><textarea id="tree-xml-editor" class="xml-editor" spellcheck="false"></textarea><div class="validation-report" id="tree-validation"></div><div class="form-actions"><button type="button" class="primary-button" id="save-tree-xml">保存 XML 修改</button></div><div class="inline-message" id="tree-message" role="status"></div>`;
+  panel.innerHTML = `<div class="expanded-editor-heading"><div><p class="section-kicker">XML 代码 / Topic 展开编辑</p><h3>${escapeHtml(topic.title)}</h3><span>${escapeHtml(topic.topic_type === "task" ? "Task" : topic.topic_type === "appendix" ? "附录类 Concept" : "Concept")} · ${topic.level || topic.heading_level || 1} 级标题</span></div><div class="expanded-editor-tools"><span class="count-badge" id="tree-status-badge">未校验</span><button type="button" class="secondary-button compact-button" id="close-expanded-topic">收起</button></div></div><textarea id="tree-xml-editor" class="xml-editor" spellcheck="false"></textarea><div class="validation-report" id="tree-validation"></div><div class="form-actions"><button type="button" class="primary-button" id="save-tree-xml">保存 XML 修改</button></div><div class="inline-message" id="tree-message" role="status"></div>`;
   $("#tree-xml-editor").value = topic.xml || "";
   renderValidation(topic.validation, "#tree-validation", "#tree-status-badge");
   $("#close-expanded-topic").addEventListener("click", () => renderExpandedTopic(null));
   $("#save-tree-xml").addEventListener("click", saveExpandedTopicXml);
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  panel.classList.remove("flash-highlight");
+  void panel.offsetWidth;
+  panel.classList.add("flash-highlight");
 }
 
 async function openTopicForProject(projectId) {
@@ -2654,6 +3846,99 @@ async function openTopicForProject(projectId) {
   showView("topic-view");
   $("#topic-project").value = projectId;
   clearTopicForm();
+}
+
+async function runQualityCheck({ silent = false, force = false } = {}) {
+  const panel = $("#quality-panel");
+  if (!panel) return;
+  const projectId = state.selectedProject?.id || $("#topic-project")?.value;
+  if (!projectId) {
+    $("#quality-project-context").textContent = "请先创建并选择项目";
+    return;
+  }
+  if (!force && !state.qualityStale && state.qualityProjectId === projectId && Date.now() - (state.qualityLoadedAt || 0) < 300000) return;
+  const badge = $("#quality-status-badge");
+  if (!silent) {
+    badge.textContent = "巡检中…";
+    $("#quality-lint-list").innerHTML = `<div class="report-empty">正在做风格检查…</div>`;
+    $("#quality-missing-list").innerHTML = `<div class="report-empty">正在汇总缺料登记…</div>`;
+    $("#quality-consistency-list").innerHTML = `<div class="report-empty">正在做一致性检查…</div>`;
+    $("#quality-logs-list").innerHTML = `<div class="report-empty">正在读取生成记录…</div>`;
+  }
+  try {
+    const base = `/api/projects/${encodeURIComponent(projectId)}`;
+    const [unconfirmed, consistency, lint, logs] = await Promise.all([
+      request(`${base}/unconfirmed`),
+      request(`${base}/consistency`),
+      request(`${base}/lint`),
+      request(`${base}/generation-logs`),
+    ]);
+    renderQualityPanel(unconfirmed, consistency, lint, logs);
+    state.qualityStale = false;
+    state.qualityProjectId = projectId;
+    state.qualityLoadedAt = Date.now();
+  } catch (error) {
+    badge.textContent = "巡检失败";
+    ["#quality-lint-list", "#quality-missing-list", "#quality-consistency-list"].forEach((sel) => {
+      const node = $(sel);
+      if (node) node.innerHTML = `<div class="tree-empty tree-error">${escapeHtml(error.message)}</div>`;
+    });
+  }
+}
+
+function qualityIssueCount(consistency) {
+  const c = consistency || {};
+  return (c.duplicate_titles?.length || 0) + (c.duplicate_node_keys?.length || 0) + (c.guid_residue?.length || 0);
+}
+
+function renderQualityPanel(unconfirmed, consistency, lint, logs) {
+  const badge = $("#quality-status-badge");
+  const missingItems = unconfirmed?.items || [];
+  const issueCount = qualityIssueCount(consistency);
+  const lintResults = lint?.results || [];
+  const lintIssueTopics = lintResults.filter((item) => (item.lint?.error_count || 0) + (item.lint?.warning_count || 0) > 0);
+  const logEntries = logs?.entries || [];
+  $("#quality-project-context").textContent = `项目「${state.selectedProject?.name || "当前项目"}」共 ${consistency?.topic_count ?? state.projectTopics.length} 个 Topic · ${unconfirmed?.topic_confirm_count ?? 0} 处 TODO_CONFIRM 占位`;
+  $("#quality-lint-count").textContent = String(lintIssueTopics.length);
+  const lintRows = lintIssueTopics.slice(0, 20).map((item) => `
+      <div class="quality-issue">
+        <div class="quality-issue-head"><span class="quality-topic-tag">${escapeHtml(item.title || "未命名 Topic")}</span><span class="quality-severity ${item.lint.error_count ? "is-error" : "is-warning"}">${item.lint.error_count ? `错误 ${item.lint.error_count}` : `提醒 ${item.lint.warning_count}`}</span></div>
+        ${(item.lint.issues || []).map((issue) => `<p class="quality-claim">${escapeHtml(issue.message)}</p>${(issue.samples || []).map((sample) => `<p class="quality-reason">${escapeHtml(sample)}</p>`).join("")}`).join("")}
+      </div>`).join("");
+  $("#quality-lint-list").innerHTML = lintIssueTopics.length ? lintRows : `<div class="report-empty">风格 lint 全部通过。</div>`;
+  $("#quality-missing-count").textContent = String(missingItems.length);
+  $("#quality-missing-list").innerHTML = missingItems.length
+    ? missingItems.map((item) => `
+      <div class="quality-issue">
+        <div class="quality-issue-head"><span class="quality-topic-tag">${escapeHtml(item.topic_title || "未命名 Topic")}</span></div>
+        <p class="quality-claim">${escapeHtml(item.claim || "")}</p>
+        ${item.reason ? `<p class="quality-reason">原因：${escapeHtml(item.reason)}</p>` : ""}
+      </div>`).join("")
+    : `<div class="report-empty">没有待确认的缺料登记。</div>`;
+  const rows = [];
+  (consistency?.duplicate_titles || []).forEach((item) => rows.push(`<div class="quality-issue"><p class="quality-claim">标题重复：${escapeHtml(item.title)}</p><p class="quality-reason">涉及 ${item.topic_ids.length} 个 Topic，请保留一个或改名。</p></div>`));
+  (consistency?.duplicate_node_keys || []).forEach((item) => rows.push(`<div class="quality-issue"><p class="quality-claim">同一框架节点生成了多个 Topic</p><p class="quality-reason">${escapeHtml(item.framework_node_key)} · ${item.topic_ids.length} 个 Topic，请人工确认是否重复。</p></div>`));
+  (consistency?.guid_residue || []).forEach((item) => rows.push(`<div class="quality-issue"><p class="quality-claim">XML 残留 GUID：${escapeHtml(item.title)}</p><p class="quality-reason">输出不应包含 GUID 标识，请检查该 Topic。</p></div>`));
+  if (consistency && (consistency.missing_node_key?.length || 0) > 0) {
+    rows.push(`<div class="quality-issue"><p class="quality-claim">${consistency.missing_node_key.length} 个 Topic 未关联框架节点</p><p class="quality-reason">多半是手动创建的 Topic，批量重生成时不会被覆盖。</p></div>`);
+  }
+  $("#quality-consistency-count").textContent = String(issueCount);
+  $("#quality-consistency-list").innerHTML = rows.length
+    ? rows.join("")
+    : `<div class="report-empty">一致性检查通过，没有发现问题。</div>`;
+  $("#quality-logs-count").textContent = String(logEntries.length);
+  const totals = logs?.totals || {};
+  const logRows = logEntries.slice(0, 12).map((entry) => `
+      <div class="quality-issue">
+        <div class="quality-issue-head"><span class="quality-topic-tag">${escapeHtml(entry.model || "未知模型")}</span><span class="quality-severity ${entry.lint_error_count ? "is-error" : entry.lint_warning_count ? "is-warning" : "is-clean"}">${entry.lint_error_count ? `lint 错误 ${entry.lint_error_count}` : entry.lint_warning_count ? `lint 提醒 ${entry.lint_warning_count}` : "lint 通过"}</span></div>
+        <p class="quality-reason">${escapeHtml(entry.logged_at || "")} · ${escapeHtml(entry.generation_mode || "")} · ${entry.attempts || 1} 次尝试 · 输入 ${entry.usage?.input_tokens ?? "-"} / 输出 ${entry.usage?.output_tokens ?? "-"} tokens · prompt ${entry.prompt_chars ?? "-"} 字符</p>
+      </div>`).join("");
+  $("#quality-logs-list").innerHTML = logEntries.length
+    ? `<p class="quality-logs-total">共 ${logs.total_calls} 次生成 · 累计输入 ${totals.input_tokens ?? 0} / 输出 ${totals.output_tokens ?? 0} tokens（保留最近 200 条）</p>${logRows}`
+    : `<div class="report-empty">还没有 AI 生成记录；生成一个 Topic 后这里会显示黑匣子日志。</div>`;
+  const pending = issueCount + missingItems.length + (lint?.error_topic_count || 0);
+  badge.textContent = pending ? `待处理 ${pending}` : "全部通过";
+  badge.classList.toggle("quality-badge-clean", !pending);
 }
 
 async function expandTopicXml(projectId, topicId) {
@@ -2684,8 +3969,7 @@ async function submitTopic(mode) {
     return;
   }
   const buttons = [$("#ai-generate-topic"), $("#template-generate-topic"), $("#clear-topic-form")];
-  buttons.forEach((button) => { if (button) button.disabled = true; });
-  showMessage("#topic-message", generationMode === "optimize" ? "正在基于原 Topic 优化 XML…" : mode === "ai" ? "正在调用 AI 生成 XML…" : "正在生成本地模板…");
+  const runningText = generationMode === "optimize" ? "正在基于原 Topic 优化 XML…" : mode === "ai" ? "正在调用 AI 生成 XML…" : "正在生成本地模板…";
   try {
     const payload = {
       generation_mode: generationMode,
@@ -2707,12 +3991,23 @@ async function submitTopic(mode) {
       ai_generate: mode === "ai",
     };
     const endpoint = generationMode === "optimize"
-      ? `/api/projects/${encodeURIComponent(projectId)}/topics/${encodeURIComponent(targetId)}/generate`
-      : `/api/projects/${encodeURIComponent(projectId)}/topics`;
-    const topic = await request(endpoint, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+      ? `/api/projects/${encodeURIComponent(projectId)}/topics/${encodeURIComponent(targetId)}/${mode === "ai" ? "generate-async" : "generate"}`
+      : `/api/projects/${encodeURIComponent(projectId)}/topics${mode === "ai" ? "/generate-async" : ""}`;
+    let topic;
+    if (mode === "ai") {
+      topic = await runTopicGenerationJob({
+        payload,
+        endpoint,
+        messageEl: "#topic-message",
+        buttons,
+        runningText,
+        jobLabel: `Topic：${payload.title || "未命名"}`,
+      });
+    } else {
+      buttons.forEach((button) => { if (button) { button.disabled = true; button.classList.add("is-busy"); } });
+      showMessage("#topic-message", runningText);
+      topic = await request(endpoint, { method: "POST", body: JSON.stringify(payload) });
+    }
     renderTopicResult(topic);
     showMessage("#topic-message", generationMode === "optimize" ? "优化版 XML 已保存，可继续人工审核。" : mode === "ai" ? "AI XML 已生成并保存，可继续人工审核。" : "模板 XML 已生成并保存，可继续人工编辑。", "success");
     await loadProjects();
@@ -2720,7 +4015,7 @@ async function submitTopic(mode) {
   } catch (error) {
     showMessage("#topic-message", error.message, "error");
   } finally {
-    buttons.forEach((button) => { if (button) button.disabled = false; });
+    buttons.forEach((button) => { if (button) { button.disabled = false; button.classList.remove("is-busy"); } });
   }
 }
 
@@ -2827,6 +4122,390 @@ async function testConnection() {
   }
 }
 
+async function loadAgentProfiles() {
+  try {
+    const data = await request("/api/agent-profiles");
+    state.agentProfiles = data.profiles || [];
+    renderAgentProfileList();
+    renderParallelProfileOptions();
+  } catch (error) {
+    state.agentProfiles = [];
+  }
+}
+
+function renderAgentProfileList() {
+  const list = $("#profile-list");
+  const count = $("#profile-count");
+  if (!list) return;
+  const profiles = state.agentProfiles || [];
+  if (count) count.textContent = String(profiles.length);
+  list.innerHTML = profiles.length
+    ? profiles.map((profile) => {
+      const health = profileHealthOf(profile);
+      return `
+      <button type="button" class="profile-item ${$("#profile-id")?.value === profile.id ? "is-selected" : ""}" data-profile-id="${escapeHtml(profile.id)}">
+        <strong><i class="profile-status-dot" style="background:${health.color}" title="${escapeHtml(health.title)}"></i>${escapeHtml(profile.name || "未命名档案")}</strong>
+        <span>${escapeHtml(profile.provider || "openai-compatible")} · ${escapeHtml(profile.model || "主配置模型")}${profile.key_source === "none" ? " · 未配 Key" : profile.key_origin === "account" ? " · 账号 Key" : " · 独立 Key"}</span>
+      </button>`;
+    }).join("")
+    : `<div class="field-hint">还没有档案，并行生成将全部使用主配置。</div>`;
+  list.onclick = (event) => {
+    const node = event.target.closest("[data-profile-id]");
+    if (node) fillProfileForm(node.dataset.profileId);
+  };
+}
+
+function fillProfileForm(profileId) {
+  const profile = (state.agentProfiles || []).find((item) => item.id === profileId);
+  if (!profile) return;
+  $("#profile-id").value = profile.id || "";
+  $("#profile-name").value = profile.name || "";
+  $("#profile-provider").value = profile.provider || "openai-compatible";
+  $("#profile-base-url").value = profile.base_url || "";
+  $("#profile-model").value = profile.model || "";
+  $("#profile-temperature").value = profile.temperature ?? 0.2;
+  $("#profile-timeout").value = profile.timeout_seconds ?? 60;
+  $("#profile-key").value = "";
+  $("#profile-key").placeholder = profile.key_configured ? "已配置，留空表示保持现有 Key" : "留空自动复制账号主 Key";
+  if ($("#profile-preset")) $("#profile-preset").value = "";
+  const hint = $("#profile-key-hint");
+  if (hint) {
+    hint.textContent = profile.key_configured
+      ? (profile.key_origin === "account"
+        ? "这个子 Agent 用的是账号主 Key 的副本，之后可以单独替换；留空保持不变。"
+        : "这个子 Agent 已经持有一份自己的 Key；留空保持不变，填入则整体替换。")
+      : "这个子 Agent 还没有独立 Key：保存时会自动复制「AI 服务」里的账号主 Key。";
+  }
+  renderAgentProfileList();
+}
+
+function resetProfileForm() {
+  $("#profile-id").value = "";
+  $("#profile-form").reset();
+  if ($("#profile-preset")) $("#profile-preset").value = "";
+  syncSelectDisplays();
+  const adv = $("#profile-adv");
+  if (adv) adv.open = false;
+  $("#profile-key").placeholder = "留空自动复制账号主 Key";
+  const hint = $("#profile-key-hint");
+  if (hint) hint.textContent = "Key 留空时：新建档案会把「AI 服务」里的账号主 Key 复制成这个子 Agent 自己的 Key；已有 Key 则保持不变。";
+  renderAgentProfileList();
+}
+
+/* 常用服务预设：只填公开的接口地址与模型名，不读取本机任何账号信息。 */
+const PROFILE_PRESETS = {
+  openai: {
+    provider: "openai-compatible",
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-6-luna",
+    name: "OpenAI",
+    placeholder: "粘贴 platform.openai.com 的 sk- Key",
+    note: "OpenAI 官方接口。默认给的是最省的 gpt-6-luna，可改成 gpt-6.1-terra（均衡）、gpt-6.1-sol 或 gpt-6-astra（旗舰）；中国大陆网络需自行解决。",
+  },
+  deepseek: {
+    provider: "openai-compatible",
+    base_url: "https://api.deepseek.com",
+    model: "deepseek-flash",
+    name: "DeepSeek",
+    placeholder: "粘贴 DeepSeek 的 sk- Key",
+    note: "DeepSeek 官方 API。旧的 deepseek-chat / deepseek-reasoner 已退役，现在用 deepseek-flash（要更强推理可换 deepseek-v4-pro）；Key 在 platform.deepseek.com 创建。",
+  },
+  dashscope: {
+    provider: "openai-compatible",
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    name: "通义千问",
+    placeholder: "粘贴阿里云百炼的 sk- Key",
+    note: "阿里云百炼（通义千问）。默认 qwen-plus 会自动指向最新 Plus，也可写具体版本如 qwen3.8-max；北京与新加坡地域的 Key 不通用。",
+  },
+  moonshot: {
+    provider: "openai-compatible",
+    base_url: "https://api.moonshot.cn/v1",
+    model: "kimi-k3",
+    name: "Kimi",
+    placeholder: "粘贴 Kimi 开放平台的 Key",
+    note: "Kimi 开放平台。moonshot-v1 系列已停用，现在用 kimi-k3 或 kimi-k3.1-pro；国内站用 api.moonshot.cn，国际站换成 api.moonshot.ai。",
+  },
+  zhipu: {
+    provider: "openai-compatible",
+    base_url: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4.6",
+    name: "智谱 GLM",
+    placeholder: "粘贴智谱开放平台的 API Key",
+    note: "智谱开放平台。地址里 /api/paas/v4 这一段不能少，否则 404；Key 形如 xxxx.xxxx，在 open.bigmodel.cn 的 API Keys 里创建。",
+  },
+  workbuddy: {
+    provider: "openai-compatible",
+    base_url: "https://copilot.tencent.com/v2",
+    model: "deepseek-v4.1-flash",
+    name: "WorkBuddy 账号",
+    placeholder: "粘贴 pt_ 开头的 WorkBuddy API Key",
+    expandAdv: true,
+    note: "WorkBuddy 账号的积分池接口。Key 用「套餐与用量 → API 管理」里创建的 pt_ 开头 Key，必须单独粘贴——留空会变成复制「AI 服务」里的主 Key，那套凭据走不通这个地址。",
+  },
+  ollama: {
+    provider: "local",
+    base_url: "http://127.0.0.1:11434/v1",
+    model: "qwen2.5:7b",
+    name: "本地 Ollama",
+    placeholder: "本地模型可留空",
+    note: "本地模型不需要 Key，确认 Ollama 已启动（ollama serve），模型名填本机已下载的那个。",
+  },
+};
+
+function applyProfilePreset(key) {
+  const preset = PROFILE_PRESETS[key];
+  const adv = $("#profile-adv");
+  if (!preset) {
+    if (adv) adv.open = false;
+    return;
+  }
+  $("#profile-provider").value = preset.provider;
+  $("#profile-base-url").value = preset.base_url;
+  $("#profile-model").value = preset.model;
+  if (!$("#profile-name").value.trim()) $("#profile-name").value = preset.name;
+  const hint = $("#profile-key-hint");
+  if (hint) hint.textContent = preset.note;
+  if (preset.placeholder) $("#profile-key").placeholder = preset.placeholder;
+  // 只有预设带 Key 特殊规则时才展开高级区，平时保持收起。
+  if (adv) adv.open = !!preset.expandAdv;
+}
+
+/* ---------------------------------------------------------------------------
+   自定义下拉：把设置页的原生 <select> 升级成和画布一致的样式。
+   原 select 留在 DOM 里当数据源，value 被拦截后自动同步显示，原有逻辑不用改。
+   --------------------------------------------------------------------------- */
+function upgradeSettingsSelects() {
+  enhanceSelect($("#provider"));
+  enhanceSelect($("#profile-provider"));
+  enhanceSelect($("#profile-preset"), { pill: true });
+}
+
+function enhanceSelect(select, options = {}) {
+  if (!select || select.dataset.skSelect === "1") return;
+  select.dataset.skSelect = "1";
+
+  const wrap = document.createElement("div");
+  wrap.className = "sk-sel" + (options.pill ? " sk-sel-pill" : "");
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+  select.classList.add("sk-native");
+  select.setAttribute("tabindex", "-1");
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "sk-selb";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.innerHTML = '<span class="sk-selv"></span><i class="sk-selar" aria-hidden="true"></i>';
+
+  const panel = document.createElement("div");
+  panel.className = "sk-selp";
+  panel.setAttribute("role", "listbox");
+  wrap.appendChild(trigger);
+  wrap.appendChild(panel);
+
+  const nativeValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  const label = trigger.querySelector(".sk-selv");
+
+  const refresh = () => {
+    const value = nativeValue.get.call(select);
+    const current = Array.from(select.options).find((item) => item.value === value);
+    label.textContent = current ? current.textContent.trim() : "请选择";
+    label.classList.toggle("is-empty", !current || !current.value);
+    panel.innerHTML = Array.from(select.options).map((item) => {
+      const on = item.value === value;
+      const hint = item.dataset.hint ? `<em>${escapeHtml(item.dataset.hint)}</em>` : "";
+      return `<button type="button" class="sk-opt${on ? " on" : ""}" role="option" aria-selected="${on}" data-value="${escapeHtml(item.value)}"><span>${escapeHtml(item.textContent.trim())}</span>${hint}</button>`;
+    }).join("");
+  };
+
+  const openPanel = () => {
+    document.querySelectorAll(".sk-sel.open").forEach((node) => {
+      if (node !== wrap) node.classList.remove("open");
+    });
+    wrap.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    refresh();
+  };
+  const closePanel = () => {
+    wrap.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (wrap.classList.contains("open")) closePanel(); else openPanel();
+  });
+
+  panel.addEventListener("click", (event) => {
+    const option = event.target.closest(".sk-opt");
+    if (!option) return;
+    select.value = option.dataset.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    closePanel();
+    trigger.focus();
+  });
+
+  trigger.addEventListener("keydown", (event) => {
+    const items = Array.from(select.options);
+    const index = items.findIndex((item) => item.value === nativeValue.get.call(select));
+    const pick = (next) => {
+      const target = items[next];
+      if (!target) return;
+      select.value = target.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      refresh();
+      if (!wrap.classList.contains("open")) return;
+    };
+    if (event.key === "Escape") { closePanel(); return; }
+    if (event.key === "ArrowDown") { event.preventDefault(); if (!wrap.classList.contains("open")) openPanel(); pick(Math.min(index + 1, items.length - 1)); }
+    if (event.key === "ArrowUp") { event.preventDefault(); if (!wrap.classList.contains("open")) openPanel(); pick(Math.max(index - 1, 0)); }
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); if (wrap.classList.contains("open")) closePanel(); else openPanel(); }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrap.contains(event.target)) closePanel();
+  });
+
+  // 任何位置给 select.value 赋值都会立刻反映到自定义按钮上
+  Object.defineProperty(select, "value", {
+    configurable: true,
+    get() { return nativeValue.get.call(select); },
+    set(next) { nativeValue.set.call(select, next); refresh(); },
+  });
+
+  // 表单 reset() 这类原生改动不会经过上面的 setter，需要外部手动同步
+  select._skRefresh = refresh;
+  refresh();
+}
+
+function syncSelectDisplays() {
+  document.querySelectorAll("select.sk-native").forEach((select) => {
+    if (typeof select._skRefresh === "function") select._skRefresh();
+  });
+}
+
+async function copyAccountKeyToProfile() {
+  const profileId = $("#profile-id").value;
+  if (!profileId) {
+    showMessage("#profile-message", "先保存一个档案，再复制账号 Key。", "error");
+    return;
+  }
+  try {
+    await request(`/api/agent-profiles/${encodeURIComponent(profileId)}/copy-account-key`, { method: "POST", body: "{}" });
+    await loadAgentProfiles();
+    fillProfileForm(profileId);
+    showMessage("#profile-message", "已把账号主 Key 复制成这个子 Agent 的独立 Key。", "success");
+  } catch (error) {
+    showMessage("#profile-message", error.message, "error");
+  }
+}
+
+async function saveAgentProfile(event) {
+  event.preventDefault();
+  showMessage("#profile-message", "正在保存档案…");
+  try {
+    const numOrNull = (sel) => {
+      const raw = $(sel).value.trim();
+      return raw === "" ? null : Number(raw);
+    };
+    const payload = {
+      id: $("#profile-id").value || undefined,
+      name: $("#profile-name").value.trim(),
+      provider: $("#profile-provider").value,
+      base_url: $("#profile-base-url").value.trim(),
+      model: $("#profile-model").value.trim(),
+      temperature: numOrNull("#profile-temperature"),
+      timeout_seconds: numOrNull("#profile-timeout"),
+      api_key: $("#profile-key").value.trim(),
+    };
+    const profile = await request("/api/agent-profiles", { method: "POST", body: JSON.stringify(payload) });
+    $("#profile-key").value = "";
+    $("#profile-id").value = profile.id;
+    if ($("#profile-preset")) $("#profile-preset").value = "";
+    await loadAgentProfiles();
+    fillProfileForm(profile.id);
+    showMessage("#profile-message", "Agent 档案已保存。", "success");
+  } catch (error) {
+    showMessage("#profile-message", error.message, "error");
+  }
+}
+
+async function testAgentProfile() {
+  const profileId = $("#profile-id").value;
+  if (!profileId) {
+    showMessage("#profile-message", "请先保存档案，再测试连接。", "error");
+    return;
+  }
+  showMessage("#profile-message", "正在测试档案连接…");
+  try {
+    const result = await request(`/api/agent-profiles/${encodeURIComponent(profileId)}/test`, { method: "POST", body: "{}" });
+    showMessage("#profile-message", `连接成功：${result.endpoint}`, "success");
+  } catch (error) {
+    showMessage("#profile-message", error.message, "error");
+  } finally {
+    await loadAgentProfiles();
+  }
+}
+
+async function deleteAgentProfile() {
+  const profileId = $("#profile-id").value;
+  if (!profileId) {
+    showMessage("#profile-message", "请先在列表中选择要删除的档案。", "error");
+    return;
+  }
+  try {
+    await request(`/api/agent-profiles/${encodeURIComponent(profileId)}/delete`, { method: "POST", body: "{}" });
+    resetProfileForm();
+    await loadAgentProfiles();
+    showMessage("#profile-message", "档案已删除。", "success");
+  } catch (error) {
+    showMessage("#profile-message", error.message, "error");
+  }
+}
+
+function renderParallelProfileOptions() {
+  const node = $("#parallel-profile-options");
+  if (!node) return;
+  const profiles = state.agentProfiles || [];
+  node.innerHTML = profiles.length
+    ? profiles.map((profile) => {
+      const health = profileHealthOf(profile);
+      return `
+      <label class="skill-option"><input type="checkbox" value="${escapeHtml(profile.id)}" /> <i class="profile-status-dot" style="background:${health.color}" title="${escapeHtml(health.title)}"></i> ${escapeHtml(profile.name || profile.id)}<small>${escapeHtml(profile.model || "主配置模型")}${profile.key_configured ? "" : " · 回退主 Key"}</small></label>`;
+    }).join("")
+    : `<div class="field-hint">尚未创建档案，将全部使用主配置。</div>`;
+  node.onchange = syncParallelWorkerOptions;
+  syncParallelWorkerOptions();
+}
+
+// 并行通道数跟随勾选的档案数：勾几个档案就最多几个并行 Agent；
+// 一个都不勾时全部走主配置，保留 1–2 档（同账号并行提速）。
+function syncParallelWorkerOptions() {
+  const select = $("#parallel-workers");
+  if (!select) return;
+  const checked = $("#parallel-profile-options")?.querySelectorAll("input[type=checkbox]:checked").length || 0;
+  const max = checked > 0 ? checked : 2;
+  const current = Number(select.value) || 1;
+  select.innerHTML = Array.from({ length: max }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("");
+  select.value = String(Math.min(Math.max(1, current), max));
+  const hint = $("#parallel-workers-hint");
+  if (hint) {
+    hint.textContent = checked > 0
+      ? `已勾选 ${checked} 个档案，最多 ${max} 个并行通道（通道轮流使用勾选的档案）。`
+      : "未勾选档案：并行通道全部使用主配置。";
+  }
+  if (typeof syncSelectDisplays === "function") syncSelectDisplays();
+}
+
+function profileHealthOf(profile) {
+  const test = profile?.last_test;
+  if (!test || !test.at) return { color: "#b3b3ad", title: "尚未测试过连接" };
+  if (test.ok) return { color: "#3f9d63", title: `最近测试通过 · ${formatDate(test.at)}` };
+  return { color: "#b64e42", title: `最近测试失败 · ${formatDate(test.at)}${test.message ? `：${test.message}` : ""}` };
+}
+
 async function createProject(event) {
   event.preventDefault();
   showMessage("#project-message", "正在创建…");
@@ -2845,9 +4524,21 @@ async function createProject(event) {
         cover: state.coverSelection || { type: "asset", file: editorialAssets[0]?.file },
       }),
     });
+    const look = state.newProject || {};
+    bkSet(`alchemy.cardColor.${project.id}`, look.color || BK_MODE_COLOR[project.mode] || "");
+    bkSet(`alchemy.cardImage.${project.id}`, look.image || "");
     state.selectedProject = project;
     closeDialog();
     await loadProjects();
+    // 创建成功后自动跳到项目页签（书架态），并高亮新建的项目
+    showView("projects-view");
+    backToShelf();
+    const newCard = document.querySelector(`[data-project-id="${project.id}"]`);
+    if (newCard) {
+      newCard.classList.add("is-selected", "flash-highlight");
+      newCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    showMessage("#projects-message", `项目「${project.name}」创建成功`, "success");
   } catch (error) {
     showMessage("#project-message", error.message, "error");
   }
@@ -2856,19 +4547,20 @@ async function createProject(event) {
 async function openDialog(initialMode = "new") {
   $("#project-form").reset();
   $("#project-mode").value = initialMode;
+  state.newProject = { color: BK_MODE_COLOR[initialMode] || BK_MODE_COLOR.new, image: "", picked: false };
+  syncModeCards();
   toggleProjectModeFields();
   renderProjectCreationOptions();
   $("#project-message").textContent = "";
+  renderCoverPicker();
   $("#project-dialog").showModal();
   $("#project-name").focus();
-  $("#project-cover-file-name").textContent = "正在读取素材…";
   try {
     await loadEditorialAssets();
-    resetCoverSelection();
   } catch (error) {
-    $("#project-cover-file-name").textContent = error.message;
-    $("#project-cover-gallery").innerHTML = `<p class="cover-empty">素材读取失败，请检查 web/assets/editorial 文件夹。</p>`;
+    // 默认封面读取失败时仍可创建，只是不带默认封面
   }
+  resetCoverSelection();
 }
 
 function closeDialog() {
@@ -2877,7 +4569,16 @@ function closeDialog() {
 
 function setupNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
-    button.addEventListener("click", () => showView(button.dataset.view));
+    button.addEventListener("click", () => {
+      if (button.dataset.canvas) { openTopicCanvasView(); return; }
+      if (button.dataset.view === "projects-view") backToShelf();
+      state.hashPush = true;
+      showView(button.dataset.view);
+    });
+  });
+  $("#job-center")?.addEventListener("click", (event) => {
+    const channel = event.target?.dataset?.jobCancel;
+    if (channel) jobCenterCancel(channel);
   });
 }
 
@@ -2887,19 +4588,48 @@ async function boot() {
     if (savedTheme && FRAMEWORK_THEME_PALETTES[savedTheme]) state.frameworkTheme = savedTheme;
   } catch (error) { /* 使用默认示例四色主题 */ }
   setupNavigation();
+  updateFrameworkPanelControls();
   updateFrameworkThemeControls();
   updateFrameworkLayoutControls();
   document.querySelectorAll("[data-framework-theme]").forEach((button) => button.addEventListener("click", () => applyFrameworkTheme(button.dataset.frameworkTheme)));
   $("#framework-theme-select")?.addEventListener("change", (event) => {
     applyFrameworkTheme(event.target.value);
   });
-  $("#new-project-button").addEventListener("click", openDialog);
-  $("#analysis-back-button")?.addEventListener("click", () => showView("projects-view"));
+  $("#new-project-button").addEventListener("click", () => openDialog("new"));
+  $("#project-search")?.addEventListener("input", debounce((event) => {
+    state.projectQuery = event.target.value;
+    renderProjects();
+  }, 120));
+  $("#project-sort")?.addEventListener("change", (event) => {
+    state.projectSort = event.target.value || "updated";
+    renderProjects();
+  });
+  document.querySelectorAll("[data-project-filter]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      state.projectModeFilter = chip.dataset.projectFilter || "all";
+      document.querySelectorAll("[data-project-filter]").forEach((item) => item.classList.toggle("is-active", item.dataset.projectFilter === state.projectModeFilter));
+      document.querySelectorAll("[data-mode-filter]").forEach((item) => item.classList.toggle("is-filtered", state.projectModeFilter === item.dataset.modeFilter));
+      renderProjects();
+    });
+  });
+  $("#analysis-project-search")?.addEventListener("input", () => renderAnalysisProjectTree());
+  $("#analysis-sidebar-collapse")?.addEventListener("click", () => {
+    const layout = document.querySelector(".analysis-studio-layout");
+    if (!layout) return;
+    const collapsed = layout.classList.toggle("is-sidebar-collapsed");
+    const button = $("#analysis-sidebar-collapse");
+    if (button) button.textContent = collapsed ? "›" : "‹";
+  });
+  $("#analysis-back-button")?.addEventListener("click", () => showView("home-view"));
   document.querySelectorAll("[data-mode-filter]").forEach((card) => {
     const applyModeFilter = () => {
       const mode = card.dataset.modeFilter || "new";
       state.projectModeFilter = state.projectModeFilter === mode ? "all" : mode;
       document.querySelectorAll("[data-mode-filter]").forEach((item) => item.classList.toggle("is-filtered", state.projectModeFilter === item.dataset.modeFilter));
+      if (!document.querySelector("#projects-view")?.classList.contains("is-visible")) {
+        backToShelf();
+        showView("projects-view");
+      }
       renderProjects();
     };
     card.addEventListener("click", (event) => {
@@ -2928,6 +4658,42 @@ async function boot() {
   $("#analysis-material-files").addEventListener("change", handleAnalysisMaterialFiles);
   $("#paste-material-button")?.addEventListener("click", () => { $("#analysis-pasted-text")?.classList.toggle("is-hidden"); $("#save-pasted-material")?.classList.toggle("is-hidden"); $("#analysis-pasted-text")?.focus(); });
   $("#save-pasted-material")?.addEventListener("click", savePastedMaterial);
+  $("#workspace-button")?.addEventListener("click", openWorkspaceDialog);
+  $("#topic-workspace-button")?.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openWorkspaceDialog(); });
+  $("#framework-topic-workspace-button")?.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); openWorkspaceDialog(); });
+  $("#workspace-strip-edit")?.addEventListener("click", openWorkspaceDialog);
+  $("#workspace-strip-clear")?.addEventListener("click", () => { workspaceState.projectId = workspaceProjectId(); clearProjectWorkspace(); });
+  $("#workspace-strip-refresh")?.addEventListener("click", async () => {
+    const projectId = workspaceProjectId();
+    if (!projectId) return;
+    await loadProjectWorkspace(projectId, { refresh: true });
+    showMessage("#materials-message", workspaceState.configured ? `工作区已刷新：${workspaceState.fileCount} 个文件，${workspaceState.readableCount} 个可读。` : "当前没有工作区。", "success");
+  });
+  $("#workspace-close")?.addEventListener("click", () => $("#workspace-dialog")?.close());
+  $("#workspace-cancel")?.addEventListener("click", () => $("#workspace-dialog")?.close());
+  $("#workspace-dialog")?.addEventListener("click", (event) => { if (event.target === $("#workspace-dialog")) $("#workspace-dialog").close(); });
+  $("#workspace-browse")?.addEventListener("click", browseWorkspaceDirectory);
+  $("#workspace-preview-button")?.addEventListener("click", previewWorkspaceDirectory);
+  $("#workspace-path")?.addEventListener("input", updateWorkspaceSaveButton);
+  $("#workspace-path")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); previewWorkspaceDirectory(); }
+  });
+  $("#workspace-recursive")?.addEventListener("change", () => { if (($("#workspace-path")?.value || "").trim()) previewWorkspaceDirectory(); });
+  $("#workspace-save")?.addEventListener("click", saveProjectWorkspace);
+  $("#workspace-clear")?.addEventListener("click", clearProjectWorkspace);
+  $("#workspace-list")?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-workspace-file]");
+    if (row) openWorkspaceFilePreview(row.dataset.workspaceFile);
+  });
+  $("#workspace-list")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const row = event.target.closest("[data-workspace-file]");
+    if (!row) return;
+    event.preventDefault();
+    openWorkspaceFilePreview(row.dataset.workspaceFile);
+  });
+  $("#workspace-file-close")?.addEventListener("click", () => $("#workspace-file-dialog")?.close());
+  $("#workspace-file-dialog")?.addEventListener("click", (event) => { if (event.target === $("#workspace-file-dialog")) $("#workspace-file-dialog").close(); });
   $("#framework-excel-file")?.addEventListener("change", importFrameworkExcel);
   $("#reload-analysis-button")?.addEventListener("click", async () => {
     const projectId = $("#analysis-project")?.value;
@@ -2945,6 +4711,18 @@ async function boot() {
   $("#framework-markdown")?.addEventListener("keyup", (event) => syncFrameworkPreviewSelectionFromEditor(event.currentTarget));
   $("#framework-markdown")?.addEventListener("paste", handleFrameworkMarkdownPaste);
   $("#framework-markdown-paste")?.addEventListener("click", () => pasteFrameworkFromClipboard($("#framework-markdown")));
+  $("#framework-undo")?.addEventListener("click", undoFrameworkMarkdown);
+  $("#framework-redo")?.addEventListener("click", redoFrameworkMarkdown);
+  $("#framework-version-select")?.addEventListener("change", (event) => restoreFrameworkVersion(event.target.value));
+  $("#cancel-framework-job")?.addEventListener("click", async () => {
+    if (!state.activeJobs.framework) return;
+    await request(`/api/jobs/${encodeURIComponent(state.activeJobs.framework)}/cancel`, { method: "POST", body: "{}" }).catch(() => {});
+    stopJobPolling("framework");
+    $("#cancel-framework-job")?.classList.add("is-hidden");
+    setBusyButtons(["#run-analysis-button", "#batch-generate-topics-button"], false);
+    updateFrameworkStatus("已取消生成", "is-error");
+    showMessage("#analysis-message", "生成任务已取消。", "error");
+  });
   $("#framework-markdown-preview")?.addEventListener("click", () => {
     setFrameworkPanel("map");
     setFrameworkView("outline");
@@ -2967,8 +4745,17 @@ async function boot() {
       closeFrameworkMarkdownFullscreen();
     }
   });
-  $("#regenerate-framework-button")?.addEventListener("click", () => generateFrameworkWithAI());
   $("#batch-generate-topics-button")?.addEventListener("click", batchGenerateFrameworkTopics);
+  $("#parallel-batch-form")?.addEventListener("submit", startParallelBatch);
+  $("#close-parallel-batch")?.addEventListener("click", () => $("#parallel-batch-dialog")?.close());
+  $("#close-parallel-batch-2")?.addEventListener("click", () => $("#parallel-batch-dialog")?.close());
+  $("#profile-form")?.addEventListener("submit", saveAgentProfile);
+  $("#profile-copy-key")?.addEventListener("click", copyAccountKeyToProfile);
+  $("#profile-preset")?.addEventListener("change", (event) => applyProfilePreset(event.target.value));
+  upgradeSettingsSelects();
+  $("#profile-test")?.addEventListener("click", testAgentProfile);
+  $("#profile-reset")?.addEventListener("click", resetProfileForm);
+  $("#profile-delete")?.addEventListener("click", deleteAgentProfile);
   $("#save-framework-button")?.addEventListener("click", () => saveFramework("manual"));
   $("#export-framework-button")?.addEventListener("click", exportFrameworkMarkdown);
   $("#toggle-analysis-support")?.addEventListener("click", () => {
@@ -3004,6 +4791,59 @@ async function boot() {
     setFrameworkScaleAt(state.frameworkPan.scale / 1.2, width / 2, height / 2);
   });
   $("#framework-map-fit")?.addEventListener("click", fitFrameworkMap);
+  // 缩放拉杆：拖动 → 设置缩放（以画布中心为锚点）
+  $("#framework-map-zoom-range")?.addEventListener("input", (event) => {
+    const { width, height } = frameworkMapViewportSize();
+    setFrameworkScaleAt(Number(event.target.value) / 100, width / 2, height / 2);
+  });
+
+  // 可拖分隔线：拖动调整 Markdown / 框架图分栏比例，双击复位
+  (function initFrameworkSplit() {
+    const body = $("#framework-workbench-body");
+    const divider = $("#framework-split-divider");
+    if (!body || !divider) return;
+    let dragging = false;
+    divider.addEventListener("pointerdown", (event) => {
+      dragging = true;
+      divider.classList.add("is-dragging");
+      document.body.classList.add("is-resizing");
+      divider.setPointerCapture(event.pointerId);
+    });
+    divider.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const rect = body.getBoundingClientRect();
+      const ratio = Math.min(0.72, Math.max(0.24, (event.clientX - rect.left) / rect.width));
+      body.style.setProperty("--framework-split", (ratio * 100).toFixed(1) + "%");
+    });
+    const stop = (event) => {
+      dragging = false;
+      divider.classList.remove("is-dragging");
+      document.body.classList.remove("is-resizing");
+      if (divider.hasPointerCapture?.(event.pointerId)) divider.releasePointerCapture(event.pointerId);
+    };
+    divider.addEventListener("pointerup", stop);
+    divider.addEventListener("pointercancel", stop);
+    divider.addEventListener("dblclick", () => body.style.removeProperty("--framework-split"));
+  })();
+
+  // 指令区"⋯ 更多"菜单
+  (function initAnalysisMoreMenu() {
+    const button = $("#analysis-more-button");
+    const menu = $("#analysis-more-menu");
+    if (!button || !menu) return;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      menu.classList.toggle("is-open");
+    });
+    document.addEventListener("click", (event) => {
+      if (!menu.classList.contains("is-open")) return;
+      if (!menu.contains(event.target) && event.target !== button) menu.classList.remove("is-open");
+    });
+    menu.querySelectorAll("button").forEach((item) => {
+      item.addEventListener("click", () => menu.classList.remove("is-open"));
+    });
+  })();
+
   $("#framework-summary-toggle")?.addEventListener("click", toggleFrameworkSummaries);
   $("#framework-map-fullscreen")?.addEventListener("click", toggleFrameworkFullscreen);
   $("#framework-toggle-map")?.addEventListener("click", () => {
@@ -3029,8 +4869,10 @@ async function boot() {
       await selectProject($("#topic-project").value);
       renderTopicTargetOptions();
       renderTopicMaterialOptions();
+      if (qualityPanelOpen()) runQualityCheck();
     }
   });
+  $("#run-quality-check")?.addEventListener("click", () => runQualityCheck({ force: true }));
   $("#clear-topic-form").addEventListener("click", clearTopicForm);
   $("#save-topic-xml").addEventListener("click", saveTopicXml);
   $("#framework-topic-form")?.addEventListener("submit", (event) => { event.preventDefault(); generateFrameworkTopic(false); });
@@ -3043,7 +4885,8 @@ async function boot() {
     state.frameworkTopicOpenToken += 1;
     state.frameworkTopicLoading = false;
     state.frameworkTopicOpenPromise = null;
-    state.frameworkPanel = "none";
+    // 关闭 Topic 抽屉后回到默认双栏（Markdown + 框架图），不收起框架图。
+    state.frameworkPanel = "map";
     updateFrameworkPanelControls();
   });
   $("#clear-framework-topic-form")?.addEventListener("click", clearFrameworkTopicForm);
@@ -3077,6 +4920,13 @@ async function boot() {
   $("#delete-skill-button").addEventListener("click", deleteCurrentSkill);
   $("#settings-form").addEventListener("submit", saveSettings);
   $("#test-connection").addEventListener("click", testConnection);
+  $("#quality-toggle")?.addEventListener("click", toggleQualityPanel);
+  setupCardLook();
+  setupProjectDialogLook();
+  window.addEventListener("popstate", () => {
+    const id = viewFromHash();
+    if (id) showView(id);
+  });
   try {
     await request("/api/health");
     $("#service-status").innerHTML = `<span class="status-dot"></span> 本地服务正常`;
@@ -3085,6 +4935,8 @@ async function boot() {
     toggleTopicFields();
     toggleTopicMode();
     renderProjectCreationOptions();
+    const initialView = viewFromHash();
+    if (initialView && initialView !== "home-view") showView(initialView);
   } catch (error) {
     $("#service-status").textContent = `服务异常：${error.message}`;
   }

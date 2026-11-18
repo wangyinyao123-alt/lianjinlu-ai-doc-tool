@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案p27 · 无限画布子Agent · 生成画布子页签</title>
+<style>
+  :root{
+    --canvas:#eef1e6; --paper:#fffbf0; --side:#f7f2e4; --ink:#2b211c; --ink2:#4a3f3a;
+    --muted:#6b625a; --raspberry:#d63a63; --raspberry-dark:#bf2f55; --selected:#f6e4e2;
+    --dropblue:#eef4fb; --line:#d8d2c4;
+    --ok:#3f8f6b; --run:#4a78c2; --wait:#9a9284; --fail:#d63a63;
+    --agent1:#3f8f6b; --agent2:#4a78c2; --agent3:#d9822b; --agent4:#8a5fb0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--canvas);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ===== 顶部：mock 应用导航，画布是独立子页签 ===== */
+  .appbar{display:flex;align-items:center;gap:18px;background:var(--side);border-bottom:1px solid var(--line);padding:0 20px;height:52px;flex:none}
+  .brand{font-weight:800;font-size:15px;color:var(--raspberry);white-space:nowrap}
+  .tabs{display:flex;gap:4px;flex:1}
+  .tab{padding:7px 14px;border-radius:999px;font-size:13px;color:var(--ink2);cursor:pointer;white-space:nowrap}
+  .tab:hover{background:rgba(214,58,99,.08)}
+  .tab.active{background:var(--raspberry);color:#fff;font-weight:600}
+  .tab.new-tag{position:relative}
+  .new-tag::after{content:"新";position:absolute;top:-4px;right:-4px;background:var(--ok);color:#fff;font-size:10px;padding:1px 5px;border-radius:999px}
+
+  /* ===== 画布工具条 ===== */
+  .toolbar{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--paper);border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  .crumb{font-size:13px;color:var(--muted)}
+  .crumb b{color:var(--ink)}
+  .chip{padding:4px 12px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink2)}
+  .chip.active{background:var(--selected);border-color:var(--raspberry);color:var(--raspberry-dark);font-weight:600}
+  .spacer{flex:1}
+  .zoombox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .zoombox input[type=range]{width:110px;accent-color:var(--raspberry)}
+  .tool-btn{padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .tool-btn:hover{border-color:var(--raspberry);color:var(--raspberry-dark)}
+  .tool-btn.primary{background:var(--raspberry);border-color:var(--raspberry);color:#fff;font-weight:600}
+  .tool-btn.primary:hover{background:var(--raspberry-dark);color:#fff}
+
+  /* ===== 无限画布视口 ===== */
+  #viewport{flex:1;position:relative;overflow:hidden;cursor:grab;
+    background-image:radial-gradient(circle,#c9c4b4 1px,transparent 1px);background-size:22px 22px}
+  #viewport.panning{cursor:grabbing}
+  #world{position:absolute;top:0;left:0;width:10px;height:10px;transform-origin:0 0}
+
+  svg#edges{position:absolute;top:0;left:0;width:10px;height:10px;overflow:visible;pointer-events:none}
+  svg#edges line{stroke-width:2}
+  svg#edges line.edge-run{stroke-dasharray:7 5;animation:dashmove .7s linear infinite}
+  @keyframes dashmove{to{stroke-dashoffset:-12}}
+  svg#edges line.edge-done{opacity:.45;stroke-width:1.5}
+
+  /* ===== 框架投影（左） ===== */
+  .fw-root{position:absolute;width:220px;background:#fff;border:2px solid var(--raspberry);border-radius:14px;padding:12px 14px;box-shadow:0 3px 0 rgba(43,33,28,.12)}
+  .fw-root h3{font-size:14px;color:var(--raspberry-dark)}
+  .fw-root p{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .fw-node{position:absolute;width:196px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 2px 0 rgba(43,33,28,.10);cursor:pointer;transition:box-shadow .2s,opacity .25s}
+  .fw-node:hover{box-shadow:0 4px 10px rgba(43,33,28,.18)}
+  .fw-node.dim{opacity:.22;pointer-events:none}
+  .fw-node .t{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.4}
+  .fw-node .meta{display:flex;align-items:center;gap:6px;margin-top:7px}
+  .badge{font-size:10.5px;padding:2px 8px;border-radius:999px;font-weight:600;letter-spacing:.3px}
+  .badge.wait{background:#eceade;color:var(--wait)}
+  .badge.run{background:#e3edfa;color:var(--run);animation:pulse 1.2s ease-in-out infinite}
+  .badge.ok{background:#e2f1ea;color:var(--ok)}
+  .badge.fail{background:#f8e3e8;color:var(--fail)}
+  @keyframes pulse{50%{opacity:.55}}
+  .agent-dot{width:9px;height:9px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(43,33,28,.15)}
+
+  /* ===== Agent 泳道（右） ===== */
+  .lane{position:absolute;width:330px;background:rgba(255,251,240,.92);border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:0 3px 0 rgba(43,33,28,.08)}
+  .lane-head{display:flex;align-items:center;gap:9px;padding:6px 8px}
+  .lane-head .agent-dot{width:14px;height:14px}
+  .lane-head .nm{font-size:13px;font-weight:700}
+  .lane-head .model{font-size:10.5px;color:var(--muted)}
+  .lane-head .stat{margin-left:auto;font-size:11px;color:var(--muted)}
+  .lane-head .stat b{color:var(--ink)}
+  .lane-body{display:flex;flex-direction:column;gap:8px;margin-top:6px;min-height:30px}
+  .topic-card{background:#fff;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;animation:pop .3s ease}
+  @keyframes pop{from{transform:scale(.9);opacity:0}}
+  .topic-card .t{font-size:12px;font-weight:600;line-height:1.4}
+  .topic-card .m{display:flex;gap:10px;margin-top:5px;font-size:10.5px;color:var(--muted)}
+  .topic-card.ok{border-left-color:var(--ok)}
+  .topic-card.fail{border-left-color:var(--fail)}
+  .topic-card.run{border-left-color:var(--run);background:#fbfdff}
+  .topic-card.run .t::after{content:" 生成中…";color:var(--run);font-weight:400;font-size:11px}
+  .topic-card.dim{opacity:.2}
+
+  /* ===== 侧滑详情 ===== */
+  #detail{position:fixed;right:18px;top:120px;width:280px;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 26px rgba(43,33,28,.22);padding:14px;display:none;z-index:50}
+  #detail.show{display:block}
+  #detail h4{font-size:13px;margin-bottom:8px;color:var(--raspberry-dark)}
+  #detail .row{font-size:12px;color:var(--ink2);margin-bottom:5px;line-height:1.5}
+  #detail .row b{color:var(--ink)}
+  #detail .lint li{font-size:11.5px;color:var(--muted);margin:3px 0 3px 16px}
+  #detail .close{position:absolute;top:8px;right:10px;border:none;background:none;font-size:16px;cursor:pointer;color:var(--muted)}
+
+  /* ===== 图例 & 空态 ===== */
+  .legend{position:fixed;left:20px;bottom:16px;background:rgba(255,251,240,.95);border:1px solid var(--line);border-radius:12px;padding:8px 14px;display:flex;gap:14px;font-size:11.5px;color:var(--ink2);z-index:40;align-items:center}
+  .legend .it{display:flex;align-items:center;gap:5px}
+  .legend .sq{width:10px;height:10px;border-radius:3px}
+  .hintline{position:fixed;right:20px;bottom:16px;font-size:11.5px;color:var(--muted);background:rgba(255,251,240,.9);padding:6px 12px;border-radius:999px;border:1px solid var(--line);z-index:40}
+  .note{position:fixed;top:104px;right:20px;background:#fff8e0;border:1px solid #e6d9a8;color:#7a6a1f;font-size:12px;padding:8px 14px;border-radius:10px;max-width:300px;line-height:1.6;z-index:60;box-shadow:0 4px 14px rgba(43,33,28,.12)}
+.note button{float:right;border:none;background:none;color:#7a6a1f;cursor:pointer;font-size:14px;margin-left:8px}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <span class="brand">🔥 炼金炉</span>
+  <nav class="tabs">
+    <span class="tab">首页</span>
+    <span class="tab">项目工作台</span>
+    <span class="tab">框架工坊</span>
+    <span class="tab">Topic 工作台</span>
+    <span class="tab">质量巡检</span>
+    <span class="tab active new-tag">生成画布</span>
+  </nav>
+  <span style="font-size:12px;color:var(--muted)">CODESYS 手册 · 12 节点 · 4 Agent</span>
+</header>
+
+<div class="toolbar">
+  <span class="crumb">项目 / <b>CODESYS 手册</b> / 生成画布</span>
+  <span style="width:14px"></span>
+  <span class="chip active" data-f="all">全部</span>
+  <span class="chip" data-f="wait">○ 排队</span>
+  <span class="chip" data-f="run">◐ 生成中</span>
+  <span class="chip" data-f="ok">● 完成</span>
+  <span class="chip" data-f="fail">× 失败</span>
+  <span class="spacer"></span>
+  <span class="zoombox">缩放 <input type="range" id="zoom" min="40" max="160" value="100"><span id="zoom-label">100%</span></span>
+  <button class="tool-btn" id="fit">适应画布</button>
+  <button class="tool-btn primary" id="play">▶ 演示</button>
+</div>
+
+<div id="viewport">
+  <div id="world">
+    <svg id="edges"></svg>
+    <!-- 框架投影与 Agent 泳道由 JS 生成 -->
+  </div>
+</div>
+
+<div class="legend">
+  <span style="font-weight:700;font-size:12px">Agent 分配</span>
+  <span class="it"><span class="sq" style="background:var(--agent1)"></span>A1 主力·glm-4.7</span>
+  <span class="it"><span class="sq" style="background:var(--agent2)"></span>A2 校对·gpt-5.2</span>
+  <span class="it"><span class="sq" style="background:var(--agent3)"></span>A3 快速·haiku</span>
+  <span class="it"><span class="sq" style="background:var(--agent4)"></span>A4 备用·主Key</span>
+</div>
+<div class="hintline">拖拽平移 · 滚轮缩放 · 点击节点看详情</div>
+<div class="note" id="note"><button onclick="document.getElementById('note').remove()">×</button>📌 <b>方案说明：</b>画布是独立子页签「生成画布」。左侧为框架节点投影（徽章=生成状态），右侧为每个 Agent 的泳道（生成的 Topic 卡片实时流入）。页面打开后会自动演示一次 4 Agent 并行批次。</div>
+
+<aside id="detail">
+  <button class="close" onclick="this.parentElement.classList.remove('show')">×</button>
+  <h4 id="d-title"></h4>
+  <div class="row">状态：<b id="d-status"></b> · 负责：<b id="d-agent"></b></div>
+  <div class="row">Token：<b id="d-token"></b> · 用时：<b id="d-time"></b></div>
+  <div class="row">风格 lint：<b id="d-lint"></b></div>
+  <ul class="lint" id="d-lintlist"></ul>
+</aside>
+
+<script>
+/* ================= 数据 ================= */
+const NODES = [
+  {id:"n1", t:"工程简介与系统架构", x:0},
+  {id:"n2", t:"安装与环境配置", x:1},
+  {id:"n3", t:"许可证激活流程", x:2},
+  {id:"n4", t:"首次运行向导", x:3},
+  {id:"n5", t:"变量与数据类型", x:0},
+  {id:"n6", t:"POU 程序组织单元", x:1},
+  {id:"n7", t:"任务配置与调度", x:2},
+  {id:"n8", t:"库管理与引用", x:3},
+  {id:"n9", t:"在线调试与断点", x:0},
+  {id:"n10",t:"可视化界面开发", x:1},
+  {id:"n11",t:"报警与日志系统", x:2},
+  {id:"n12",t:"导出与版本管理", x:3},
+];
+const AGENTS = [
+  {id:"a1", nm:"A1 主力",  model:"glm-4.7",   c:"var(--agent1)"},
+  {id:"a2", nm:"A2 校对",  model:"gpt-5.2",   c:"var(--agent2)"},
+  {id:"a3", nm:"A3 快速",  model:"haiku-4.5", c:"var(--agent3)"},
+  {id:"a4", nm:"A4 备用",  model:"主 Key 回退",c:"var(--agent4)"},
+];
+/* 演示时间线：节点按序分配给 Agent(循环)，各自耗时不同；n7 失败演示 */
+const PLAN = [
+  {n:"n1",a:"a1",dur:3.0},{n:"n2",a:"a2",dur:3.6},{n:"n3",a:"a3",dur:2.2},{n:"n4",a:"a4",dur:4.0},
+  {n:"n5",a:"a1",dur:3.2},{n:"n6",a:"a2",dur:4.4},{n:"n7",a:"a3",dur:2.8,fail:true},{n:"n8",a:"a4",dur:3.4},
+  {n:"n9",a:"a1",dur:2.6},{n:"n10",a:"a2",dur:3.8},{n:"n11",a:"a3",dur:2.4},{n:"n12",a:"a4",dur:3.0},
+];
+
+/* ================= 状态 ================= */
+let view = {x:60,y:20,s:1};
+const state = {};   // node state: {status, agent, card}
+let filter = "all";
+let playing = false, timers = [];
+let worldW=0, worldH=0;
+
+const $ = s=>document.querySelector(s);
+const world=$("#world"), svg=$("#edges"), vp=$("#viewport");
+
+/* ================= 布局 ================= */
+function layout(){
+  // 框架投影：根 + 节点四列
+  const root=document.createElement("div"); root.className="fw-root"; root.id="fwroot";
+  root.innerHTML=`<h3>📕 CODESYS 手册 · 框架</h3><p>12 个待生成节点 · 投影自框架工坊。徽章与右侧泳道实时联动。</p>`;
+  root.style.left="40px"; root.style.top="300px";
+  world.appendChild(root);
+
+  NODES.forEach((n,i)=>{
+    const el=document.createElement("div");
+    el.className="fw-node"; el.id=n.id; el.dataset.id=n.id;
+    el.innerHTML=`<div class="t">${n.t}</div><div class="meta"><span class="badge wait">○ 排队</span></div>`;
+    const col=n.x, row=Math.floor(i/4);
+    el.style.left=(320+col*230)+"px"; el.style.top=(60+row*130)+"px";
+    el.addEventListener("click",e=>{e.stopPropagation();showDetail(n.id);});
+    world.appendChild(el);
+    state[n.id]={el,card:null,agent:null,status:"wait",badges:{}};
+  });
+
+  // Agent 泳道
+  AGENTS.forEach((a,i)=>{
+    const lane=document.createElement("div");
+    lane.className="lane"; lane.id="lane-"+a.id;
+    lane.style.left=(1300)+"px"; lane.style.top=(60+i*190)+"px";
+    lane.innerHTML=`<div class="lane-head"><span class="agent-dot" style="background:${a.c}"></span>
+      <span><span class="nm">${a.nm}</span><br><span class="model">${a.model}</span></span>
+      <span class="stat" id="stat-${a.id}">完成 <b>0</b></span></div>
+      <div class="lane-body" id="body-${a.id}"><span style="font-size:11px;color:var(--muted)">等待分配…</span></div>`;
+    world.appendChild(lane);
+  });
+
+  worldW=1700; worldH=850;
+  svg.setAttribute("width",worldW); svg.setAttribute("height",worldH);
+  applyView();
+}
+
+/* ================= 视图变换 ================= */
+function applyView(){
+  world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;
+  $("#zoom").value=Math.round(view.s*100);
+  $("#zoom-label").textContent=Math.round(view.s*100)+"%";
+  drawEdges();
+}
+$("#zoom").addEventListener("input",e=>{
+  const ns=e.target.value/100;
+  const cx=vp.clientWidth/2, cy=vp.clientHeight/2;
+  view.x=cx-(cx-view.x)/view.s*ns; view.y=cy-(cy-view.y)/view.s*ns; view.s=ns; applyView();
+});
+vp.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const k=e.deltaY<0?1.1:0.9, ns=Math.min(1.6,Math.max(0.4,view.s*k));
+  const r=vp.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  view.x=mx-(mx-view.x)/view.s*ns; view.y=my-(my-view.y)/view.s*ns; view.s=ns; applyView();
+},{passive:false});
+let pan=null;
+vp.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".fw-node,.topic-card,.lane"))return;
+  pan={sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y}; vp.classList.add("panning");
+});
+window.addEventListener("pointermove",e=>{
+  if(pan){view.x=pan.ox+e.clientX-pan.sx;view.y=pan.oy+e.clientY-pan.sy;applyView();}
+});
+window.addEventListener("pointerup",()=>{pan=null;vp.classList.remove("panning");});
+$("#fit").addEventListener("click",()=>{
+  const s=Math.min((vp.clientWidth-60)/worldW,(vp.clientHeight-60)/worldH,1.15);
+  view={x:30,y:30,s}; applyView();
+});
+
+/* ================= 边线 ================= */
+function center(el,side){
+  const w=world.getBoundingClientRect(), r=el.getBoundingClientRect();
+  const s=view.s;
+  const x=(r.left-w.left)/s, y=(r.top-w.top)/s;
+  return {x:side==="r"?x+r.width/s:x, y:y+(r.height/s)/2};
+}
+function drawEdges(){
+  svg.innerHTML="";
+  NODES.forEach(n=>{
+    const st=state[n.id]; if(!st||!st.agent)return;
+    const a=AGENTS.find(a=>a.id===st.agent);
+    let target = st.status==="run" ? st.card : (st.status==="ok"? st.card : null);
+    if(st.status==="fail") return;
+    if(!target) return;
+    const p1=center(st.el,"r"), p2=center(target,"l");
+    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1",p1.x);line.setAttribute("y1",p1.y);line.setAttribute("x2",p2.x);line.setAttribute("y2",p2.y);
+    line.setAttribute("stroke",a.c);
+    line.setAttribute("class", st.status==="run"?"edge-run":"edge-done");
+    svg.appendChild(line);
+  });
+}
+
+/* ================= 详情弹层 ================= */
+const LINTS=["长句>40字 ×2（第3段、第5段）","半角标点：第2步结尾","数字与单位缺空格：32GB"];
+function showDetail(id){
+  const n=NODES.find(n=>n.id===id), st=state[id];
+  const a=st.agent?AGENTS.find(x=>x.id===st.agent):null;
+  $("#d-title").textContent=n.t;
+  $("#d-status").textContent=({wait:"○ 排队",run:"◐ 生成中",ok:"● 完成",fail:"× 失败"})[st.status];
+  $("#d-agent").textContent=a?a.nm:"未分配";
+  $("#d-token").textContent=st.status==="ok"?(1200+Math.floor(Math.random()*900)):"—";
+  $("#d-time").textContent=st.status==="ok"?"42s":(st.status==="run"?"…":"—");
+  $("#d-lint").textContent=st.status==="ok"?"3 处提示":(st.status==="run"?"检查中":"—");
+  $("#d-lintlist").innerHTML=st.status==="ok"?LINTS.map(l=>`<li>${l}</li>`).join(""):"";
+  const d=$("#detail"); d.classList.add("show");
+  // 跟随节点附近
+  const r=st.el.getBoundingClientRect();
+  d.style.top=Math.min(window.innerHeight-260, r.bottom+10)+"px";
+}
+
+/* ================= 过滤 ================= */
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
+  document.querySelectorAll(".chip").forEach(x=>x.classList.remove("active"));
+  c.classList.add("active"); filter=c.dataset.f; applyFilter();
+}));
+function applyFilter(){
+  NODES.forEach(n=>{
+    const st=state[n.id];
+    st.el.classList.toggle("dim", filter!=="all"&&st.status!==filter);
+    if(st.card) st.card.classList.toggle("dim", filter!=="all"&&st.status!==filter);
+  });
+  drawEdges();
+}
+
+/* ================= 演示时间线 ================= */
+const BADGE={wait:["wait","○ 排队"],run:["run","◐ 生成中"],ok:["ok","● 完成"],fail:["fail","× 失败"]};
+function setBadge(id,st){
+  const s=state[id]; s.status=st;
+  const [cls,txt]=BADGE[st];
+  const b=s.el.querySelector(".badge"); b.className="badge "+cls; b.textContent=txt;
+}
+$("#play").addEventListener("click",()=>{
+  if(playing)return; playing=true; $("#play").textContent="⏸ 演示中";
+  // 复位
+  timers.forEach(clearTimeout); timers=[];
+  NODES.forEach(n=>{const s=state[n.id];s.status="wait";s.agent=null;
+    const b=s.el.querySelector(".badge");b.className="badge wait";b.textContent="○ 排队";
+    if(s.card){s.card.remove();s.card=null;}
+  });
+  AGENTS.forEach(a=>{
+    $("#body-"+a.id).innerHTML=`<span style="font-size:11px;color:var(--muted)">等待分配…</span>`;
+    $("#stat-"+a.id).innerHTML=`完成 <b>0</b>`;
+  });
+  drawEdges(); applyFilter();
+
+  let t=400, done={a1:0,a2:0,a3:0,a4:0};
+  PLAN.forEach(p=>{
+    const node=state[p.n];
+    timers.push(setTimeout(()=>{ // 分配+开始
+      node.agent=p.a; setBadge(p.n,"run");
+      const a=AGENTS.find(a=>a.id===p.a);
+      const body=$("#body-"+a.id);
+      const ph=body.querySelector("span"); if(ph)ph.remove();
+      const card=document.createElement("div");
+      card.className="topic-card run"; card.dataset.id=p.n;
+      card.innerHTML=`<div class="t">${NODES.find(n=>n.id===p.n).t}</div><div class="m"><span>◐ 生成中</span><span>${a.model}</span></div>`;
+      card.addEventListener("click",e=>{e.stopPropagation();showDetail(p.n);});
+      body.appendChild(card); node.card=card;
+      drawEdges();
+    },t));
+    t+=p.dur*1000;
+    timers.push(setTimeout(()=>{ // 结束
+      if(p.fail){ setBadge(p.n,"fail"); node.card.className="topic-card fail";
+        node.card.querySelector(".m").innerHTML=`<span style="color:var(--fail)">× 超时失败</span><span>已重新排队</span>`;
+      }else{
+        setBadge(p.n,"ok"); node.card.className="topic-card ok";
+        node.card.querySelector(".m").innerHTML=`<span>● 完成</span><span>${(1.1+Math.random()*0.9).toFixed(1)}k tok</span><span>lint 3 提示</span>`;
+        done[p.a]++; const sm=$("#stat-"+p.a); if(sm)sm.innerHTML=`完成 <b>${done[p.a]}</b>`;
+      }
+      drawEdges(); applyFilter();
+    },t));
+    t+=300;
+  });
+  timers.push(setTimeout(()=>{playing=false;$("#play").textContent="▶ 重播";},t+500));
+});
+
+/* ================= 初始化 ================= */
+layout();
+setTimeout(()=>$("#fit").click(),100);
+setTimeout(()=>$("#play").click(),900);   // 打开页面自动演示一次
+</script>
+</body>
+</html>

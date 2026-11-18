@@ -1,0 +1,356 @@
+/* =========================================================================
+   Topic 生成画布（色块版）— 全屏 overlay
+   所有规则限定在 #topic-canvas 内，类名统一 tc- 前缀，不影响既有界面。
+   ========================================================================= */
+#topic-canvas{
+  --tc-font:"Plus Jakarta Sans",-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --tc-serif:"Songti SC","Noto Serif SC","Instrument Serif",Georgia,serif;
+  --tc-page:#cdd0e2;--tc-ink:#111;--tc-ink2:#444;--tc-muted:#6a6a78;--tc-line:#dcdce6;
+  --tc-lime:#dcf8b6;--tc-yel:#fff07a;--tc-pink:#ff8fbd;--tc-edge:#5c5c68;
+  --tc-ac:#5b4bc4;--tc-ac2:#7a6bdc;--tc-ac-line:#d9d0ff;
+  --tc-ag1:#2fd884;--tc-ag2:#cbbdf4;--tc-ag3:#dcf8b6;--tc-ag4:#aee0ff;--tc-ag5:#ffcfa8;
+  position:fixed;inset:0;z-index:9200;display:none;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px));
+  background:var(--tc-page);font:13px/1.45 var(--tc-font);color:var(--tc-ink);
+}
+#topic-canvas.is-open{display:flex}
+#topic-canvas *{box-sizing:border-box}
+#topic-canvas button,#topic-canvas input,#topic-canvas select,#topic-canvas textarea{font:inherit;color:inherit}
+#topic-canvas button{cursor:pointer}
+#topic-canvas :focus-visible{outline:2px solid var(--tc-ink);outline-offset:2px}
+
+#topic-canvas .tc-shell{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;border-radius:28px;overflow:hidden}
+
+/* 顶栏 */
+#topic-canvas .tc-appbar{display:flex;align-items:center;gap:20px;height:60px;padding:0 24px;flex:none}
+#topic-canvas .tc-brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px}
+#topic-canvas .tc-brand svg{color:var(--tc-ink)}
+#topic-canvas .tc-tabs{display:flex;gap:6px;flex:1;justify-content:center;overflow-x:auto}
+#topic-canvas .tc-tab{white-space:nowrap;padding:5px 14px;border-radius:999px;background:none;border:1px solid var(--tc-line);color:var(--tc-ink2)}
+#topic-canvas .tc-tab:hover{border-color:var(--tc-ink)}
+#topic-canvas .tc-tab.on{border:1.5px solid var(--tc-ink);color:var(--tc-ink);font-weight:600}
+#topic-canvas .tc-proj{white-space:nowrap;font-size:12px;color:var(--tc-muted)}
+
+/* Hero */
+#topic-canvas .tc-hero{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:2px 24px 14px;flex:none}
+#topic-canvas .tc-hero h1{display:flex;align-items:center;gap:12px;font-size:32px;line-height:1.1;letter-spacing:-.02em;font-weight:800}
+#topic-canvas .tc-hero h1 em{font:italic 400 36px/1 var(--tc-serif);letter-spacing:0}
+#topic-canvas .tc-badge{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;font-style:normal;font-size:26px;font-weight:700;background:var(--tc-lime)}
+#topic-canvas .tc-sub{font-size:12.5px;color:var(--tc-muted);margin:6px 0 0 56px}
+#topic-canvas .tc-tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#topic-canvas .tc-b{padding:7px 16px;border:1px solid #cfcfda;background:#fff;border-radius:999px;color:var(--tc-ink2)}
+#topic-canvas .tc-b:hover{border-color:var(--tc-ink);color:var(--tc-ink)}
+#topic-canvas .tc-b .tc-n{margin-left:4px;padding:0 7px;background:var(--tc-lime);border-radius:999px;font-size:11px;color:var(--tc-ink)}
+#topic-canvas .tc-seg{display:flex;border:1px solid #cfcfda;border-radius:999px;padding:2px}
+#topic-canvas .tc-seg button{border:0;background:none;padding:5px 13px;border-radius:999px;color:var(--tc-ink2)}
+#topic-canvas .tc-seg .on{background:var(--tc-ink);color:#fff}
+#topic-canvas .tc-seg button[disabled]{opacity:.4;cursor:not-allowed}
+#topic-canvas .tc-zm{display:flex;align-items:center;gap:8px;color:var(--tc-muted);font-size:12px}
+#topic-canvas .tc-zm input{width:100px;accent-color:var(--tc-ink)}
+#topic-canvas .tc-go{display:inline-flex;align-items:center;gap:10px;padding:5px 6px 5px 18px;border:0;border-radius:999px;font-weight:700;background:var(--tc-ink);color:#fff}
+#topic-canvas .tc-go:hover{background:#2a2a2a}
+#topic-canvas .tc-go .tc-ci{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font-style:normal;font-size:11px;background:var(--tc-lime);color:var(--tc-ink)}
+#topic-canvas .tc-go.running{background:var(--tc-pink);color:var(--tc-ink)}
+#topic-canvas .tc-go.running .tc-ci{background:var(--tc-ink);color:#fff}
+
+/* 画布 */
+#topic-canvas .tc-main{position:relative;flex:1;min-height:0;margin:0 14px 14px;border-radius:22px;overflow:hidden;border:1px solid var(--tc-line);
+  background-color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800' viewBox='0 0 1200 800'%3E%3Cg fill='none' stroke='%23d3ee98' stroke-width='1.5'%3E%3Cpath d='M-20 520C200 300 520 220 760 360S1120 700 1240 380'/%3E%3Cpath d='M300 820C380 520 700 480 900 560S1180 520 1220 300'/%3E%3C/g%3E%3C/svg%3E");background-size:cover}
+#topic-canvas .tc-vp{position:absolute;inset:0;overflow:hidden;cursor:grab;touch-action:none}
+#topic-canvas .tc-vp.panning{cursor:grabbing}
+#topic-canvas .tc-stage{position:absolute;left:0;top:0;width:0;height:0}
+#topic-canvas .tc-world{position:absolute;left:0;top:0;transform-origin:0 0}
+#topic-canvas .tc-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:2}
+#topic-canvas .tc-edges path{fill:none;stroke-linecap:round}
+
+#topic-canvas .tc-root,#topic-canvas .tc-chap,#topic-canvas .tc-sec{position:absolute;z-index:3}
+#topic-canvas .tc-root,#topic-canvas .tc-chap{display:flex;flex-direction:column;justify-content:center}
+#topic-canvas .tc-sec{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#topic-canvas .tc-root{background:var(--tc-ink);color:#fff;border-radius:20px;padding:0 18px}
+#topic-canvas .tc-root b{font-size:14.5px}
+#topic-canvas .tc-root span{font-size:11.5px;color:var(--tc-lime)}
+#topic-canvas .tc-chap{background:#fff;border:1.5px solid var(--tc-ink);border-radius:18px;padding:0 14px;transition:box-shadow .18s,opacity .18s}
+#topic-canvas .tc-chap b{font-size:13.5px}
+#topic-canvas .tc-chap span{font-size:11.5px;color:var(--tc-muted)}
+#topic-canvas .tc-chap.free{background:rgba(255,255,255,.7);border:1.5px dashed #a9a9b8}
+#topic-canvas .tc-chap.preview{box-shadow:0 0 0 3px var(--tc-ink)}
+#topic-canvas .tc-chap.dim{opacity:.4}
+
+#topic-canvas .tc-sec{background:#fff;border:1px solid rgba(17,17,17,.14);border-radius:999px;padding:0 6px 0 15px;font-size:12.5px;font-weight:500;transition:border-color .18s,background .18s}
+#topic-canvas .tc-sec .tc-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+#topic-canvas .tc-sec em{font-style:normal;font-size:11px;font-weight:600;padding:2px 10px;border-radius:999px;white-space:nowrap;background:#fff;border:1px solid #cfcfda;color:var(--tc-muted)}
+#topic-canvas .tc-sec.ok em{background:var(--tc-ink);border-color:var(--tc-ink);color:#fff}
+#topic-canvas .tc-sec.run{border:1.5px solid var(--tc-ink)}
+#topic-canvas .tc-sec.run em{background:var(--tc-yel);border-color:var(--tc-yel);color:var(--tc-ink);animation:tc-gl 1.6s ease-in-out infinite}
+#topic-canvas .tc-sec.fail em{background:var(--tc-pink);border-color:var(--tc-pink);color:var(--tc-ink)}
+@keyframes tc-gl{50%{opacity:.55}}
+
+/* Agent 卡片 */
+#topic-canvas .tc-agent{position:absolute;z-index:1;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;background:var(--c);border-radius:26px;transition:box-shadow .2s}
+#topic-canvas .tc-agent.dragging{box-shadow:0 12px 34px rgba(20,20,50,.22)}
+#topic-canvas .tc-ah,#topic-canvas .tc-af{position:relative;z-index:1;display:flex;align-items:center;gap:9px;padding:0 18px}
+#topic-canvas .tc-ah{height:56px;min-width:0;overflow:hidden}
+#topic-canvas .tc-af{height:58px;padding-right:96px}
+#topic-canvas .tc-ah b{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0;max-width:52%}
+#topic-canvas .tc-md{font:italic 400 17px var(--tc-serif);color:var(--tc-ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+#topic-canvas .tc-sc{padding:2px 10px;border:1px solid var(--tc-ink);border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;flex:0 0 auto}
+#topic-canvas .tc-ac{margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto}
+#topic-canvas .tc-cfgb{display:inline-flex;align-items:center;justify-content:center;height:26px;border-radius:999px;padding:0 11px;font-size:11.5px;font-weight:700;line-height:1;background:#fff;border:1.5px solid var(--tc-ink);white-space:nowrap}
+#topic-canvas .tc-cfgb:hover{background:var(--tc-ink);color:#fff}
+#topic-canvas .tc-del{display:grid;place-items:center;height:26px;width:26px;border-radius:999px;background:#fff;border:1.5px solid transparent;opacity:.75;font-size:18px;line-height:1}
+#topic-canvas .tc-del:hover{opacity:1;border-color:var(--tc-ink)}
+#topic-canvas .tc-nt{font-weight:700;font-size:12px;white-space:nowrap;flex:0 0 auto}
+#topic-canvas .tc-cnt{font-size:12px;font-weight:600;white-space:nowrap}
+#topic-canvas .tc-pb{flex:1;height:8px;overflow:hidden;border-radius:999px;background:rgba(17,17,17,.14)}
+#topic-canvas .tc-pb i{display:block;height:100%;border-radius:999px;background:var(--tc-ink);transition:width .35s}
+#topic-canvas .tc-grip{position:absolute;z-index:1;left:50%;bottom:6px;width:44px;height:4px;border-radius:3px;transform:translateX(-50%);background:var(--tc-ink);opacity:.22}
+#topic-canvas .tc-agent:hover .tc-grip,#topic-canvas .tc-agent.resizing .tc-grip{opacity:.75}
+#topic-canvas .tc-blob{position:absolute;right:-12px;bottom:-26px;width:88px;height:88px;pointer-events:none}
+#topic-canvas .tc-blob svg{width:100%;height:100%}
+
+/* 拖拽把手：渲染在卡片外层的最上面（卡片 z-index 低于章节/节点，把手放卡片里会被盖住）
+   上/下（或左/右）整条边都可抓：抓取带 22px 厚、只压进卡片 6px，其余留在卡片外侧，
+   这样卡头的「配置 / 删除」按钮仍然点得到，而整条边界都能拖。 */
+#topic-canvas .tc-hit{position:absolute;z-index:6;touch-action:none;background:transparent}
+#topic-canvas .tc-hit-r,#topic-canvas .tc-hit-l{cursor:ew-resize}
+#topic-canvas .tc-hit-b,#topic-canvas .tc-hit-t{cursor:ns-resize}
+/* 边界线：默认隐形，悬停时点亮，明确“这一条就是边界” */
+#topic-canvas .tc-hit::before{content:"";position:absolute;background:rgba(17,17,17,.5);opacity:0;transition:opacity .15s;border-radius:2px;pointer-events:none}
+#topic-canvas .tc-hit-t::before{left:0;right:0;top:13px;height:2px}
+#topic-canvas .tc-hit-b::before{left:0;right:0;top:5px;height:2px}
+#topic-canvas .tc-hit-l::before{top:0;bottom:0;left:13px;width:2px}
+#topic-canvas .tc-hit-r::before{top:0;bottom:0;left:5px;width:2px}
+/* 抓手：加宽到 96px，常显 30% 灰，悬停加深增厚 */
+#topic-canvas .tc-hit::after{content:"";position:absolute;border-radius:3px;background:rgba(17,17,17,.28);box-shadow:0 0 0 2px rgba(255,255,255,.85);transition:background .15s,box-shadow .15s;pointer-events:none}
+#topic-canvas .tc-hit-t::after,#topic-canvas .tc-hit-b::after{left:50%;transform:translateX(-50%);width:84px;height:4px}
+#topic-canvas .tc-hit-t::after{top:14px}
+#topic-canvas .tc-hit-b::after{top:4px}
+#topic-canvas .tc-hit-l::after,#topic-canvas .tc-hit-r::after{top:50%;transform:translateY(-50%);width:4px;height:84px}
+#topic-canvas .tc-hit-l::after{left:14px}
+#topic-canvas .tc-hit-r::after{left:4px}
+#topic-canvas .tc-hit:hover::before{opacity:1}
+#topic-canvas .tc-hit:hover::after{background:rgba(17,17,17,.82);box-shadow:0 0 0 3px rgba(255,255,255,.95)}
+
+/* 拖动时的实时范围徽标：第 X–Y 章 · N 个节点 */
+#topic-canvas .tc-badge-range{position:absolute;z-index:7;padding:5px 12px;border-radius:999px;background:var(--tc-ink);color:#fff;font-size:12px;font-weight:600;line-height:1.3;white-space:nowrap;box-shadow:0 8px 20px rgba(20,20,50,.26);pointer-events:none}
+
+/* 窄卡片（比如纵向树里只辖 1 章）：收起模型名，标题保持单行横排 */
+#topic-canvas .tc-agent.is-narrow .tc-md{display:none}
+#topic-canvas .tc-agent.is-narrow .tc-ah{gap:7px;padding:0 13px}
+#topic-canvas .tc-agent.is-narrow .tc-ah b{font-size:15px;max-width:58%}
+#topic-canvas .tc-agent.is-narrow .tc-sc{font-size:11px;padding:2px 8px}
+#topic-canvas .tc-agent.is-narrow .tc-cfgb{padding:0 9px}
+#topic-canvas .tc-agent.is-narrow .tc-af{gap:7px;padding:0 13px;padding-right:50px}
+
+/* 纵向树：卡片横跨若干列，右缘用来左右扩缩章节，底部把手不存在 */
+#topic-canvas.is-v .tc-af{padding-right:110px}
+#topic-canvas.is-v .tc-grip{bottom:8px}
+#topic-canvas.is-v .tc-ah{height:56px}
+#topic-canvas.is-v .tc-blob{right:-6px;bottom:-30px}
+
+/* 缩放滑杆在滚轮缩放时同步 */
+#topic-canvas .tc-zm input{cursor:pointer}
+
+/* 图例 */
+#topic-canvas .tc-legend{position:absolute;right:18px;bottom:14px;z-index:10;text-align:right;background:rgba(255,255,255,.84);backdrop-filter:blur(8px);border:1px solid var(--tc-line);border-radius:16px;padding:8px 12px}
+#topic-canvas .tc-tb{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#topic-canvas .tc-ch{font-style:normal;font-size:12px;font-weight:600;padding:3px 12px;border-radius:999px;white-space:nowrap;background:#fff;border:1px solid #cfcfda;color:var(--tc-muted)}
+#topic-canvas .tc-ch.ok{background:var(--tc-ink);border-color:var(--tc-ink);color:#fff}
+#topic-canvas .tc-ch.run{background:var(--tc-yel);border-color:var(--tc-yel);color:var(--tc-ink)}
+#topic-canvas .tc-ch.fail{background:var(--tc-pink);border-color:var(--tc-pink);color:var(--tc-ink)}
+#topic-canvas .tc-hint{margin-top:8px;font-size:11.5px;color:var(--tc-muted)}
+
+/* 配置面板：居中浮层，右下角可拖拽调整大小 */
+#topic-canvas .tc-mask{position:absolute;inset:0;z-index:19;background:rgba(26,26,44,.32);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .18s}
+#topic-canvas .tc-mask.show{opacity:1;pointer-events:auto}
+#topic-canvas .tc-cfg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,calc(100% - 40px));height:min(720px,calc(100% - 40px));max-width:calc(100% - 24px);max-height:calc(100% - 24px);display:none;flex-direction:column;z-index:21;overflow:hidden;background:#fff;border:1px solid var(--tc-line);border-radius:26px;box-shadow:0 30px 80px rgba(30,30,60,.36)}
+#topic-canvas .tc-cfg.show{display:flex;animation:tc-pop .18s ease-out}
+@keyframes tc-pop{from{opacity:0;transform:translate(-50%,-50%) scale(.975)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#topic-canvas .tc-cfg.resizing{user-select:none}
+#topic-canvas .tc-cfg header{display:flex;align-items:flex-start;gap:8px;padding:20px 26px 10px}
+#topic-canvas .tc-cfg h3{font-size:23px;line-height:1.1;font-weight:800;letter-spacing:-.01em}
+#topic-canvas .tc-cfg h3 i{font:italic 400 25px var(--tc-serif);letter-spacing:0}
+#topic-canvas .tc-cfg header p{font-size:12px;color:var(--tc-muted);margin-top:4px}
+#topic-canvas .tc-cx{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--tc-muted)}
+#topic-canvas .tc-cfg .tc-body{flex:1;min-height:0;overflow:auto;padding:4px 26px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 18px;align-content:start}
+#topic-canvas .tc-cfg .tc-full{grid-column:1/-1}
+#topic-canvas .tc-cfg footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:12px 26px 16px;border-top:1px solid var(--tc-line);background:#fbfbfd}
+#topic-canvas .tc-f{min-width:0}
+#topic-canvas .tc-f label,#topic-canvas .tc-reuse label{display:block;margin-bottom:5px;font-weight:700;font-size:12.5px}
+#topic-canvas .tc-f label small{font-weight:400;color:var(--tc-muted);margin-left:4px;font-size:11.5px}
+#topic-canvas .tc-f input,#topic-canvas .tc-f textarea{width:100%;padding:9px 12px;background:#fff;border:1.5px solid var(--tc-line);border-radius:14px}
+#topic-canvas .tc-f input:focus,#topic-canvas .tc-f textarea:focus,#topic-canvas .tc-npgrid input:focus{border-color:var(--tc-ink);outline:none;box-shadow:0 0 0 3px rgba(17,17,17,.06)}
+#topic-canvas .tc-f textarea{resize:vertical;line-height:1.55}
+#topic-canvas .tc-r{display:flex;gap:6px;align-items:center}
+#topic-canvas .tc-r .tc-sel{flex:1}
+#topic-canvas .tc-newbtn{flex:0 0 auto;white-space:nowrap}
+#topic-canvas .tc-newbtn.on{background:var(--tc-ink);color:#fff;border-color:var(--tc-ink)}
+#topic-canvas .tc-reuse{background:var(--tc-lime);border-radius:16px;padding:10px 13px}
+#topic-canvas .tc-reuse .tc-sel{max-width:440px}
+#topic-canvas .tc-reuse small{display:block;margin:4px 0 0;color:var(--tc-ink2);font-size:11.5px}
+#topic-canvas #tc-pm{max-width:280px}
+
+/* Skill / 素材：并排两块，做成等高的浅色卡片，避免空白看起来像没渲染 */
+#topic-canvas .tc-f.tc-tile{background:#fafafd;border:1px solid #ededf6;border-radius:18px;padding:11px 13px 12px}
+#topic-canvas .tc-f.tc-tile>label{margin-bottom:2px}
+#topic-canvas .tc-f.tc-tile .tc-skgroup{border:0;padding:0;margin-top:9px}
+#topic-canvas .tc-f.tc-tile .tc-skgroup:first-of-type{margin-top:4px}
+#topic-canvas .tc-f.tc-tile .tc-sklist{max-height:128px}
+#topic-canvas .tc-f.tc-tile .tc-matlist{max-height:180px}
+#topic-canvas .tc-f.tc-tile .tc-check{margin-top:10px}
+
+/* ---- 手写下拉（替代原生 select） ---- */
+#topic-canvas .tc-sel{position:relative;min-width:0}
+#topic-canvas .tc-sel.open{z-index:12}
+#topic-canvas .tc-selb{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:1.5px solid var(--tc-line);border-radius:14px;background:#fff;text-align:left;color:var(--tc-ink)}
+#topic-canvas .tc-selb:hover{border-color:#b9b9c8}
+#topic-canvas .tc-sel.open .tc-selb{border-color:var(--tc-ink);box-shadow:0 0 0 3px rgba(17,17,17,.06)}
+#topic-canvas .tc-selv{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
+#topic-canvas .tc-selv b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+#topic-canvas .tc-selv em{font-style:normal;font-size:11.5px;color:var(--tc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
+#topic-canvas .tc-selph{color:var(--tc-muted);font-size:12.5px}
+#topic-canvas .tc-selar{font-style:normal;font-size:10px;color:var(--tc-muted);transition:transform .18s;flex:0 0 auto}
+#topic-canvas .tc-sel.open .tc-selar{transform:rotate(180deg)}
+#topic-canvas .tc-selp{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:6;display:none;max-height:264px;overflow:auto;padding:6px;background:#fff;border:1px solid var(--tc-line);border-radius:16px;box-shadow:0 18px 44px rgba(30,30,60,.2)}
+#topic-canvas .tc-sel.open .tc-selp{display:block;animation:tc-drop .14s ease-out}
+@keyframes tc-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+#topic-canvas .tc-opt{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;background:none;border-radius:11px;text-align:left;color:var(--tc-ink)}
+#topic-canvas .tc-opt:hover{background:#f3f3f9}
+#topic-canvas .tc-opt>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+#topic-canvas .tc-opt>span>em{font-style:normal;font-size:11px;color:var(--tc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topic-canvas .tc-opt.on{background:var(--tc-ink);color:#fff}
+#topic-canvas .tc-opt.on>span>em{color:rgba(255,255,255,.7)}
+#topic-canvas .tc-optck{opacity:0;font-size:11px;flex:0 0 auto}
+#topic-canvas .tc-opt.on .tc-optck{opacity:1}
+#topic-canvas .tc-selnt{margin:0;padding:8px 10px;font-size:12px;color:var(--tc-muted)}
+
+/* ---- 子 Agent 配置卡：与设置页 AI 配置卡同构，紫色主题，浮在 Agent 配置卡之上 ---- */
+#topic-canvas .tc-acard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(660px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;display:none;z-index:30;
+  border:1.5px solid var(--tc-ac-line);border-radius:22px;background:linear-gradient(180deg,#fff,#f7f4ff);box-shadow:0 26px 64px rgba(48,38,110,.30)}
+#topic-canvas .tc-acard.show{display:block}
+#topic-canvas .tc-acmask{position:absolute;inset:0;z-index:25;display:none;background:rgba(255,255,255,.66);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+#topic-canvas .tc-acmask.show{display:block}
+#topic-canvas .tc-achead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 18px 12px;background:#fff;border-bottom:1px solid var(--tc-ac-line);border-radius:22px 22px 0 0}
+#topic-canvas .tc-acheadr{display:flex;align-items:center;gap:7px;flex:none}
+#topic-canvas .tc-acx{width:24px;height:24px;border:0;border-radius:50%;background:#f1eefe;color:var(--tc-ac);font-size:15px;line-height:1;display:grid;place-items:center}
+#topic-canvas .tc-acx:hover{background:var(--tc-ac);color:#fff}
+#topic-canvas .tc-ackick{display:block;font-size:9.5px;letter-spacing:.14em;font-weight:800;color:var(--tc-ac)}
+#topic-canvas .tc-achead h4{margin:3px 0 2px;font-size:15.5px;letter-spacing:-.01em}
+#topic-canvas .tc-achead p{margin:0;font-size:11px;line-height:1.5;color:var(--tc-muted)}
+#topic-canvas .tc-acbadge{flex:none;padding:3px 9px;border-radius:999px;background:var(--tc-ac);color:#fff;font-size:10px;font-weight:700;white-space:nowrap}
+#topic-canvas .tc-acbody{display:grid;gap:9px;padding:12px 16px 14px}
+#topic-canvas .tc-acf{display:block;font-size:11px;font-weight:700;color:var(--tc-ink2)}
+#topic-canvas .tc-acfl{display:block;margin-bottom:5px}
+#topic-canvas .tc-acf input{width:100%;margin-top:5px;padding:8px 11px;background:#fff;border:1.5px solid var(--tc-ac-line);border-radius:12px;font-size:12.5px}
+#topic-canvas .tc-acf input:focus{border-color:var(--tc-ac);outline:none;box-shadow:0 0 0 3px rgba(91,75,196,.12)}
+#topic-canvas .tc-acf .tc-seg{margin-top:5px;border-color:var(--tc-ac-line)}
+#topic-canvas .tc-acf .tc-seg .on{background:var(--tc-ac)}
+#topic-canvas .tc-acpair{display:grid;grid-template-columns:1fr 1fr;gap:9px 11px}
+#topic-canvas .tc-actrio{display:grid;grid-template-columns:1.35fr .7fr .8fr;gap:9px 11px}
+#topic-canvas .tc-acf .tc-seg button{font-size:10.5px;padding:5px 8px}
+#topic-canvas .tc-acnote{margin:0;font-size:10.5px;line-height:1.5;color:var(--tc-muted)}
+#topic-canvas .tc-acquick{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+#topic-canvas .tc-acquick span{font-size:10.5px;color:var(--tc-muted)}
+#topic-canvas .tc-acquick button{border:1px solid var(--tc-ac-line);background:#fff;border-radius:999px;padding:3px 11px;font-size:11px;color:var(--tc-ac)}
+#topic-canvas .tc-acquick button:hover{background:var(--tc-ac);border-color:var(--tc-ac);color:#fff}
+#topic-canvas .tc-acfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:2px}
+#topic-canvas .tc-acfoot .tc-go{background:var(--tc-ac)}
+#topic-canvas .tc-acfoot .tc-go:hover{background:#4a3ba8}
+#topic-canvas .tc-acfoot .tc-go .tc-ci{background:#fff;color:var(--tc-ac)}
+#topic-canvas .tc-acfoot .tc-go[disabled]{opacity:.6}
+/* 保存后的子 Agent 卡片列表 */
+#topic-canvas .tc-plist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+#topic-canvas .tc-plist-empty{margin:0;padding:9px 12px;border:1px dashed var(--tc-line);border-radius:14px;background:#fbfbfe;font-size:11px;line-height:1.5;color:var(--tc-muted)}
+#topic-canvas .tc-pcard{display:flex;align-items:center;gap:9px;padding:8px 9px 8px 11px;border:1.5px solid var(--tc-line);border-radius:14px;background:#fff}
+#topic-canvas .tc-pcard:hover{border-color:#bdb6e8}
+#topic-canvas .tc-pcard.on{border-color:var(--tc-ac,#5b4bc4);background:#f7f4ff}
+#topic-canvas .tc-pdot{flex:none;width:9px;height:9px;border-radius:50%;background:#2fd884;box-shadow:0 0 0 3px rgba(47,216,132,.16)}
+#topic-canvas .tc-pdot.warn{background:#c99a2e;box-shadow:0 0 0 3px rgba(201,154,46,.18)}
+#topic-canvas .tc-ptx{flex:1;min-width:0}
+#topic-canvas .tc-ptx b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topic-canvas .tc-ptx span{display:block;font-size:10.5px;color:var(--tc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topic-canvas .tc-pacts{flex:none;display:flex;gap:2px}
+#topic-canvas .tc-pacts button{border:0;background:none;padding:4px 7px;border-radius:8px;font-size:10.5px;color:var(--tc-muted)}
+#topic-canvas .tc-pacts button:hover{background:#f0edff;color:var(--tc-ac,#5b4bc4)}
+#topic-canvas .tc-pacts button.on{background:#efeaff;color:var(--tc-ac,#5b4bc4);font-weight:700}
+#topic-canvas .tc-pacts button[data-act="del"]:hover{background:#ffeaea;color:#b64e42}
+
+/* 右下角调整大小把手 */
+#topic-canvas .tc-rsz{position:absolute;right:3px;bottom:3px;width:24px;height:24px;cursor:nwse-resize;touch-action:none;display:grid;place-items:center}
+#topic-canvas .tc-rsz::before{content:"";width:9px;height:9px;border-right:2px solid #c3c3d2;border-bottom:2px solid #c3c3d2;border-bottom-right-radius:3px;transition:border-color .15s}
+#topic-canvas .tc-rsz:hover::before{border-color:var(--tc-ink)}
+#topic-canvas .tc-sw{display:flex;gap:10px;align-items:center}
+#topic-canvas .tc-sw button{width:28px;height:28px;border:0;border-radius:50%;background:var(--s);box-shadow:0 0 0 1px rgba(17,17,17,.15)}
+#topic-canvas .tc-sw .on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--tc-ink)}
+#topic-canvas .tc-sw input[type=color]{-webkit-appearance:none;appearance:none;width:28px;height:28px;border:1.5px solid var(--tc-line);border-radius:50%;padding:0;cursor:pointer;overflow:hidden;background:conic-gradient(#ff8fbd,#fff07a,#2fd884,#aee0ff,#cbbdf4,#ff8fbd)}
+#topic-canvas .tc-sw input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+#topic-canvas .tc-sw input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+#topic-canvas .tc-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#topic-canvas .tc-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:999px;font-size:12px;border:1px solid #cfcfda;background:#fff;color:var(--tc-ink2);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topic-canvas .tc-chip button{border:0;background:none;font-size:13px;line-height:1;color:var(--tc-muted);padding:0}
+#topic-canvas .tc-chip button:hover{color:var(--tc-ink)}
+
+/* ---- 可选择的 Skill / 素材 chip ---- */
+#topic-canvas .tc-chip:hover{border-color:var(--tc-ink);color:var(--tc-ink)}
+#topic-canvas .tc-chip.on{background:var(--tc-ink);border-color:var(--tc-ink);color:#fff}
+#topic-canvas .tc-chip.on::before{content:"✓";font-size:11px;margin-right:1px}
+#topic-canvas .tc-chip.lock{background:var(--tc-lime);border-color:var(--tc-ink);color:var(--tc-ink);cursor:default}
+#topic-canvas .tc-chip[disabled]{opacity:.55;cursor:not-allowed}
+#topic-canvas .tc-chip.lock[disabled]{opacity:1}
+#topic-canvas .tc-chip-tool{border-style:dashed;color:var(--tc-muted)}
+#topic-canvas .tc-chip-tool::before{content:none!important}
+
+#topic-canvas .tc-skgroup{margin-top:7px;padding:8px 10px 9px;border:1.5px solid var(--tc-line);border-radius:16px}
+#topic-canvas .tc-skgroup:first-of-type{margin-top:0}
+#topic-canvas .tc-skhead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11.5px;color:var(--tc-muted)}
+#topic-canvas .tc-skhead b{font-size:12px;color:var(--tc-ink2)}
+#topic-canvas .tc-skhead span{font-size:11px}
+#topic-canvas .tc-skhead input{margin-left:auto;width:118px;padding:3px 10px;border:1.5px solid var(--tc-line);border-radius:999px;font-size:11.5px;background:#fff}
+#topic-canvas .tc-sklist{display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow:auto;padding:1px}
+#topic-canvas .tc-matlist{max-height:118px}
+#topic-canvas .tc-skhint{font-size:11.5px;color:var(--tc-muted);line-height:1.6}
+#topic-canvas .tc-check{display:flex!important;align-items:flex-start;gap:7px;margin-top:7px;font-weight:600;font-size:12px;line-height:1.5;cursor:pointer}
+#topic-canvas .tc-check input{width:15px;height:15px;accent-color:var(--tc-ink)}
+#topic-canvas .tc-check span{font-weight:400;color:var(--tc-muted);font-size:11.5px}
+#topic-canvas .tc-note{margin:5px 0 0;font-size:11px;line-height:1.55;color:var(--tc-muted)}
+#topic-canvas .tc-seg-sm{display:flex;width:100%;margin-bottom:7px}
+#topic-canvas .tc-seg-sm button{flex:1;font-size:12px;padding:5px 0}
+#topic-canvas .tc-f textarea[readonly]{background:#f7f7fa;color:var(--tc-ink2)}
+
+/* Agent 卡片上的「执行」与「⚙ 配置」 */
+#topic-canvas .tc-runb{display:grid;place-items:center;height:26px;width:26px;border-radius:999px;padding:0;font-size:10px;line-height:1;background:var(--tc-ink);color:#fff;border:1.5px solid var(--tc-ink)}
+#topic-canvas .tc-runb:hover{background:#fff;color:var(--tc-ink)}
+#topic-canvas .tc-cfgb i{font-style:normal;margin-right:4px}
+#topic-canvas .tc-agent.is-narrow .tc-cfgb span{display:none}
+#topic-canvas .tc-agent.is-narrow .tc-cfgb i{margin-right:0}
+
+/* 全局 Prompt 入口上的小圆点 */
+#topic-canvas .tc-gpdot{display:none;width:7px;height:7px;margin-left:7px;border-radius:50%;background:var(--tc-ag1);box-shadow:0 0 0 2px #fff}
+#topic-canvas .tc-gpdot.on{display:inline-block}
+
+/* 全局 Prompt 弹层 */
+#topic-canvas .tc-gp{position:absolute;inset:0;z-index:40;display:none;place-items:center;padding:24px;background:rgba(24,24,40,.28)}
+#topic-canvas .tc-gp.show{display:grid}
+#topic-canvas .tc-gpc{width:min(600px,100%);max-height:100%;overflow:auto;background:#fff;border-radius:24px;padding:20px 22px 18px;box-shadow:0 26px 70px rgba(30,30,60,.32)}
+#topic-canvas .tc-gpc header{display:flex;align-items:flex-start;gap:8px;margin-bottom:4px}
+#topic-canvas .tc-gpc h3{font-size:22px;line-height:1.1;font-weight:800;letter-spacing:-.01em}
+#topic-canvas .tc-gpc h3 i{font:italic 400 24px var(--tc-serif);letter-spacing:0}
+#topic-canvas .tc-gpc p{margin:6px 0 12px;font-size:12px;line-height:1.7;color:var(--tc-muted)}
+#topic-canvas .tc-gpc textarea{width:100%;padding:11px 13px;border:1.5px solid var(--tc-line);border-radius:16px;resize:vertical;line-height:1.6}
+#topic-canvas .tc-gpf{display:flex;align-items:center;gap:8px;margin-top:12px}
+#topic-canvas .tc-gpf span{margin-right:auto;font-size:11.5px;color:var(--tc-muted)}
+
+/* toast / 空态 */
+#topic-canvas .tc-toast{position:absolute;left:50%;bottom:34px;transform:translateX(-50%) translateY(12px);background:var(--tc-ink);color:#fff;font-size:12.5px;padding:10px 20px;border-radius:999px;z-index:200;opacity:0;pointer-events:none;transition:.22s;white-space:nowrap;max-width:80%;overflow:hidden;text-overflow:ellipsis}
+#topic-canvas .tc-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#topic-canvas .tc-empty{position:absolute;inset:0;display:none;place-items:center;text-align:center;z-index:12}
+#topic-canvas .tc-empty.show{display:grid}
+#topic-canvas .tc-empty div{background:#fff;border:1px solid var(--tc-line);border-radius:20px;padding:24px 28px;max-width:420px;box-shadow:0 12px 40px rgba(40,40,80,.12)}
+#topic-canvas .tc-empty h4{font-size:16px;margin-bottom:6px}
+#topic-canvas .tc-empty p{font-size:12.5px;color:var(--tc-muted);line-height:1.7}
+
+@media(max-width:900px){
+  #topic-canvas .tc-cfg{width:calc(100% - 20px);height:calc(100% - 20px)}
+  #topic-canvas .tc-proj,#topic-canvas .tc-tabs{display:none}
+  #topic-canvas .tc-hero h1{font-size:26px}
+}
+@media(prefers-reduced-motion:reduce){#topic-canvas *{animation:none!important}}

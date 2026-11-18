@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>首页 Hero 重设计 · 三方向</title>
+<style>
+  :root {
+    --dark: #17191e;
+    --dark-2: #1d2027;
+    --paper: #f9f4ea;
+    --mint: #cfe4dd;
+    --mint-deep: #9dbeb0;
+    --guava: #ff82a2;
+    --guava-deep: #e86486;
+    --lime: #e4f6a9;
+    --cocoa: #5f473f;
+    --ink: #0e1a1a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #23252c; font-family: -apple-system, "PingFang SC", sans-serif; padding: 34px 20px 80px; }
+  .stage { max-width: 1080px; margin: 0 auto 56px; }
+  .stage-label { color: #8b8f98; font-size: 12px; letter-spacing: .12em; margin-bottom: 12px; font-family: "SF Mono", Menlo, monospace; }
+  .stage-label b { color: #e8b04b; }
+  .canvas { background: var(--dark); border-radius: 10px; overflow: hidden; position: relative; }
+  .canvas::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.5) .6px, transparent .7px); background-size: 7px 7px; opacity: .1; pointer-events: none; }
+  .hero { position: relative; padding: 58px 60px 54px; display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 48px; align-items: center; }
+  .art { height: 230px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+  /* ============ 方案一 · 纸上炼金（浅色纸卡压深底） ============ */
+  .v1 .hero-paper { background: var(--paper); border-radius: 8px; padding: 44px 48px 40px; box-shadow: 8px 8px 0 rgba(232,100,134,.35); position: relative; }
+  .v1 .hero-paper::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(95,71,63,.12) 1px, transparent 1px); background-size: 20px 20px; border-radius: 8px; }
+  .v1 .kicker { font-family: "SF Mono", Menlo, monospace; font-size: 11px; letter-spacing: .18em; color: #8d6c63; margin-bottom: 16px; }
+  .v1 h1 { font-family: "Songti SC", "Noto Serif SC", serif; font-size: clamp(30px, 3.4vw, 42px); line-height: 1.22; color: #4a3830; font-weight: 700; }
+  .v1 h1 em { font-style: normal; color: var(--guava-deep); border-bottom: 4px solid var(--mint-deep); padding-bottom: 2px; }
+  .v1 .lede { margin-top: 16px; max-width: 460px; color: #7d675e; font-size: 14px; line-height: 1.8; }
+  .v1 .actions { margin-top: 26px; display: flex; align-items: center; gap: 18px; }
+  .v1 .btn { background: var(--guava); color: #fff; border: 1.5px solid var(--guava-deep); border-radius: 3px; box-shadow: 3px 3px 0 rgba(232,100,134,.5); font-size: 14px; font-weight: 600; padding: 10px 22px; cursor: pointer; font-family: inherit; }
+  .v1 .note { font-family: "SF Mono", Menlo, monospace; font-size: 10px; color: #a08d84; letter-spacing: .06em; }
+  .v1 .art { background: var(--dark-2); border: 1px dashed rgba(255,255,255,.2); color: #6d727d; }
+
+  /* ============ 方案二 · 深色克制（薄荷点缀、宋体大字） ============ */
+  .v2 .hero { grid-template-columns: minmax(0,1fr) 280px; }
+  .v2 .kicker { font-family: "SF Mono", Menlo, monospace; font-size: 11px; letter-spacing: .2em; color: var(--mint-deep); margin-bottom: 18px; }
+  .v2 h1 { font-family: "Songti SC", "Noto Serif SC", serif; font-size: clamp(32px, 3.8vw, 48px); line-height: 1.24; color: #f4f1e8; font-weight: 700; letter-spacing: .01em; }
+  .v2 h1 em { font-style: normal; color: var(--mint); position: relative; }
+  .v2 h1 em::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 10px; background: rgba(157,190,176,.28); z-index: -1; }
+  .v2 .lede { margin-top: 18px; max-width: 470px; color: #9ba0a8; font-size: 14px; line-height: 1.85; }
+  .v2 .actions { margin-top: 28px; display: flex; align-items: center; gap: 18px; }
+  .v2 .btn { background: var(--mint); color: #16302a; border: 1.5px solid #8fb2a4; border-radius: 3px; box-shadow: 3px 3px 0 rgba(157,190,176,.3); font-size: 14px; font-weight: 700; padding: 10px 22px; cursor: pointer; font-family: inherit; }
+  .v2 .note { font-family: "SF Mono", Menlo, monospace; font-size: 10px; color: #6d727d; letter-spacing: .06em; }
+  .v2 .art { background: rgba(207,228,221,.07); border: 1px solid rgba(157,190,176,.3); color: var(--mint-deep); }
+
+  /* ============ 方案三 · 活字排版（大宋体 + 青柠强调 + 步骤链） ============ */
+  .v3 .hero { grid-template-columns: minmax(0,1fr); padding-bottom: 44px; }
+  .v3 .kicker { font-family: "SF Mono", Menlo, monospace; font-size: 11px; letter-spacing: .2em; color: var(--lime); margin-bottom: 18px; }
+  .v3 h1 { font-family: "Songti SC", "Noto Serif SC", serif; font-size: clamp(34px, 4.2vw, 52px); line-height: 1.18; color: #f4f1e8; font-weight: 700; }
+  .v3 h1 em { font-style: normal; color: var(--guava); }
+  .v3 .lede { margin-top: 16px; max-width: 560px; color: #9ba0a8; font-size: 14px; line-height: 1.85; }
+  .v3 .steps { margin-top: 26px; display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+  .v3 .step { display: flex; align-items: center; gap: 10px; padding: 12px 20px 12px 16px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); }
+  .v3 .step:first-child { border-radius: 4px 0 0 4px; }
+  .v3 .step + .step { border-left: 0; }
+  .v3 .step:last-child { border-radius: 0 4px 4px 0; }
+  .v3 .step i { font-style: normal; font-family: "SF Mono", Menlo, monospace; font-size: 10px; color: var(--lime); }
+  .v3 .step b { font-size: 13px; color: #e8e6df; font-weight: 600; }
+  .v3 .step span { font-size: 11px; color: #83888f; }
+  .v3 .actions { margin-top: 24px; display: flex; align-items: center; gap: 18px; }
+  .v3 .btn { background: var(--guava); color: #fff; border: 1.5px solid var(--guava-deep); border-radius: 3px; box-shadow: 3px 3px 0 rgba(232,100,134,.45); font-size: 14px; font-weight: 600; padding: 10px 24px; cursor: pointer; font-family: inherit; }
+  .v3 .note { font-family: "SF Mono", Menlo, monospace; font-size: 10px; color: #6d727d; letter-spacing: .06em; }
+
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr !important; padding: 36px 28px !important; } .art { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <p class="stage-label">方案一 · <b>纸上炼金</b> —— 深底上放一张奶白纸卡，宋体大标题，粉色只点在关键词</p>
+  <div class="canvas v1">
+    <div class="hero">
+      <div class="hero-paper">
+        <p class="kicker">HIK DOCUMENT ALCHEMY · 文档炼金工作台</p>
+        <h1>需求投进炉，<br />炼出一套<em>能交付的文档</em>。</h1>
+        <p class="lede">材料、规则和人工把关走在同一条流水线上：先炼框架，再分章成 Topic，全程可审可改，产出即用。</p>
+        <div class="actions">
+          <button class="btn">＋ 新建项目</button>
+          <span class="note">本地优先 · 数据不出本机</span>
+        </div>
+      </div>
+      <div class="art">角色插画区<br/>（保留原有炼金师组图）</div>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <p class="stage-label">方案二 · <b>深色克制</b> —— 不加卡片，薄荷绿替代粉色作主强调，最安静的一版</p>
+  <div class="canvas v2">
+    <div class="hero">
+      <div>
+        <p class="kicker">DOCUMENT ALCHEMY · 文档炼金工作台</p>
+        <h1>把散落的需求，<br />炼成<em>章法分明</em>的文档。</h1>
+        <p class="lede">炼金炉把需求材料、写作规则和人工判断放进同一条流水线——框架先行、章节跟进、XML 全程可审。全新开发、版本更新、Topic 优化，三种模式共用一套工序。</p>
+        <div class="actions">
+          <button class="btn">＋ 新建项目</button>
+          <span class="note">本地优先 · 数据不出本机</span>
+        </div>
+      </div>
+      <div class="art">角色插画区</div>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <p class="stage-label">方案三 · <b>活字工序</b> —— 大宋体 + 青柠步骤链，把"三步流程"直接画进 hero</p>
+  <div class="canvas v3">
+    <div class="hero">
+      <div>
+        <p class="kicker">THREE STEPS · 三步成文</p>
+        <h1>投料 → 炼框架 → <em>分章成文</em>。</h1>
+        <p class="lede">把需求材料投进炉里，先炼出全文框架，再逐章生成 Topic 并在同一工作区审核 XML。每一版都有出处，每一处都能改。</p>
+        <div class="steps">
+          <div class="step"><i>01</i><b>投料</b><span>需求 / 材料 / 规则</span></div>
+          <div class="step"><i>02</i><b>炼框架</b><span>生成 · 调整 · 确认</span></div>
+          <div class="step"><i>03</i><b>分章成文</b><span>Topic 生成与审核</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn">＋ 新建项目</button>
+          <span class="note">本地优先 · 数据不出本机</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

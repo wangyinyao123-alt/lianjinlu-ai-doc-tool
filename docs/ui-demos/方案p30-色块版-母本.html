@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>炼金炉 · 生成画布 · 色块版</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap">
+<style>*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{display:flex;overflow:hidden;font:13px/1.45 var(--font);color:var(--ink);background:var(--page);padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px))}
+.shell{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;border-radius:28px;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.appbar{display:flex;align-items:center;gap:20px;height:60px;padding:0 24px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px}
+.tabs{display:flex;gap:6px;flex:1;justify-content:center;overflow-x:auto}
+.tab{white-space:nowrap;padding:5px 14px;border-radius:999px;background:none}
+.proj{white-space:nowrap;font-size:12px;color:var(--muted)}
+.hero{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:2px 24px 14px;flex:none}
+.hero h1{display:flex;align-items:center;gap:12px;font-size:32px;line-height:1.1;letter-spacing:-.02em;font-weight:800}
+.hero h1 em{font:italic 400 36px/1 var(--serif);letter-spacing:0}
+.badge{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;font-style:normal;font-size:26px;font-weight:700}
+.sub{font-size:12.5px;color:var(--muted);margin:6px 0 0 56px}
+.tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.seg{display:flex}.zm{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.zm input{width:100px;accent-color:var(--ink)}
+.go{display:inline-flex;align-items:center;gap:10px;padding:5px 6px 5px 18px;border:0;border-radius:999px;font-weight:700}
+.ci{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font-style:normal;font-size:11px}
+main{position:relative;flex:1;min-height:0;margin:0 14px 14px;border-radius:22px;overflow:hidden}
+#vp{position:absolute;inset:0;overflow:auto}
+#stage{position:relative;margin:22px 28px 90px}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:2}
+#edges path{fill:none;stroke-linecap:round}
+.root,.chap,.sec{position:absolute;z-index:3}
+.root,.chap{display:flex;flex-direction:column;justify-content:center}
+.sec{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.agent{position:absolute;z-index:1;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.ah,.af{position:relative;z-index:1;display:flex;align-items:center;gap:9px;padding:0 18px}.ah{height:56px}.af{height:58px;padding-right:96px}
+.ac{margin-left:auto;display:flex;gap:6px;align-items:center}
+.cfgb{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:none;font-size:14px;line-height:1}
+.pb{flex:1;height:8px;overflow:hidden;border-radius:999px}.pb i{display:block;height:100%;border-radius:999px}
+.grip{position:absolute;z-index:1;left:50%;bottom:6px;width:44px;height:4px;border-radius:3px;transform:translateX(-50%)}
+.blob{position:absolute;right:-12px;bottom:-26px;width:88px;height:88px;pointer-events:none}.blob svg{width:100%;height:100%}
+#cfg{position:absolute;right:12px;top:12px;bottom:12px;width:372px;max-width:calc(100% - 24px);display:none;flex-direction:column;z-index:20;overflow:hidden}
+#cfg.show{display:flex}
+#cfg header{display:flex;align-items:flex-start;gap:8px;padding:20px 22px 12px}#cx{margin-left:auto}
+#cfg h3{font-size:22px;line-height:1.1;font-weight:800;letter-spacing:-.01em}#cfg h3 i{font:italic 400 24px var(--serif);letter-spacing:0}
+#cfg header p{font-size:12px;color:var(--muted);margin-top:4px}
+#cfg .body{flex:1;overflow:auto;padding:8px 22px 16px;display:flex;flex-direction:column;gap:16px}
+#cfg footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:12px 22px 18px}
+.f label,.reuse label{display:block;margin-bottom:6px;font-weight:700;font-size:12.5px}
+label small{font-weight:400;color:var(--muted);margin-left:4px;font-size:11.5px}
+.f input,.f select,.f textarea,.reuse select{width:100%;padding:9px 12px;background:#fff}
+.f textarea{resize:vertical;line-height:1.55}
+.r{display:flex;gap:6px}.r select{flex:1}
+.reuse small{display:block;margin:6px 0 0;color:var(--ink2);font-size:11.5px}
+.sw{display:flex;gap:10px;align-items:center}.sw button{width:28px;height:28px;border:0;border-radius:50%;background:var(--s);box-shadow:0 0 0 1px rgba(17,17,17,.15)}.sw .on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--ink)}
+.s1{--s:var(--ag1)}.s2{--s:var(--ag2)}.s3{--s:var(--ag3)}.s4{--s:var(--ag4)}.s5{--s:var(--ag5)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chip{padding:3px 11px;border-radius:999px;font-size:12px}
+.legend{position:absolute;left:18px;bottom:14px;z-index:10}.tb{display:flex;gap:6px;flex-wrap:wrap}
+.hint{margin-top:8px;font-size:11.5px;color:var(--muted)}
+.sec em,.ch{font-style:normal;font-size:11px;font-weight:600;padding:2px 10px;border-radius:999px;white-space:nowrap}.ch{font-size:12px;padding:3px 12px}
+.sec .t{white-space:nowrap}
+@media(max-width:900px){#cfg{width:calc(100% - 24px)}.proj{display:none}.hero h1{font-size:26px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+:root{color-scheme:light;--font:"Plus Jakarta Sans","PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;--serif:"Instrument Serif","Songti SC","Noto Serif SC",serif;--page:#cdd0e2;--ink:#111;--ink2:#444;--muted:#6a6a78;--line:#dcdce6;--lime:#dcf8b6;--yel:#fff07a;--pink:#ff8fbd;--edge:#5c5c68;--ag1:#2fd884;--ag2:#cbbdf4;--ag3:#dcf8b6;--ag4:#aee0ff;--ag5:#ffcfa8}
+.brand svg{color:var(--ink)}
+.tab{border:1px solid var(--line);color:var(--ink2)}.tab:hover{border-color:var(--ink)}.tab.on{border:1.5px solid var(--ink);color:var(--ink);font-weight:600}
+.badge{background:var(--lime)}
+.b{padding:7px 16px;border:1px solid #cfcfda;background:#fff;border-radius:999px;color:var(--ink2)}.b:hover{border-color:var(--ink);color:var(--ink)}
+.b .n{margin-left:4px;padding:0 7px;background:var(--lime);border-radius:999px;font-size:11px;color:var(--ink)}
+.seg{border:1px solid #cfcfda;border-radius:999px;padding:2px}.seg button{border:0;background:none;padding:5px 13px;border-radius:999px;color:var(--ink2)}.seg .on{background:var(--ink);color:#fff}
+.go{background:var(--ink);color:#fff}.go:hover{background:#2a2a2a}.ci{background:var(--lime);color:var(--ink)}
+main{background-color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800' viewBox='0 0 1200 800'%3E%3Cg fill='none' stroke='%23d3ee98' stroke-width='1.5'%3E%3Cpath d='M-20 520C200 300 520 220 760 360S1120 700 1240 380'/%3E%3Cpath d='M300 820C380 520 700 480 900 560S1180 520 1220 300'/%3E%3C/g%3E%3C/svg%3E");background-size:cover;border:1px solid var(--line)}
+.root{background:var(--ink);color:#fff;border-radius:20px;padding:0 18px}.root b{font-size:14.5px}.root span{font-size:11.5px;color:var(--lime)}
+.chap{background:#fff;border:1.5px solid var(--ink);border-radius:18px;padding:0 14px}.chap b{font-size:13.5px}.chap span{font-size:11.5px;color:var(--muted)}
+.chap.free{background:rgba(255,255,255,.7);border:1.5px dashed #a9a9b8}
+.sec{background:#fff;border:1px solid rgba(17,17,17,.14);border-radius:999px;padding:0 6px 0 15px;font-size:12.5px;font-weight:500}
+.sec em,.ch{background:#fff;border:1px solid #cfcfda;color:var(--muted)}
+.sec.ok em,.ch.ok{background:var(--ink);border-color:var(--ink);color:#fff}
+.sec.run{border:1.5px solid var(--ink)}.sec.run em,.ch.run{background:var(--yel);border-color:var(--yel);color:var(--ink)}.sec.run em{animation:gl 1.6s ease-in-out infinite}@keyframes gl{50%{opacity:.55}}
+.sec.fail em,.ch.fail{background:var(--pink);border-color:var(--pink);color:var(--ink)}
+.agent{background:var(--c);border-radius:26px}
+.ah b{font-size:16px;font-weight:800}.md{font:italic 400 17px var(--serif);color:var(--ink2)}
+.sc{padding:2px 10px;border:1px solid var(--ink);border-radius:999px;font-size:11.5px;font-weight:600}
+.cfgb{border:1.5px solid var(--ink)}.cfgb:hover{background:var(--ink);color:#fff}
+.del{border:0;background:none;font-size:20px;line-height:1;width:24px;color:var(--ink2)}.del:hover{color:var(--ink);font-weight:700}
+.nt{font-weight:700;font-size:12px}.cnt{font-size:12px;font-weight:600;white-space:nowrap}
+.pb{background:rgba(17,17,17,.14)}.pb i{background:var(--ink)}.grip{background:var(--ink);opacity:.22}
+#cfg{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 20px 60px rgba(40,40,80,.25)}#cx{border:0;background:none;font-size:22px;line-height:1;color:var(--muted)}
+.f input,.f select,.f textarea,.reuse select{border:1.5px solid var(--line);border-radius:14px}
+.reuse{background:var(--lime);border-radius:16px;padding:12px 14px}.reuse select{border-color:transparent}
+.chip{border:1px solid #cfcfda}
+</style></head><body>
+<div class="shell">
+<header class="appbar"><span class="brand"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1l3 7 8 .9-6 5.2 1.8 7.9L12 17.8 5.2 22l1.8-7.9-6-5.2L9 8z" fill="currentColor"/></svg>炼金炉</span><nav class="tabs"><button class="tab">首页</button><button class="tab">项目工作台</button><button class="tab">框架工坊</button><button class="tab">Topic 工作台</button><button class="tab">质量巡检</button><button class="tab on">生成画布</button></nav><span class="proj">CODESYS 手册</span></header>
+<div class="hero"><div><h1><i class="badge">✱</i>生成画布<em>Topic Canvas</em></h1><p class="sub">2 个 Agent 正在并行生成，已完成 6 / 18 个节点</p></div>
+<div class="tools"><button class="b" id="add">新增 Agent</button><button class="b">模型档案 <span class="n">4</span></button><div class="seg"><button class="on">横向树</button><button title="本 demo 仅展示横向树">纵向树</button></div><label class="zm">缩放 <input id="zoom" type="range" min="60" max="120" value="100"><output id="zl">100%</output></label><button class="b" id="fit">适应画布</button><button class="go">批量生成 Topic<i class="ci">▶</i></button></div></div>
+<main>
+<div id="vp"><div id="stage"><div id="world"><svg id="edges"></svg></div></div></div>
+<div class="legend"><div class="tb"><span class="ch ok">已完成 6</span><span class="ch run">生成中 2</span><span class="ch fail">失败 1</span><span class="ch">排队 9</span></div><p class="hint">拖动卡片底缘增减章节，右缘调宽。只能框选未分配的章节。</p></div>
+<aside id="cfg" class="show"><header><div><h3><span id="ct">新增</span> <i>Agent</i></h3><p id="cp">框住的章节就是这个 Agent 的职责范围</p></div><button id="cx" aria-label="关闭">×</button></header>
+<div class="body">
+<div class="f"><label for="nm">名称 <small>不填则自动命名为 C、D…</small></label><input id="nm" placeholder="如：入门章节专员"></div>
+<div class="reuse"><label for="ru">复用已有 Agent 的配置</label><select id="ru"><option>不复用，从零配置</option><option>入门章节专员</option><option>B</option></select><small>模型、prompt、素材会一并带入</small></div>
+<div class="f"><label for="md">模型档案 <small>在顶部「模型档案」统一管理</small></label><div class="r"><select id="md"><option>主力·GLM（glm-4.7）</option><option>校对·GPT（gpt-5.2）</option><option>快速·Haiku（haiku-4.5）</option><option>备用·主Key（deepseek-v3.2）</option></select><button class="b">新建档案</button></div></div>
+<div class="f"><label>标识色 <small>用于卡片底色和进度条</small></label><div class="sw"><button class="s1 on" aria-label="色 1"></button><button class="s2" aria-label="色 2"></button><button class="s3" aria-label="色 3"></button><button class="s4" aria-label="色 4"></button><button class="s5" aria-label="色 5"></button></div></div>
+<div class="f"><label for="pr">共用 prompt <small>对本卡全部章节生效</small></label><textarea id="pr" rows="4" placeholder="角色：资深 DITA 技术写作；统一术语；Task 步骤不少于 2 步；shortdesc 不超过 3 句"></textarea></div>
+<div class="f"><label>素材资料 <small>支持上传、粘贴、读取目录</small></label><div class="chips"><span class="chip">需求规格.md ×</span><span class="chip">产品手册_v3.pdf ×</span><button class="b" style="padding:3px 12px">添加素材 ▾</button></div></div>
+</div>
+<footer><button class="b" id="cancel">取消</button><button class="go">创建并框选章节<i class="ci">↗</i></button></footer></aside>
+</main></div>
+
+<script>(()=>{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],cs=getComputedStyle(document.documentElement),v=k=>cs.getPropertyValue(k).trim();
+const CH=[["第1章 入门与安装",["安装与环境配置","许可证激活流程","首次运行向导"]],["第2章 编程基础",["变量与数据类型","POU 程序组织单元","函数与功能块"]],["第3章 工程结构",["任务配置与调度","库管理与引用","设备树与硬件组态"]],["第4章 调试诊断",["在线调试与断点","交叉引用与监视","仿真模式使用"]],["第5章 可视化",["可视化界面开发","报警与日志系统","配方与趋势图"]],["第6章 交付管理",["导出与版本管理","文档发布流程","团队协作规范"]]];
+const ST=["ok ok ok","ok run wait","ok ok fail","run wait wait","wait wait wait","wait wait wait"].map(s=>s.split(" "));
+const LB={ok:"✓ 完成",run:"● 生成中",wait:"○ 排队",fail:"✕ 失败"};
+const AG=[{n:"入门章节专员",m:"glm-4.7",c:v("--ag1"),bl:"#fff07a",ch:[0,1]},{n:"B",m:"gpt-5.2",c:v("--ag2"),bl:"#c9f28d",ch:[2,3]}];
+const FL='<g style="fill:var(--bl)"><circle cx="40" cy="20" r="16"/><circle cx="60" cy="40" r="16"/><circle cx="40" cy="60" r="16"/><circle cx="20" cy="40" r="16"/><circle cx="40" cy="40" r="18"/></g>',AS='<g style="fill:var(--bl)"><rect x="34" y="4" width="12" height="72" rx="6"/><rect x="34" y="4" width="12" height="72" rx="6" transform="rotate(60 40 40)"/><rect x="34" y="4" width="12" height="72" rx="6" transform="rotate(120 40 40)"/></g>';
+const RX=28,RW=164,RH=64,CHW=184,CHH=64,SW=204,SH=38,SG=6,HD=56,FT=58;
+const CX=RX+RW+90,SX=CX+CHW+80;
+let y=28;const P=[],F=[];
+[...AG.map(a=>({a,ch:a.ch})),{a:null,ch:[4,5]}].forEach(g=>{
+ if(g.a)y+=HD;const t0=y;
+ g.ch.forEach((i,k)=>{const h=CH[i][1].length*(SH+SG)-SG;P[i]={t:y,h,c:y+h/2};y+=h+(k<g.ch.length-1?22:0)});
+ if(g.a){F.push({a:g.a,t:t0-HD,h:y+FT-t0+HD});y+=FT}
+ y+=40});
+const WH=y-12,WW=SX+SW+36,cy=P.map(p=>p.c),RY=(Math.min(...cy)+Math.max(...cy))/2-RH/2;
+let h=`<div class="root" style="left:${RX}px;top:${RY}px;width:${RW}px;height:${RH}px"><b>CODESYS 手册</b><span>6 章，18 个节点</span></div>`;
+F.forEach((f,k)=>{const a=f.a,n=a.ch.length*3,d=a.ch.reduce((s,i)=>s+ST[i].filter(x=>x=="ok").length,0);
+ h+=`<div class="agent" style="left:${CX-18}px;top:${f.t}px;width:${SX+SW-CX+36}px;height:${f.h}px;--c:${a.c};--bl:${a.bl}"><div class="ah"><span class="sc">第${a.ch[0]+1}–${a.ch[1]+1}章</span><b>${a.n}</b><i class="md">${a.m}</i><span class="ac"><button class="cfgb" aria-label="配置 Agent" title="配置">↗</button><button class="del" aria-label="删除 Agent" title="删除">×</button></span></div><div class="af"><span class="nt">${n} 个节点</span><span class="pb"><i style="width:${d/n*100}%"></i></span><span class="cnt">${d}/${n} 完成</span></div><span class="grip"></span><span class="blob"><svg viewBox="0 0 80 80" aria-hidden="true">${k%2?AS:FL}</svg></span></div>`});
+CH.forEach(([t,s],i)=>{const p=P[i],ag=AG.find(a=>a.ch.includes(i));
+ h+=`<div class="chap${ag?"":" free"}" style="left:${CX}px;top:${p.c-CHH/2}px;width:${CHW}px;height:${CHH}px;--c:${ag?ag.c:"#fff"}"><b>${t}</b><span>${s.length} 个节点${ag?"":"，未分配"}</span></div>`;
+ s.forEach((n,j)=>{const st=ST[i][j];h+=`<div class="sec ${st}" style="left:${SX}px;top:${p.t+j*(SH+SG)}px;width:${SW}px;height:${SH}px"><span class="t">${n}</span><em>${LB[st]}</em></div>`})});
+const cv=(x0,y0,x1,y1)=>{const m=(x1-x0)*.5;return `<path d="M${x0} ${y0}C${x0+m} ${y0} ${x1-m} ${y1} ${x1} ${y1}" stroke="${v("--edge")}" stroke-width="1.6"/>`};
+let e="";
+CH.forEach((c,i)=>{const p=P[i];e+=cv(RX+RW,RY+RH/2,CX,p.c);c[1].forEach((_,j)=>{e+=cv(CX+CHW,p.c,SX,p.t+j*(SH+SG)+SH/2)})});
+const W=$("#world"),S=$("#edges"),vp=$("#vp"),stg=$("#stage");
+W.style.width=WW+"px";W.style.height=WH+"px";S.setAttribute("width",WW);S.setAttribute("height",WH);S.innerHTML=e;W.insertAdjacentHTML("beforeend",h);
+const setS=s=>{W.style.transform=`scale(${s})`;stg.style.width=WW*s+"px";stg.style.height=WH*s+"px";$("#zoom").value=Math.round(s*100);$("#zl").textContent=Math.round(s*100)+"%"},fit=()=>setS(Math.max(.74,Math.min(1,(vp.clientHeight-110)/WH)));
+fit();$("#fit").onclick=fit;$("#zoom").oninput=e=>setS(e.target.value/100);
+const cfg=$("#cfg");
+$$(".cfgb").forEach(b=>b.onclick=()=>{$("#ct").textContent="配置";$("#cp").textContent="正在配置："+b.closest(".agent").querySelector("b").textContent;cfg.classList.add("show")});
+$("#add").onclick=()=>{$("#ct").textContent="新增";$("#cp").textContent="框住的章节就是这个 Agent 的职责范围";cfg.classList.add("show")};
+$("#cx").onclick=$("#cancel").onclick=()=>cfg.classList.remove("show");
+$$(".sw button").forEach(b=>b.onclick=()=>{$$(".sw button").forEach(x=>x.classList.remove("on"));b.classList.add("on")});
+})();
+</script></body></html>

@@ -14,4 +14,4 @@ else
 fi
 
 cd "$APP_DIR" || exit 1
-exec "$PYTHON_BIN" "$APP_DIR/app.py"
+exec "$PYTHON_BIN" "$APP_DIR/window_mode.py"

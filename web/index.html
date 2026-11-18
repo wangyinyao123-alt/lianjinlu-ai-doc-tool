@@ -3,202 +3,314 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#17191e" />
+    <meta name="theme-color" content="#f7fbef" />
     <link rel="icon" type="image/png" href="/static/assets/alchemy-furnace-pixel.png" />
     <title>炼金炉 · HIK 文档开发工作台</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260924-mode-scroll-cards-v2" />
+    <link rel="stylesheet" href="/static/app.css?v=20261117-b19" />
+    <link rel="stylesheet" href="/static/canvas.css?v=20261117-b19" />
+    <link rel="stylesheet" href="/static/blocks.css?v=20261117-b19" />
   </head>
-  <body>
+  <body id="bk-body" class="is-home">
     <div class="app-shell">
       <aside class="sidebar" aria-hidden="true">
         <div class="sidebar-orbit"><span class="sidebar-orbit-core">◎</span><span class="sidebar-orbit-ring ring-one"></span><span class="sidebar-orbit-ring ring-two"></span></div>
         <div class="side-flow">
-          <div class="flow-label">WORKBENCH ROUTE</div>
+          <div class="flow-label">工作台路线</div>
           <div class="flow-line"><i></i><span>项目轨道</span></div>
           <div class="flow-line"><i></i><span>框架轨道</span></div>
           <div class="flow-line"><i></i><span>Topic 轨道</span></div>
           <div class="flow-line muted-line"><i></i><span>XML 输出</span></div>
         </div>
-        <div class="sidebar-note"><span class="status-dot"></span> LOCAL / READY</div>
+        <div class="sidebar-note"><span class="status-dot"></span> 本地 / 就绪</div>
       </aside>
 
       <main class="main-content">
         <header class="topbar">
           <div class="topbar-brand"><div class="topbar-brand-mark"><img src="/static/assets/alchemy-furnace-pixel.png" alt="" /></div><div class="topbar-brand-copy"><strong>炼金炉</strong><small>HIK DOCUMENT SYSTEM</small></div></div>
           <nav class="top-nav" aria-label="主导航">
-            <button class="nav-item is-active" data-view="projects-view"><span class="nav-icon" aria-hidden="true">⌂</span><span>项目工作台</span></button>
-            <button class="nav-item" data-view="skills-view"><span class="nav-icon" aria-hidden="true">✦</span><span>配置 Skill</span></button>
-            <button class="nav-item" data-view="settings-view"><span class="nav-icon" aria-hidden="true">◌</span><span>AI 服务配置</span></button>
+            <button class="nav-item is-active" data-view="home-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5 8 2.5l5.5 5"/><path d="M4 6.8V13h8V6.8"/></svg></span><span>首页</span></button>
+            <button class="nav-item" data-view="projects-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.5h8.5A1.5 1.5 0 0 1 13 4v9.5H5A2 2 0 0 1 3 11.5z"/><path d="M3 11.5A1.5 1.5 0 0 1 4.5 10H13"/></svg></span><span>项目工作台</span></button>
+            <button class="nav-item" data-view="analysis-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5.8" y="1.8" width="4.4" height="3"/><rect x="1.8" y="11.2" width="4.4" height="3"/><rect x="9.8" y="11.2" width="4.4" height="3"/><path d="M8 4.8v2.4M8 7.2H4v4M8 7.2h4v4"/></svg></span><span>框架工作台</span></button>
+            <button class="nav-item" data-view="topic-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/><path d="M6 8.2h4M6 10.7h4"/></svg></span><span>Topic 工作台</span></button>
+            <button class="nav-item" type="button" id="nav-topic-canvas" data-canvas="1"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="8" r="1.9"/><circle cx="12" cy="3.4" r="1.9"/><circle cx="12" cy="12.6" r="1.9"/><path d="M5.8 7.2 10.2 4M5.8 8.8l4.4 3.2"/></svg></span><span>Topic 画布</span></button>
+            <button class="nav-item" data-view="skills-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.3 3.7L13 7l-3.7 1.3L8 12 6.7 8.3 3 7l3.7-1.3z"/></svg></span><span>配置 Skill</span></button>
+            <button class="nav-item" data-view="settings-view"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M2.5 11.5h11"/><circle cx="6" cy="4.5" r="1.7"/><circle cx="10.5" cy="11.5" r="1.7"/></svg></span><span>AI 服务配置</span></button>
           </nav>
-          <div class="topbar-actions"><div class="breadcrumb"><span>炼金炉</span><b>/</b><span id="breadcrumb-view">项目工作台</span></div><a class="topbar-demo-link" href="/ui-demos">UI Demo ↗</a><div class="topbar-status" id="service-status"><span class="status-dot muted-dot"></span> CHECKING LOCAL SERVICE</div></div>
+          <div class="topbar-actions"><div class="breadcrumb"><span>炼金炉</span><b>/</b><span id="breadcrumb-view">项目工作台</span></div><div class="topbar-status" id="service-status"><span class="status-dot muted-dot"></span> 正在检查本地服务</div></div>
         </header>
         <div class="cosmic-backdrop" aria-hidden="true"><span class="cosmic-star star-a"></span><span class="cosmic-star star-b"></span><span class="cosmic-star star-c"></span><span class="cosmic-orbit orbit-a"></span><span class="cosmic-orbit orbit-b"></span></div>
 
-        <section id="projects-view" class="view is-visible">
+        <section id="home-view" class="view is-visible">
           <div class="hero-row">
             <div class="hero-copy">
-              <p class="section-kicker">// OPERATING MODEL / THREE MODES</p>
-              <h1>把需求投进来，<br /><em>按模式炼出 Topic。</em></h1>
-              <p class="hero-lede">炼金炉将需求、规则和人工判断放在同一条路径上。支持全新开发、版本更新和 Topic 优化，并在同一工作区审核 XML。</p>
-              <div class="hero-actions"><button class="primary-button" id="new-project-button">＋ 新建项目</button><span class="shortcut">LOCAL FIRST <b>·</b> NO GUID OUTPUT</span></div>
+              <p class="section-kicker">HIK DOCUMENT ALCHEMY · 文档炼金工作台</p>
+              <h1>需求投进炉，<br />炼出一套<em>能交付的文档</em>。</h1>
+              <p class="hero-lede">材料、规则和人工把关走在同一条流水线上——每一版都有出处，每一处都能改，产出即用。</p>
+              <div class="hero-steps" aria-label="三步工序"><div class="hero-step"><i>01</i><b>投料</b><span>需求 / 材料 / 规则</span></div><div class="hero-step"><i>02</i><b>炼框架</b><span>生成 · 调整 · 确认</span></div><div class="hero-step"><i>03</i><b>分章成文</b><span>Topic 生成与审核</span></div></div>
+              <div class="hero-actions"><button class="primary-button" id="new-project-button">＋ 新建项目</button><span class="shortcut">本地优先 <b>·</b> 数据不出本机</span></div>
             </div>
             <div class="hero-visual hero-signal">
-              <div class="signal-head"><span class="section-kicker">TOPIC ROUTE / 03—04</span><span class="signal-status"><i></i> READY</span></div>
             <div class="hero-concept-stage"><span class="concept-glow"></span><div class="hero-character-row" aria-label="炼金师角色组"><div class="hero-role-column"><div class="hero-character-unit hero-character-unit-blue"><img class="hero-character" src="/static/assets/alchemy-apprentice-arcane.png" alt="蓝色炼金师" /></div><article class="mode-card hero-mode-card mode-card-new" data-mode-filter="new" tabindex="0" role="button" aria-label="全新开发"><img class="mode-scroll-image" src="/static/assets/mode-cards/new-topic.png" alt="全新开发 / New Topic" /><button type="button" class="mode-create-button mode-create-overlay" data-create-project="new">创建项目 <i>→</i></button></article></div><div class="hero-role-column"><div class="hero-character-unit hero-character-unit-purple"><img class="hero-character" src="/static/assets/alchemy-apprentice.png" alt="紫色炼金师" /></div><article class="mode-card hero-mode-card mode-card-update" data-mode-filter="update" tabindex="0" role="button" aria-label="版本更新"><img class="mode-scroll-image" src="/static/assets/mode-cards/new-version.png" alt="版本更新 / New Version" /><button type="button" class="mode-create-button mode-create-overlay" data-create-project="update">创建项目 <i>→</i></button></article></div><div class="hero-role-column"><div class="hero-character-unit hero-character-unit-green"><img class="hero-character" src="/static/assets/alchemy-apprentice-nature.png" alt="绿色炼金师" /></div><article class="mode-card hero-mode-card mode-card-optimize" data-mode-filter="optimize" tabindex="0" role="button" aria-label="Topic 优化"><img class="mode-scroll-image" src="/static/assets/mode-cards/topic-optimization.png" alt="章节优化 / Topic Optimization" /><button type="button" class="mode-create-button mode-create-overlay" data-create-project="optimize">创建项目 <i>→</i></button></article></div></div><img class="hero-concept-image" src="/static/assets/alchemy-furnace.png" alt="炼金炉概念形象" /></div>
-              <div class="signal-route"><span>需求输入</span><b>→</b><span>Skill 约束</span><b>→</b><span>XML 初稿</span></div>
-              <div class="signal-foot">HIK WRITING / REQUIRED</div>
             </div>
           </div>
-
-          <div class="workspace-grid">
-            <div class="panel project-panel">
-              <div class="panel-heading"><div><p class="section-kicker">REGISTRY / PROJECTS</p><h2>我的项目</h2></div><span class="count-badge" id="project-count">0</span></div>
-              <div id="project-list" class="project-list"></div>
-            </div>
-            <div class="panel detail-panel" id="project-detail">
-              <div class="empty-detail"><div><div class="empty-icon">＋</div><h3>选择一个项目</h3><p>项目数据会保存在本地 data/projects 目录中。</p></div></div>
-            </div>
-          </div>
-
         </section>
 
-        <section id="analysis-view" class="view">
-          <div class="view-header analysis-view-header"><div class="analysis-view-header-top"><p class="section-kicker">// FRAMEWORK STUDIO / EVIDENCE FIRST</p></div><h1>把材料，炼成一份可编辑的文档框架。</h1><p>先选择项目、材料和 Skill，再由 AI 生成 Markdown 框架。左侧编辑文本，右侧实时查看脑图或鱼骨图；确认框架后，再进入单个 Topic 的 XML 生成。</p></div>
+        <section id="projects-view" class="bk view">
+          <div class="shelf-page" id="shelf-page">
+            <div class="shelf-header"><div><p class="section-kicker">登记 / 我的项目</p><h2 data-en="Projects">我的项目</h2></div><span class="count-badge" id="project-count">0</span><div class="hero-tags" aria-hidden="true"><span>#全新开发</span><span>#版本更新</span><span>#Topic优化</span></div></div>
+            <div class="project-list-controls"><label class="project-search"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="搜索项目" aria-label="搜索项目" /></label><select id="project-sort" aria-label="项目排序"><option value="updated">最近保存</option><option value="name">项目名称</option></select></div>
+            <div class="project-mode-filter" role="group" aria-label="按项目类别筛选"><button type="button" class="mode-filter-chip is-active" data-project-filter="all">全部</button><button type="button" class="mode-filter-chip" data-project-filter="new">全新开发</button><button type="button" class="mode-filter-chip" data-project-filter="update">版本更新</button><button type="button" class="mode-filter-chip" data-project-filter="optimize">Topic 优化</button></div>
+            <div id="projects-message" class="inline-message" role="status"></div>
+            <div id="project-list" class="project-list"></div>
+          </div>
+          <div class="panel detail-panel" id="project-detail" hidden>
+            <div class="empty-detail"><div><div class="empty-icon">＋</div><h3>选择一个项目</h3><p>项目数据会保存在本地 data/projects 目录中。</p></div></div>
+          </div>
+        </section>
+
+        <section id="analysis-view" class="bk view">
+          <div class="view-header analysis-view-header"><div class="analysis-head-left"><p class="analysis-breadcrumb">项目 / <b id="analysis-breadcrumb-project">未选择项目</b> / 框架 / 实时编辑</p><h1 data-en="Framework">文档框架<i class="hint-dot" tabindex="0" data-tip="先选择项目、材料和 Skill，再由 AI 生成 Markdown 框架；左侧编辑文本，右侧实时查看脑图或鱼骨图。确认框架后，再进入单个 Topic 的 XML 生成。">?</i></h1></div><div class="analysis-head-actions"><button type="button" class="mini-button framework-panel-toggle" id="framework-toggle-map" aria-expanded="false" title="展开或收起框架图和章节预览"><span aria-hidden="true">◫</span> 展开框架图/章节预览</button><button type="button" class="mini-button framework-panel-toggle" id="framework-toggle-topic" aria-expanded="false" title="从当前框架节点打开 Topic 编辑器（右侧滑出）"><span aria-hidden="true">⌘</span> Topic 编辑器</button><span class="framework-save-state" id="framework-save-state">未生成</span><span class="count-badge" id="analysis-status-badge">未分析</span></div></div>
           <div class="analysis-studio-layout">
             <aside class="panel analysis-project-sidebar" aria-label="项目目录">
-              <div class="analysis-project-sidebar-head"><div><p class="section-kicker">PROJECT DIRECTORY</p><strong>项目目录</strong></div><span class="panel-note">按模式</span></div>
-              <div id="analysis-project-tree" class="analysis-project-tree"><div class="tree-empty">正在读取项目…</div></div>
+              <div class="analysis-project-sidebar-head"><strong>项目目录</strong><button type="button" class="mini-button icon-mini-button" id="analysis-sidebar-collapse" title="收起/展开侧栏">‹</button></div>
+              <input id="analysis-project-search" type="search" class="analysis-sidebar-search" placeholder="搜索项目" aria-label="搜索项目" />
+              <div class="inline-message" id="materials-message" role="status"></div>
+                <div id="analysis-project-tree" class="analysis-project-tree"><div class="tree-empty">正在读取项目…</div></div>
             </aside>
             <div class="analysis-studio-main">
           <form class="panel analysis-command-bar" id="analysis-form">
             <select id="analysis-project" class="analysis-project-source" aria-hidden="true" tabindex="-1"><option value="">请先创建项目</option></select>
-            <div class="analysis-command-row analysis-command-primary">
-              <div class="analysis-material-summary"><span class="command-label">需求材料</span><strong id="analysis-material-count">0 份</strong><span id="analysis-material-summary-text">尚未导入材料</span><label class="upload-button">＋ 添加材料<input id="analysis-material-files" type="file" multiple accept=".doc,.docx,.pdf,.chm,.md,.markdown,.txt,.html,.htm,.xml,.json,.csv,.yaml,.yml,.xlsx,.xls" /></label><button type="button" class="mini-button" id="paste-material-button">粘贴文本</button><label class="upload-button">导入外部框架<input id="framework-excel-file" type="file" accept=".xlsx,.xlsm,.docx,.md,.markdown,.txt" /></label></div>
-              <div class="analysis-command-actions" aria-label="框架生成操作"><div class="analysis-action-cluster analysis-action-cluster-generate"><span class="analysis-action-cluster-label">生成</span><button type="submit" class="primary-button" id="run-analysis-button">生成框架</button><button type="button" class="secondary-button" id="regenerate-framework-button">重新生成</button><button type="button" class="secondary-button" id="batch-generate-topics-button">批量生成 Topic</button></div><div class="analysis-action-cluster analysis-action-cluster-output"><span class="analysis-action-cluster-label">管理</span><button type="button" class="secondary-button" id="save-framework-button">保存框架</button><button type="button" class="secondary-button" id="export-framework-button">导出</button></div></div>
+            <div class="analysis-command-row analysis-flow-materials">
+              <div class="analysis-material-block">
+                <div class="analysis-material-summary"><span class="command-label"><i class="flow-step-tag">①</i>需求材料</span><strong id="analysis-material-count">0 份</strong><span id="analysis-material-summary-text">尚未导入材料</span><label class="upload-button">＋ 添加材料<input id="analysis-material-files" type="file" multiple /></label><button type="button" class="mini-button" id="paste-material-button">粘贴文本</button><button type="button" class="mini-button workspace-trigger" id="workspace-button" title="把这个本地目录设为项目工作区：生成框架和 Topic 时由 Agent 直接读取目录里的文件，不复制、不导入">工作区目录</button><label class="upload-button">导入外部框架<input id="framework-excel-file" type="file" accept=".xlsx,.xlsm,.docx,.md,.markdown,.txt" /></label></div>
+                <div class="workspace-strip is-empty" id="workspace-strip">
+                  <span class="workspace-strip-mark" aria-hidden="true">▤</span>
+                  <span class="workspace-strip-copy"><b id="workspace-strip-title">未设置工作区</b><small id="workspace-strip-note">设置后，生成框架与 Topic 时 Agent 会直接读取该目录，无需导入</small></span>
+                  <span class="workspace-strip-actions"><button type="button" class="mini-button" id="workspace-strip-edit">设置目录</button><button type="button" class="mini-button" id="workspace-strip-refresh" hidden>刷新</button><button type="button" class="mini-button icon-mini-button workspace-strip-clear" id="workspace-strip-clear" hidden title="移除工作区（不会删除目录里的文件）">×</button></span>
+                </div>
+                <div class="analysis-material-inline" id="analysis-material-list"><span class="field-hint">请选择项目后添加需求材料。</span></div>
+                <div class="analysis-paste-row"><textarea id="analysis-pasted-text" class="is-hidden" rows="3" placeholder="粘贴需求、会议纪要或研发说明，点击“保存粘贴文本”。"></textarea><button type="button" class="mini-button is-hidden" id="save-pasted-material">保存粘贴文本</button></div>
+              </div>
             </div>
-            <div class="analysis-command-row analysis-command-secondary">
-              <div class="analysis-material-inline" id="analysis-material-list"><span class="field-hint">请选择项目后添加需求材料。</span></div>
-              <textarea id="analysis-pasted-text" class="is-hidden" rows="3" placeholder="粘贴需求、会议纪要或研发说明，点击“保存粘贴文本”。"></textarea><button type="button" class="mini-button is-hidden" id="save-pasted-material">保存粘贴文本</button>
-              <div class="analysis-skill-inline"><span class="command-label">Skill</span><div id="analysis-skill-options" class="skill-options"><div class="field-hint">正在读取 Skill…</div></div></div>
+            <div class="analysis-command-row analysis-flow-constraints">
+              <div class="analysis-skill-inline"><span class="command-label"><i class="flow-step-tag">②</i>Skill 生成约束</span><div id="analysis-skill-options" class="skill-options"><div class="field-hint">正在读取 Skill…</div></div></div>
               <label class="analysis-note-inline">本次生成提示词<textarea id="analysis-note" rows="2" placeholder="例如：重点覆盖产品概述、工程创建、设备配置和异常处理；不要虚构材料中没有出现的功能。"></textarea></label>
             </div>
-            <div class="inline-message" id="analysis-message" role="status"></div>
+            <div class="analysis-command-row analysis-flow-actions">
+              <div class="analysis-command-actions" aria-label="框架生成操作"><span class="analysis-actions-hint">先选项目和材料（或设置工作区），再生成框架</span><button type="submit" class="primary-button" id="run-analysis-button">生成框架</button><span class="analysis-more-wrap"><button type="button" class="secondary-button" id="analysis-more-button">⋯ 更多</button><span class="analysis-more-menu" id="analysis-more-menu"><button type="button" class="analysis-more-item" id="save-framework-button">保存框架</button><button type="button" class="analysis-more-item" id="export-framework-button">导出</button></span></span></div>
+              <div class="inline-message" id="analysis-message" role="status"></div>
+            </div>
           </form>
           <section class="framework-workbench panel">
-            <div class="framework-workbench-head"><div class="framework-workbench-title"><button type="button" class="secondary-button compact-button analysis-back-button" id="analysis-back-button"><span aria-hidden="true">←</span> 返回主页</button><div><p class="section-kicker">FRAMEWORK / LIVE EDITOR</p><h2>文档框架</h2></div></div><div class="framework-head-actions"><div class="framework-panel-actions" aria-label="框架工作区面板"><button type="button" class="mini-button framework-panel-toggle" id="framework-toggle-map" aria-expanded="false" title="展开或收起框架图和章节预览"><span aria-hidden="true">◫</span> 展开框架图/章节预览</button><button type="button" class="mini-button framework-panel-toggle" id="framework-toggle-topic" aria-expanded="false" title="从当前框架节点进入 Topic 编辑器"><span aria-hidden="true">⌘</span> Topic 编辑器</button></div><span class="framework-save-state" id="framework-save-state">未生成</span><span class="count-badge" id="analysis-status-badge">未分析</span></div></div>
-            <div class="framework-workbench-meta" id="analysis-meta">Markdown 是当前框架的编辑源，默认全宽显示；需要时可从右侧展开框架图或 Topic 编辑器。</div>
+            <div class="framework-workbench-head"><div class="framework-workbench-title"><button type="button" class="secondary-button compact-button analysis-back-button" id="analysis-back-button"><span aria-hidden="true">←</span> 返回主页</button><div><p class="section-kicker">框架 / 实时编辑</p><span class="framework-project-context" id="framework-project-context">未选择项目</span></div></div><div class="framework-head-actions"><button type="button" class="framework-canvas-entry" id="batch-generate-topics-button" title="按框架章节分派子 Agent，在无限画布上批量生成 Topic"><span class="framework-canvas-entry-mark" aria-hidden="true">✱</span><span class="framework-canvas-entry-copy"><b>批量生成 Topic</b><small>打开生成画布 · 分派子 Agent</small></span><span class="framework-canvas-entry-go" aria-hidden="true">→</span></button></div></div>
+            <div class="framework-workbench-meta" id="analysis-meta"><span><i class="hint-dot" tabindex="0" data-tip="Markdown 是当前框架的编辑源，默认与框架图双栏同屏；可随时收起框架图，单击框架节点即可从右侧滑出 Topic 编辑器。生成任务会在后台运行，期间可取消或继续浏览其他页面。">?</i></span><span class="framework-meta-actions"><select id="framework-version-select" aria-label="选择历史框架版本"><option value="">版本历史</option></select><button type="button" class="mini-button is-hidden" id="cancel-framework-job">取消生成</button></span></div>
             <div class="framework-workbench-body" id="framework-workbench-body">
-              <section class="framework-markdown-pane"><div class="framework-pane-heading"><span>MARKDOWN EDITOR</span><div class="framework-markdown-heading-actions"><button type="button" class="mini-button" id="framework-markdown-paste">粘贴并转换</button><button type="button" class="mini-button" id="framework-markdown-fullscreen">全屏编辑</button><span id="framework-line-count">0 行</span></div></div><textarea id="framework-markdown" class="framework-markdown-editor" spellcheck="false" placeholder="# 产品用户手册\n\n## 产品概述\n\n> 章节概述：介绍产品定位、适用范围和主要功能。\n\n## 创建工程 [task]\n\n> 章节概述：指导用户完成工程创建。"></textarea><div class="framework-editor-hint">支持直接粘贴目录、Word/Excel 文本或 Markdown，粘贴后会自动识别标题层级并转换；使用 `#`～`######` 表示层级，标题后添加 `[task]` 可标记为操作型 Topic。</div></section>
-              <section class="framework-map-pane" id="framework-map-pane"><div class="framework-pane-heading framework-map-pane-heading"><div class="framework-map-toolbar-row framework-map-toolbar-row-primary"><div class="framework-map-heading-left"><div class="framework-view-tabs" role="tablist" aria-label="框架呈现方式"><button type="button" class="mini-button framework-view-tab is-active" id="framework-map-view" data-framework-view="map" role="tab" aria-selected="true">01 框架图</button><button type="button" class="mini-button framework-view-tab" id="framework-outline-view" data-framework-view="outline" role="tab" aria-selected="false">02 章节预览</button></div><button type="button" class="mini-button summary-toggle-button" id="framework-summary-toggle">展开概述</button></div></div><div class="framework-map-toolbar-row framework-map-toolbar-row-actions"><div class="framework-map-tools framework-map-tools-primary"><div class="framework-tool-cluster framework-tool-cluster-display"><span class="framework-tool-cluster-label">呈现</span><label class="framework-toolbar-select">主题<select id="framework-theme-select" aria-label="脑图主题"><option value="poster">示例四色</option><option value="pastel">浅色和谐</option></select></label><label class="framework-toolbar-select">布局<select id="framework-layout-select" aria-label="脑图布局"><option value="mindmap">脑图</option><option value="fishbone">鱼骨图</option></select></label></div><div class="framework-tool-cluster framework-tool-cluster-zoom"><span class="framework-tool-cluster-label">视图</span><div class="framework-map-zoom-controls"><button type="button" class="mini-button icon-mini-button" id="framework-map-zoom-out" title="缩小" aria-label="缩小">−</button><span class="framework-map-scale" id="framework-map-scale">100%</span><button type="button" class="mini-button icon-mini-button" id="framework-map-zoom-in" title="放大" aria-label="放大">＋</button></div><button type="button" class="mini-button framework-action-button" id="framework-map-fit">适应</button></div></div><div class="framework-map-tools framework-map-tools-actions"><div class="framework-tool-cluster framework-tool-cluster-actions"><span class="framework-tool-cluster-label">操作</span><button type="button" class="mini-button framework-action-button" id="framework-map-presentation">演示</button><button type="button" class="mini-button framework-action-button" id="framework-map-fullscreen">全屏</button><button type="button" class="mini-button framework-action-button" id="framework-map-reset">重置</button></div></div></div></div><div id="framework-map" class="framework-map" aria-label="文档框架图"><div class="framework-map-empty">生成或输入 Markdown 后显示图形。</div></div><section id="framework-outline-preview-pane" class="framework-outline-preview-pane is-hidden" aria-label="章节预览"><div class="framework-outline-preview-toolbar"><span>按 Markdown 顺序展示 · 不显示 #、&gt; 标记 · 单击定位编辑器 · 双击打开 Topic</span><span id="framework-outline-count">0 个章节</span></div><div id="framework-outline-preview" class="framework-outline-preview"><div class="tree-empty">输入 Markdown 后显示章节预览。</div></div></section><div id="framework-map-hint" class="framework-map-hint">单击节点可打开 Topic；左上角统一展开章节概述，双击节点标题可直接编辑 Markdown。拖动画布移动，滚轮缩放；节点多时可先点“适应”。</div><div id="framework-outline-hint" class="framework-map-hint is-hidden">章节预览与左侧 Markdown 编辑器实时同步；单击章节会定位并选中左侧 Markdown 对应行，双击章节会打开 Topic 编辑器。</div></section>
+              <section class="framework-markdown-pane"><div class="framework-pane-heading"><span>MARKDOWN 编辑器<i class="hint-dot" tabindex="0" data-tip="支持直接粘贴目录、Word/Excel 文本或 Markdown，粘贴后会自动识别标题层级并转换；使用 #～###### 表示层级，标题后添加 [task] 可标记为操作型 Topic。">?</i></span><div class="framework-markdown-heading-actions"><button type="button" class="mini-button icon-mini-button" id="framework-undo" title="撤销" aria-label="撤销" disabled>↶</button><button type="button" class="mini-button icon-mini-button" id="framework-redo" title="重做" aria-label="重做" disabled>↷</button><button type="button" class="mini-button" id="framework-markdown-paste">粘贴并转换</button><button type="button" class="mini-button" id="framework-markdown-fullscreen">全屏编辑</button><span id="framework-line-count">0 行</span></div></div><textarea id="framework-markdown" class="framework-markdown-editor" spellcheck="false" placeholder="# 产品用户手册&#10;&#10;## 产品概述&#10;&#10;> 章节概述：介绍产品定位、适用范围和主要功能。&#10;&#10;## 创建工程 [task]&#10;&#10;> 章节概述：指导用户完成工程创建。"></textarea></section>
+              <div class="framework-split-divider" id="framework-split-divider" role="separator" aria-orientation="vertical" title="拖动调整宽度，双击复位"><span class="framework-split-grip"><i></i><i></i></span><span class="framework-split-tip">左右拖动调整 · 双击复位</span></div>
+              <section class="framework-map-pane" id="framework-map-pane"><div class="framework-pane-heading framework-map-pane-heading"><div class="framework-map-toolbar-row framework-map-toolbar-row-primary"><div class="framework-view-tabs" role="tablist" aria-label="框架呈现方式"><button type="button" class="mini-button framework-view-tab is-active" id="framework-map-view" data-framework-view="map" role="tab" aria-selected="true">01 框架图</button><button type="button" class="mini-button framework-view-tab" id="framework-outline-view" data-framework-view="outline" role="tab" aria-selected="false">02 章节预览</button></div><button type="button" class="mini-button summary-toggle-button" id="framework-summary-toggle">展开概述</button><label class="framework-toolbar-select">主题<select id="framework-theme-select" aria-label="脑图主题"><option value="poster">示例四色</option><option value="pastel">浅色和谐</option></select></label><label class="framework-toolbar-select">布局<select id="framework-layout-select" aria-label="脑图布局"><option value="mindmap">脑图</option><option value="fishbone">鱼骨图</option></select></label><span class="framework-map-toolbar-right"><span class="framework-map-zoom-slider"><input type="range" id="framework-map-zoom-range" min="8" max="250" value="100" step="2" aria-label="缩放" /><span class="framework-map-scale" id="framework-map-scale">100%</span></span><button type="button" class="mini-button framework-action-button" id="framework-map-fit">适应</button><button type="button" class="mini-button framework-action-button framework-play-button" id="framework-map-presentation">▶ 演示</button><button type="button" class="mini-button framework-action-button" id="framework-map-fullscreen">全屏</button><button type="button" class="mini-button framework-action-button" id="framework-map-reset">重置</button></span></div></div><div id="framework-map" class="framework-map" aria-label="文档框架图"><div class="framework-map-empty">生成或输入 Markdown 后显示图形。</div></div><section id="framework-outline-preview-pane" class="framework-outline-preview-pane is-hidden" aria-label="章节预览"><div class="framework-outline-preview-toolbar"><span>按 Markdown 顺序展示 · 不显示 #、&gt; 标记 · 单击定位编辑器 · 双击打开 Topic</span><span id="framework-outline-count">0 个章节</span></div><div id="framework-outline-preview" class="framework-outline-preview"><div class="tree-empty">输入 Markdown 后显示章节预览。</div></div></section><div id="framework-map-hint" class="framework-map-hint">单击节点可打开 Topic；左上角统一展开章节概述，双击节点标题可直接编辑 Markdown。拖动画布移动，滚轮缩放；节点多时可先点“适应”。</div><div id="framework-outline-hint" class="framework-map-hint is-hidden">章节预览与左侧 Markdown 编辑器实时同步；单击章节会定位并选中左侧 Markdown 对应行，双击章节会打开 Topic 编辑器。</div></section>
             </div>
           </section>
           <section class="framework-markdown-focus" id="framework-markdown-focus" aria-hidden="true">
             <div class="framework-markdown-focus-shell">
-              <div class="framework-markdown-focus-topbar"><div><p class="section-kicker">MARKDOWN FOCUS / LIVE PREVIEW</p><strong>框架编辑器</strong></div><div class="framework-markdown-focus-actions"><span id="framework-focus-line-count">0 行</span><button type="button" class="mini-button" id="framework-markdown-focus-close">退出全屏</button></div></div>
+              <div class="framework-markdown-focus-topbar"><div><p class="section-kicker">MARKDOWN 全屏 / 实时预览</p><strong>框架编辑器</strong></div><div class="framework-markdown-focus-actions"><span id="framework-focus-line-count">0 行</span><button type="button" class="mini-button" id="framework-markdown-focus-close">退出全屏</button></div></div>
               <div class="framework-markdown-focus-body">
-                <section class="framework-markdown-focus-editor"><div class="framework-focus-pane-heading"><span>MARKDOWN</span><button type="button" class="mini-button" id="framework-markdown-focus-paste">粘贴并转换</button></div><textarea id="framework-markdown-focus-editor" spellcheck="false"></textarea><div class="framework-editor-hint">左侧可直接编辑 Markdown；粘贴普通目录时会自动转换标题层级。</div></section>
+                <section class="framework-markdown-focus-editor"><div class="framework-focus-pane-heading"><span>MARKDOWN<i class="hint-dot" tabindex="0" data-tip="左侧可直接编辑 Markdown；粘贴普通目录时会自动转换标题层级。">?</i></span><button type="button" class="mini-button" id="framework-markdown-focus-paste">粘贴并转换</button></div><textarea id="framework-markdown-focus-editor" spellcheck="false"></textarea></section>
                 <section class="framework-markdown-focus-preview"><div class="framework-focus-pane-heading"><span>章节预览</span><span>按顺序显示</span></div><div id="framework-markdown-focus-preview" class="framework-outline-preview"><div class="tree-empty">输入 Markdown 后显示章节预览。</div></div></section>
               </div>
             </div>
           </section>
-          <section class="analysis-support panel"><div class="analysis-support-head"><div><p class="section-kicker">REVIEW QUEUE / SUPPORTING EVIDENCE</p><h2>分析辅助信息</h2></div><span class="panel-note">用于审核，不作为框架主视图</span><button type="button" class="secondary-button compact-button" id="toggle-analysis-support">展开</button></div><div class="analysis-support-body is-collapsed" id="analysis-support-body"><div id="analysis-summary" class="analysis-summary"><div class="report-empty">等待需求分析</div></div><div class="analysis-result-grid"><section class="analysis-block"><div class="analysis-block-heading"><strong>已确认信息</strong><span id="confirmed-count">0</span></div><div id="confirmed-items" class="analysis-items"><div class="tree-empty">—</div></div></section><section class="analysis-block"><div class="analysis-block-heading"><strong>缺料清单</strong><span id="missing-count">0</span></div><div id="missing-items" class="analysis-items"><div class="tree-empty">—</div></div></section><section class="analysis-block"><div class="analysis-block-heading"><strong>待研发确认</strong><span id="question-count">0</span></div><div id="question-items" class="analysis-items"><div class="tree-empty">—</div></div></section></div><div class="analysis-history" id="analysis-history"></div></div></section>
+          <section class="analysis-support panel"><div class="analysis-support-head"><div><p class="section-kicker">审核队列 / 辅助证据</p><h2>分析辅助信息<i class="hint-dot" tabindex="0" data-tip="用于审核，不作为框架主视图。">?</i></h2></div><button type="button" class="secondary-button compact-button" id="toggle-analysis-support">展开</button></div><div class="analysis-support-body is-collapsed" id="analysis-support-body"><div id="analysis-summary" class="analysis-summary"><div class="report-empty">等待需求分析</div></div><div class="analysis-result-grid"><section class="analysis-block"><div class="analysis-block-heading"><strong>已确认信息</strong><span id="confirmed-count">0</span></div><div id="confirmed-items" class="analysis-items"><div class="tree-empty">—</div></div></section><section class="analysis-block"><div class="analysis-block-heading"><strong>缺料清单</strong><span id="missing-count">0</span></div><div id="missing-items" class="analysis-items"><div class="tree-empty">—</div></div></section><section class="analysis-block"><div class="analysis-block-heading"><strong>待研发确认</strong><span id="question-count">0</span></div><div id="question-items" class="analysis-items"><div class="tree-empty">—</div></div></section></div><div class="analysis-history" id="analysis-history"></div></div></section>
             </div>
           </div>
         </section>
 
         <div class="framework-presentation" id="framework-presentation" aria-hidden="true">
           <div class="framework-presentation-shell">
-            <div class="framework-presentation-topbar"><div><p class="section-kicker">FRAMEWORK PRESENTATION</p><strong id="framework-presentation-title">文档框架</strong></div><button type="button" class="presentation-close" id="framework-presentation-close" aria-label="退出演示">×</button></div>
+            <div class="framework-presentation-topbar"><div><p class="section-kicker">框架演示</p><strong id="framework-presentation-title">文档框架</strong></div><button type="button" class="presentation-close" id="framework-presentation-close" aria-label="退出演示">×</button></div>
             <div class="framework-presentation-stage" id="framework-presentation-stage"><div class="framework-presentation-world" id="framework-presentation-world"></div><div class="presentation-zoom-indicator" id="framework-presentation-zoom">100%</div></div>
             <div class="framework-presentation-hud"><button type="button" class="presentation-button" id="framework-presentation-prev" aria-label="上一个节点">‹</button><span class="presentation-count"><b id="framework-presentation-current">1</b><i>/</i><span id="framework-presentation-total">1</span></span><button type="button" class="presentation-button" id="framework-presentation-next" aria-label="下一个节点">›</button><input id="framework-presentation-range" type="range" min="0" value="0" aria-label="演示进度" /><button type="button" class="presentation-button" id="framework-presentation-fit">适应</button><button type="button" class="presentation-button" id="framework-presentation-summary">展开概述</button><span class="presentation-hint"><kbd>←</kbd><kbd>→</kbd> 切换节点 · <kbd>+</kbd><kbd>−</kbd> 缩放 · <kbd>Esc</kbd> 退出</span></div>
           </div>
         </div>
 
-        <section id="topic-view" class="view">
-          <div class="view-header"><p class="section-kicker">// TOPIC WORKBENCH / THREE MODES</p><h1>从需求，炼出一个 Topic。</h1><p>可从 0 创建 Topic，也可以选择已有 Topic，基于原 XML、Skill、研发素材和优化要求重新生成。</p></div>
+        <section id="topic-view" class="bk view">
+          <div class="view-header"><p class="section-kicker">Topic 工作台 / 三种模式</p><h1 data-en="Topic Studio">从需求，炼出一个 Topic。<i class="hint-dot" tabindex="0" data-tip="可从 0 创建 Topic，也可以选择已有 Topic，基于原 XML、Skill、研发素材和优化要求重新生成。">?</i></h1><div class="hero-tags" aria-hidden="true"><span>#DITA</span><span>#Concept</span></div></div>
           <div class="topic-layout">
             <form class="panel topic-form" id="topic-form">
-              <div class="panel-heading"><div><p class="section-kicker">INPUT / STRUCTURE</p><h2>Topic 输入</h2></div><span class="security-badge">NO GUID</span></div>
-              <label>所属项目 *<select id="topic-project" required><option value="">请先创建项目</option></select></label>
+              <div class="panel-heading"><div><p class="section-kicker">输入 / 结构</p><h2>Topic 输入</h2></div><span class="security-badge">无 GUID</span></div>
+              <div class="bk-sec"><div class="bk-sec-head"><span>01</span><b>基本信息</b></div><label>所属项目 *<select id="topic-project" required><option value="">请先创建项目</option></select></label>
               <div class="two-fields"><label>Topic 类型 *<select id="topic-type"><option value="concept">Concept · 功能说明</option><option value="task">Task · 操作步骤</option><option value="appendix">附录类 Concept</option></select></label><label>生成模式<select id="topic-mode"><option value="new">新增 Topic（从 0 编写）</option><option value="optimize">优化已有 Topic</option></select></label></div>
-              <label id="topic-target-label" class="is-hidden">优化目标 Topic<select id="topic-target"><option value="">请选择已有 Topic</option></select><span class="field-hint">优化模式会保留原 Topic ID，直接更新该 Topic 的 XML 和项目内容。</span></label>
+              <label id="topic-target-label" class="is-hidden">优化目标 Topic<select id="topic-target"><option value="">请选择已有 Topic</option></select><i class="hint-dot" tabindex="0" data-tip="优化模式会保留原 Topic ID，直接更新该 Topic 的 XML 和项目内容。">?</i></label>
               <label>标题层级 *<select id="topic-heading-level"><option value="1">一级标题</option><option value="2">二级标题</option><option value="3">三级标题</option></select></label>
               <label>Topic 标题 *<input id="topic-title" type="text" required placeholder="例如：配置抱闸保护功能" /></label>
               <label>短描述 *<input id="topic-shortdesc" type="text" required placeholder="用一句话说明本 Topic 能帮助您完成什么" /></label>
-              <label>需求/正文要点<textarea id="topic-brief" rows="4" placeholder="粘贴已经确认的需求、功能边界或正文要点。不要在这里填写 GUID。"></textarea></label>
+              </div><div class="bk-sec"><div class="bk-sec-head"><span>02</span><b>内容与素材</b></div><label>需求/正文要点<textarea id="topic-brief" rows="4" placeholder="粘贴已经确认的需求、功能边界或正文要点。不要在这里填写 GUID。"></textarea></label>
               <label id="topic-optimization-label" class="is-hidden">优化要求<textarea id="topic-optimization-prompt" rows="3" placeholder="例如：只优化语言和结构，不改变业务事实；保留原有 XML 标签结构。"></textarea></label>
-              <label id="topic-material-label">研发素材（可选）<select id="topic-materials" multiple size="4"></select><span class="field-hint">可选择当前项目中的需求材料；优化模式会将所选材料作为本次优化依据。</span></label>
-              <div id="topic-outline-label" class="structured-field"><div class="structured-field-head"><span>章节标题（可选择层级）</span><button type="button" class="mini-button" id="add-outline-item">＋ 添加标题</button></div><div id="outline-builder" class="outline-builder"></div><p class="field-hint">Concept 可为章节选择 1～3 级标题，生成 XML 时会自动建立嵌套结构。</p></div>
+              <label id="topic-material-label">研发素材（可选）<select id="topic-materials" multiple size="4"></select><span class="workspace-row"><button type="button" class="mini-button workspace-trigger" id="topic-workspace-button" title="设置项目工作区：生成本 Topic 时 Agent 会直接读取该目录里的文件">工作区目录</button><span class="workspace-inline-note" id="topic-workspace-note">未设置工作区</span><i class="hint-dot" tabindex="0" data-tip="可选择当前项目中的需求材料；未上传材料时会自动读取项目工作区目录；优化模式会将所选材料作为本次优化依据。">?</i></span></label>
+              <div id="topic-outline-label" class="structured-field"><div class="structured-field-head"><span>章节标题（可选择层级）<i class="hint-dot" tabindex="0" data-tip="Concept 可为章节选择 1～3 级标题，生成 XML 时会自动建立嵌套结构。">?</i></span><button type="button" class="mini-button" id="add-outline-item">＋ 添加标题</button></div><div id="outline-builder" class="outline-builder"></div></div>
               <label id="topic-prereq-label" class="is-hidden">前置条件（每行一个）<textarea id="topic-prerequisites" rows="3" placeholder="确保设备已正确连接\n确保您已完成参数配置"></textarea></label>
               <label id="topic-steps-label" class="is-hidden">操作步骤（每行一个动作）<textarea id="topic-steps" rows="4" placeholder="进入配置窗口\n选择目标功能\n单击保存"></textarea></label>
-              <div class="skill-box"><div class="skill-box-heading"><div><p class="section-kicker">SKILL ROUTE</p><strong>生成约束</strong></div><span>Writing 必选 · DITA 默认</span></div><div id="topic-skill-options" class="skill-options"><div class="field-hint">正在读取 Skill…</div></div><p class="field-hint">默认继承项目级 Skill；取消继承后可为本 Topic 独立选择生成约束。</p></div>
+              </div><div class="bk-sec"><div class="bk-sec-head"><span>03</span><b>生成约束</b></div><div class="skill-box"><div class="skill-box-heading"><div><p class="section-kicker">SKILL 约束</p><strong>生成约束</strong></div><span>Writing 必选 · DITA 默认<i class="hint-dot" tabindex="0" data-tip="默认继承项目级 Skill；取消继承后可为本 Topic 独立选择生成约束。">?</i></span></div><div id="topic-skill-options" class="skill-options"><div class="field-hint">正在读取 Skill…</div></div></div>
               <div class="placeholder-options"><label class="check-row"><input id="topic-image-placeholder" type="checkbox" /> 生成 TODO_IMAGE</label><label class="check-row"><input id="topic-ref-placeholder" type="checkbox" /> 生成 TODO_REF</label></div>
-              <div class="form-actions"><button type="submit" class="primary-button" id="ai-generate-topic">AI 生成并保存</button><button type="button" class="secondary-button" id="template-generate-topic">模板生成</button><button type="button" class="secondary-button" id="clear-topic-form">清空</button></div>
+              </div><div class="form-actions"><button type="submit" class="primary-button" id="ai-generate-topic">AI 生成并保存</button><button type="button" class="secondary-button" id="template-generate-topic">模板生成</button><button type="button" class="secondary-button" id="clear-topic-form">清空</button></div>
               <div class="inline-message" id="topic-message" role="status"></div>
             </form>
             <section class="panel xml-workbench">
-              <div class="panel-heading"><div><p class="section-kicker">OUTPUT / REVIEW</p><h2>XML 初稿</h2></div><span class="count-badge" id="topic-status-badge">未生成</span></div>
+              <div class="panel-heading"><div><p class="section-kicker">输出 / 审核</p><h2>XML 初稿</h2></div><span class="count-badge" id="topic-status-badge">未生成</span></div>
               <div class="xml-meta" id="topic-meta">生成后可直接编辑 XML，并保存到当前项目的 topics 目录。</div>
               <textarea id="topic-xml" class="xml-editor" spellcheck="false" placeholder="XML 初稿将在这里显示"></textarea>
               <div class="validation-report" id="topic-validation"><div class="report-empty">等待生成 XML</div></div>
               <div class="form-actions"><button type="button" class="secondary-button" id="save-topic-xml" disabled>保存 XML 修改</button></div>
             </section>
           </div>
+          <section class="panel quality-panel is-collapsed" id="quality-panel">
+            <div class="panel-heading"><div><p class="section-kicker">质量巡检 / 风格 · 一致性 · 记录</p><h2>质量巡检</h2></div><span class="count-badge" id="quality-status-badge">未检查</span><button type="button" class="mini-button bk-fold" id="quality-toggle" aria-expanded="false">展开巡检</button></div>
+            <div class="quality-toolbar"><span id="quality-project-context">选择项目后可运行巡检</span><div class="quality-toolbar-actions"><button type="button" class="secondary-button compact-button" id="run-quality-check">运行巡检</button></div></div>
+            <div class="analysis-result-grid quality-grid">
+              <section class="analysis-block"><div class="analysis-block-heading"><strong>风格 lint</strong><span id="quality-lint-count">0</span></div><div id="quality-lint-list" class="analysis-items"><div class="report-empty">等待巡检</div></div></section>
+              <section class="analysis-block"><div class="analysis-block-heading"><strong>缺料登记（TODO_CONFIRM）</strong><span id="quality-missing-count">0</span></div><div id="quality-missing-list" class="analysis-items"><div class="report-empty">等待巡检</div></div></section>
+              <section class="analysis-block"><div class="analysis-block-heading"><strong>跨 Topic 一致性</strong><span id="quality-consistency-count">0</span></div><div id="quality-consistency-list" class="analysis-items"><div class="report-empty">等待巡检</div></div></section>
+              <section class="analysis-block"><div class="analysis-block-heading"><strong>生成记录</strong><span id="quality-logs-count">0</span></div><div id="quality-logs-list" class="analysis-items"><div class="report-empty">等待加载</div></div></section>
+            </div>
+          </section>
         </section>
 
-        <section id="settings-view" class="view">
-          <div class="view-header"><p class="section-kicker">// PROVIDER ROUTE / SYSTEM CREDENTIAL</p><h1>配置你的炼金引擎</h1><p>API Key 只保存到系统凭据存储，不写入项目文件和普通配置文件。</p></div>
+        <section id="settings-view" class="bk view">
+          <div class="view-header"><p class="section-kicker">服务配置 / 系统凭据</p><h1 data-en="Engine">配置你的炼金引擎<i class="hint-dot" tabindex="0" data-tip="API Key 只保存到系统凭据存储，不写入项目文件和普通配置文件。">?</i></h1><div class="hero-tags" aria-hidden="true"><span>#本地优先</span><span>#系统凭据</span></div></div>
           <div class="settings-layout">
             <form class="panel settings-form" id="settings-form">
-              <div class="panel-heading"><div><p class="section-kicker">CONNECTION</p><h2>AI 服务</h2></div><span class="security-badge">SYSTEM CREDENTIAL</span></div>
-              <label>服务类型<select id="provider"><option value="openai-compatible">OpenAI 兼容接口</option><option value="anthropic">Anthropic</option><option value="local">本地模型 / 无 Key</option></select></label>
-              <label>API 地址<input id="base-url" type="url" placeholder="例如：http://127.0.0.1:8000/v1" /><span class="field-hint">填写 API 根地址，工具会自动补充 /chat/completions；内网地址请填写实际端口。</span></label>
-              <label>模型名称<input id="model" type="text" placeholder="例如：your-model-name" /></label>
-              <label>API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="留空表示保持现有 Key" /></label>
-              <div class="two-fields"><label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1" /></label><label>超时（秒）<input id="timeout" type="number" min="5" max="600" step="1" /></label></div>
+              <div class="panel-heading"><div><p class="section-kicker">连接</p><h2>AI 服务</h2></div><div class="panel-head-right"><span class="security-badge">系统凭据</span><div class="connection-chip" id="connection-card"><span class="status-dot muted-dot"></span><div><strong>尚未测试</strong></div></div></div></div>
+              <div class="field-grid">
+                <label>服务类型<select id="provider"><option value="openai-compatible" data-hint="通用">OpenAI 兼容接口</option><option value="anthropic" data-hint="Claude 协议">Anthropic</option><option value="local" data-hint="无需 Key">本地模型 / 无 Key</option></select></label>
+                <label>API 地址<i class="hint-dot" tabindex="0" data-tip="填到域名即可：程序会先试根路径，再自动回退到 /v1/chat/completions；内网地址请填写实际端口。">?</i><input id="base-url" type="url" placeholder="例如：http://127.0.0.1:8000/v1" /></label>
+                <label>模型名称<input id="model" type="text" placeholder="例如：your-model-name" /></label>
+                <label>API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="留空表示保持现有 Key" /></label>
+              </div>
+              <details class="adv"><summary>高级设置</summary><div class="field-grid adv-body"><label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1" /></label><label>超时（秒）<input id="timeout" type="number" min="5" max="600" step="1" /></label></div><p class="field-hint">已保存的 Key 不回显。想取回时打开「钥匙串访问」搜 <b>HIK-炼金炉</b>（账户 <b>default</b>），或在终端执行 <code>security find-generic-password -s "HIK-炼金炉" -a default -w | pbcopy</code>，直接进剪贴板、不显示在屏幕上。</p></details>
               <div class="form-actions"><button type="submit" class="primary-button">保存配置</button><button type="button" class="secondary-button" id="test-connection">测试连接</button></div>
               <div class="inline-message" id="settings-message" role="status"></div>
             </form>
-            <div class="panel config-info"><p class="section-kicker">BOUNDARY / RULES</p><h2>当前安全边界</h2><ul class="clean-list"><li><span>01</span> API Key 不回显，不进入项目日志。</li><li><span>02</span> 需求素材默认留在本地。</li><li><span>03</span> HIK Writing Skill 作为必选规范。</li><li><span>04</span> 图片和引用使用 TODO 占位符。</li></ul><div class="connection-card" id="connection-card"><span class="status-dot muted-dot"></span><div><strong>尚未测试连接</strong><p>保存配置后运行连通性测试。</p></div></div></div>
+            <section class="panel settings-form profiles-panel" id="profiles-panel">
+              <div class="panel-heading"><div><p class="section-kicker">并行</p><h2>Agent 档案</h2></div><div class="panel-head-right"><select class="preset-select" id="profile-preset" aria-label="从预设开始，自动填入地址与模型"><option value="">自定义（手动填写）</option><option value="openai" data-hint="api.openai.com">OpenAI</option><option value="deepseek" data-hint="api.deepseek.com">DeepSeek</option><option value="dashscope" data-hint="dashscope.aliyuncs.com">通义千问</option><option value="moonshot" data-hint="api.moonshot.cn">Kimi</option><option value="zhipu" data-hint="open.bigmodel.cn">智谱 GLM</option><option value="workbuddy" data-hint="copilot.tencent.com">WorkBuddy 账号</option><option value="ollama" data-hint="127.0.0.1:11434">本地 Ollama</option></select><span class="count-badge" id="profile-count">0</span></div></div>
+              <div id="profile-list" class="profile-list"><div class="field-hint">还没有档案，并行生成将全部使用主配置。</div></div>
+              <form id="profile-form">
+                <input type="hidden" id="profile-id" />
+                <div class="field-grid">
+                  <label>档案名称 *<input id="profile-name" type="text" placeholder="例如：子 Agent A（快速档）" /></label>
+                  <label>服务类型<select id="profile-provider"><option value="openai-compatible" data-hint="通用">OpenAI 兼容接口</option><option value="anthropic" data-hint="Claude 协议">Anthropic</option><option value="local" data-hint="无需 Key">本地模型 / 无 Key</option></select></label>
+                  <label class="span2">API 地址<input id="profile-base-url" type="url" placeholder="留空使用主配置地址" /></label>
+                  <label>模型名称<input id="profile-model" type="text" placeholder="留空使用主配置模型" /></label>
+                  <label>API Key<input id="profile-key" type="password" autocomplete="new-password" placeholder="留空自动复制账号主 Key" /></label>
+                </div>
+                <details class="adv" id="profile-adv"><summary>高级设置与 Key 规则</summary><div class="adv-body"><p class="field-hint" id="profile-key-hint">Key 留空时：新建档案会把「AI 服务」里的账号主 Key 复制成这个子 Agent 自己的 Key；已有 Key 则保持不变。</p><div class="field-grid"><label>Temperature<input id="profile-temperature" type="number" min="0" max="2" step="0.1" /></label><label>超时（秒）<input id="profile-timeout" type="number" min="5" max="600" step="1" /></label></div><button type="button" class="adv-link" id="profile-copy-key">把账号主 Key 复制到当前档案</button></div></details>
+                <div class="form-actions"><button type="submit" class="primary-button">保存档案</button><button type="button" class="secondary-button" id="profile-test">测试连接</button><button type="button" class="secondary-button" id="profile-reset">新建档案</button><button type="button" class="secondary-button" id="profile-delete">删除当前档案</button></div>
+                <div class="inline-message" id="profile-message" role="status"></div>
+              </form>
+            </section>
           </div>
         </section>
 
-        <section id="skills-view" class="view">
-          <div class="view-header"><p class="section-kicker">// SKILL REGISTRY / LOCAL</p><h1>配置生成 Skill。</h1><p>Skill 保存在本地，可自定义、导入和启用。HIK Writing Skill 固定作为必选规范；HIK DITA Rule 默认勾选，两个内置 Skill 的内容均可编辑保存。</p></div>
+        <section id="skills-view" class="bk view">
+          <div class="view-header"><p class="section-kicker">SKILL 登记 / 本地</p><h1 data-en="Skills">配置生成 Skill。<i class="hint-dot" tabindex="0" data-tip="Skill 保存在本地，可自定义、导入和启用。HIK Writing Skill 固定作为必选规范；HIK DITA Rule 默认勾选，两个内置 Skill 的内容均可编辑保存。">?</i></h1><div class="hero-tags" aria-hidden="true"><span>#写作规范</span><span>#DITA</span></div></div>
           <div class="skills-layout">
-            <section class="panel skills-list-panel"><div class="panel-heading"><div><p class="section-kicker">REGISTRY / SKILLS</p><h2>可用 Skill</h2></div><span class="count-badge" id="skill-count">0</span></div><div id="skill-list" class="skill-list"></div><button type="button" class="secondary-button full-button" id="new-skill-button">＋ 新建 Skill</button></section>
-            <form class="panel skill-editor" id="skill-form"><div class="panel-heading"><div><p class="section-kicker">EDITOR / SKILL.MD</p><h2 id="skill-editor-title">新建 Skill</h2></div><span class="security-badge">LOCAL</span></div><label>Skill 名称 *<input id="skill-name" type="text" required placeholder="例如：伺服驱动器术语 Skill" /></label><label>描述<input id="skill-description" type="text" placeholder="说明该 Skill 约束的术语、结构或业务范围" /></label><label>Skill 内容 *<textarea id="skill-content" rows="15" required placeholder="粘贴 SKILL.md、Markdown 或 TXT 内容"></textarea></label><div class="skill-attachments"><div class="skill-attachments-heading"><div><p class="section-kicker">ATTACHMENTS / LOCAL FILES</p><strong>Skill 附件</strong></div><label class="upload-button">＋ 添加附件<input id="skill-attachment-files" type="file" multiple /></label></div><div id="skill-attachment-list" class="skill-attachment-list"><div class="tree-empty">暂无附件</div></div><p class="field-hint">支持 PDF、Word、Markdown、XML、图片、压缩包等本地文件；单个附件不超过 12 MB。</p></div><div class="skill-editor-actions"><label class="check-row"><input id="skill-enabled" type="checkbox" checked /> 启用</label><label class="upload-button">＋ 导入 Skill 文件<input id="skill-import-file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" /></label><button type="button" class="secondary-button" id="cancel-skill-edit">取消</button><button type="button" class="danger-button" id="delete-skill-button">删除</button><button type="submit" class="primary-button" id="save-skill-button">保存 Skill</button></div><div class="inline-message" id="skill-message" role="status"></div></form>
+            <section class="panel skills-list-panel"><div class="panel-heading"><div><p class="section-kicker">登记 / 可用 SKILL</p><h2>可用 Skill</h2></div><span class="count-badge" id="skill-count">0</span></div><div id="skill-list" class="skill-list"></div><button type="button" class="secondary-button full-button" id="new-skill-button">＋ 新建 Skill</button></section>
+            <form class="panel skill-editor" id="skill-form"><div class="panel-heading"><div><p class="section-kicker">编辑器 / SKILL.MD</p><h2 id="skill-editor-title">新建 Skill</h2></div><span class="security-badge">本地</span></div><label>Skill 名称 *<input id="skill-name" type="text" required placeholder="例如：伺服驱动器术语 Skill" /></label><label>描述<input id="skill-description" type="text" placeholder="说明该 Skill 约束的术语、结构或业务范围" /></label><label>Skill 内容 *<textarea id="skill-content" rows="15" required placeholder="粘贴 SKILL.md、Markdown 或 TXT 内容"></textarea></label><div class="skill-attachments"><div class="skill-attachments-heading"><div><p class="section-kicker">附件 / 本地文件</p><strong>Skill 附件<i class="hint-dot" tabindex="0" data-tip="支持 PDF、Word、Markdown、XML、图片、压缩包等本地文件；单个附件不超过 12 MB。">?</i></strong></div><label class="upload-button">＋ 添加附件<input id="skill-attachment-files" type="file" multiple /></label></div><div id="skill-attachment-list" class="skill-attachment-list"><div class="tree-empty">暂无附件</div></div></div><div class="skill-editor-actions"><label class="check-row"><input id="skill-enabled" type="checkbox" checked /> 启用</label><label class="upload-button">＋ 导入 Skill 文件<input id="skill-import-file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" /></label><button type="button" class="secondary-button" id="cancel-skill-edit">取消</button><button type="button" class="danger-button" id="delete-skill-button">删除</button><button type="submit" class="primary-button" id="save-skill-button">保存 Skill</button></div><div class="inline-message" id="skill-message" role="status"></div></form>
           </div>
         </section>
 
       </main>
     </div>
 
-    <dialog id="project-dialog">
-      <form method="dialog" class="dialog-card" id="project-form">
-        <div class="dialog-heading"><div><p class="section-kicker">NEW PROJECT / 01</p><h2>新建文档项目</h2></div><button type="button" class="close-button" id="close-dialog">×</button></div>
-        <label>项目名称 *<input id="project-name" type="text" required placeholder="例如：VCPTool 2.4.0 用户手册" /></label>
-        <div class="two-fields"><label>产品/模块<input id="project-product" type="text" placeholder="例如：VCPTool" /></label><label>版本<input id="project-version" type="text" placeholder="例如：V2.4.0" /></label></div>
-        <label>项目模式<select id="project-mode"><option value="new">全新开发</option><option value="update">版本更新</option><option value="optimize">Topic 优化</option></select><span class="field-hint" id="project-mode-hint">从需求材料开始搭建新的文档框架。</span></label>
-        <div id="project-base-fields" class="project-mode-fields is-hidden"><label>基线项目<select id="project-base-project"><option value="">不选择基线项目</option></select><span class="field-hint">版本更新或 Topic 优化时，可复制上版本当前框架和 Topic 作为本项目基线。</span></label></div>
-        <div class="project-mode-fields"><div class="reference-picker-field"><div class="reference-picker-label">参考项目语料库</div><div id="project-reference-projects" class="reference-project-tree" aria-label="参考项目语料库项目列表"></div><span class="field-hint">按项目模式勾选。生成时实时读取这些项目最后保存的框架、Topic XML 和素材，不复制静态快照。</span></div></div>
-        <label>项目备注<textarea id="project-description" rows="3" placeholder="记录项目范围、目标文档或注意事项"></textarea></label>
-        <label>项目 Skill（可选，每行一个）<textarea id="project-skills" rows="2" placeholder="默认包含 HIK DITA Rule；此处填写项目专属 Skill，例如：产品术语 Skill\n项目参数 Skill"></textarea></label>
-        <div class="cover-picker">
-          <div class="cover-picker-heading"><div><p class="section-kicker">PROJECT COVER</p><strong>选择项目封面</strong></div><span class="cover-picker-note">默认使用第一张</span></div>
-          <div class="cover-preview-row"><img id="project-cover-preview" class="cover-preview" src="/static/assets/editorial/1.png" alt="项目封面预览" /><div><p id="project-cover-file-name" class="cover-file-name">当前封面：默认第一张</p><label class="upload-button">＋ 从本地上传<input id="project-cover-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label></div></div>
-          <div id="project-cover-gallery" class="cover-options"></div>
-        </div>
-        <div class="dialog-actions"><button type="button" class="secondary-button" id="cancel-dialog">取消</button><button type="submit" class="primary-button">创建项目</button></div>
-        <div class="inline-message" id="project-message" role="status"></div>
+    <aside id="job-center" class="job-center is-hidden" aria-live="polite" aria-label="后台任务中心"></aside>
+
+    <dialog id="parallel-batch-dialog" class="bk">
+      <form method="dialog" class="dialog-card" id="parallel-batch-form">
+        <div class="dialog-heading"><div><p class="section-kicker">并行批次 / MULTI-AGENT</p><h2>多 Agent 并行生成</h2></div><button type="button" class="close-button" id="close-parallel-batch">×</button></div>
+        <p class="field-hint">把 <b id="parallel-node-count">0</b> 个框架节点分给多个 Agent 并行生成；每个 Agent 可用独立模型与 API Key（在「AI 服务配置 → Agent 档案」中创建）。生成中可取消，已完成的结果会保留。</p>
+        <label>并行数（同时工作的 Agent 数）<select id="parallel-workers"><option value="1">1</option><option value="2" selected>2</option></select></label>
+        <p class="field-hint" id="parallel-workers-hint">未勾选档案：并行通道全部使用主配置。</p>
+        <div class="parallel-profiles"><span class="command-label">Agent 档案分配（按顺序循环；不选则全部用主配置）</span><div id="parallel-profile-options" class="skill-options"><div class="field-hint">尚未创建档案，将全部使用主配置。</div></div></div>
+        <div class="parallel-node-list" id="parallel-node-list"></div>
+        <div class="inline-message" id="parallel-batch-message" role="status"></div>
+        <div class="form-actions"><button type="submit" class="primary-button" id="start-parallel-batch">开始并行生成</button><button type="button" class="secondary-button" id="close-parallel-batch-2">关闭</button></div>
       </form>
     </dialog>
-    <dialog id="cover-preview-dialog" class="cover-preview-dialog">
+
+    <dialog id="project-dialog" data-mode="new" aria-labelledby="project-dialog-title" class="bk">
+      <form method="dialog" class="dialog-card pd-card" id="project-form">
+        <div class="pd-head"><div><h2 id="project-dialog-title">新建文档项目</h2><p class="field-hint" id="project-mode-hint">从需求材料开始搭建新的文档框架。</p></div><button type="button" class="close-button" id="close-dialog" aria-label="关闭">×</button></div>
+        <div class="pd-body">
+          <div class="pd-main">
+            <div class="pd-modes" role="radiogroup" aria-label="项目模式">
+              <label class="pd-mode" style="--c:var(--bk-g)"><input type="radio" name="project-mode-card" value="new" checked /><span><b>全新开发</b><em>New</em><small>从需求材料搭建新框架</small></span></label>
+              <label class="pd-mode" style="--c:var(--bk-v)"><input type="radio" name="project-mode-card" value="update" /><span><b>版本更新</b><em>Update</em><small>基于上一版本更新</small></span></label>
+              <label class="pd-mode" style="--c:var(--bk-l)"><input type="radio" name="project-mode-card" value="optimize" /><span><b>Topic 优化</b><em>Optimize</em><small>保留框架，优化 Topic</small></span></label>
+            </div>
+            <div class="is-sr"><label>项目模式<select id="project-mode" tabindex="-1"><option value="new">全新开发</option><option value="update">版本更新</option><option value="optimize">Topic 优化</option></select></label></div>
+            <section class="pd-block">
+              <div class="pd-block-head"><h3>基本信息</h3><span>01</span></div>
+              <label>项目名称 *<input id="project-name" type="text" required placeholder="例如：VCPTool 2.4.0 用户手册" autocomplete="off" /></label>
+              <div class="two-fields"><label>产品/模块<input id="project-product" type="text" placeholder="例如：VCPTool" /></label><label>版本<input id="project-version" type="text" placeholder="例如：V2.4.0" /></label></div>
+              <div id="project-base-fields" class="project-mode-fields is-hidden"><label>基线项目<select id="project-base-project"><option value="">不选择基线项目</option></select><i class="hint-dot" tabindex="0" data-tip="版本更新或 Topic 优化时，可复制上版本当前框架和 Topic 作为本项目基线。">?</i></label></div>
+              <label>项目备注<textarea id="project-description" rows="2" placeholder="记录项目范围、目标文档或注意事项"></textarea></label>
+            </section>
+            <section class="pd-block is-sky">
+              <div class="pd-block-head"><h3>生成约束</h3><span>02</span></div>
+              <label>项目 Skill（可选，每行一个）<textarea id="project-skills" rows="2" placeholder="默认包含 HIK DITA Rule；此处填写项目专属 Skill，例如：产品术语 Skill&#10;项目参数 Skill"></textarea></label>
+              <div class="project-mode-fields"><div class="reference-picker-field"><div class="reference-picker-label">参考项目语料库<i class="hint-dot" tabindex="0" data-tip="按项目模式勾选。生成时实时读取这些项目最后保存的框架、Topic XML 和素材，不复制静态快照。">?</i></div><div id="project-reference-projects" class="reference-project-tree" aria-label="参考项目语料库项目列表"></div></div></div>
+            </section>
+          </div>
+          <aside class="pd-side">
+            <section class="pd-block"><div class="pd-block-head"><h3>卡片预览</h3></div><div id="project-card-preview"></div></section>
+            <section class="pd-block is-yellow">
+              <div class="pd-block-head"><h3>项目背景</h3><span>03</span></div>
+              <div id="project-bg-swatches"></div>
+              <div class="pd-bg-actions"><label class="upload-button">＋ 从本地上传<input id="project-cover-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label><button type="button" class="secondary-button compact-button" id="project-bg-reset">恢复纯色</button></div>
+              <p class="field-hint" id="project-cover-file-name">当前：纯色背景</p>
+            </section>
+          </aside>
+        </div>
+        <div class="pd-foot"><div class="inline-message" id="project-message" role="status"></div><button type="button" class="secondary-button" id="cancel-dialog">取消</button><button type="submit" class="primary-button">创建项目</button></div>
+      </form>
+    </dialog>
+    <dialog id="workspace-dialog" class="bk dir-import-dialog workspace-dialog">
+      <div class="dialog-card dir-import-card">
+        <div class="dialog-heading"><div><p class="section-kicker">项目工作区 / WORKSPACE</p><h2>把本地目录作为工作区</h2></div><button type="button" class="close-button" id="workspace-close">×</button></div>
+        <p class="field-hint">工作区不会复制或导入任何文件：生成框架、批量生成 Topic 时，Agent 会按主题直接到该目录里读取内容。目录里的文件更新后，下次生成自动用最新内容。</p>
+        <div class="dir-path-row">
+          <input id="workspace-path" type="text" placeholder="/Users/你的用户名/Documents/需求文档" spellcheck="false" autocomplete="off" />
+          <button type="button" class="secondary-button" id="workspace-browse">浏览…</button>
+          <button type="button" class="primary-button" id="workspace-preview-button">读取预览</button>
+        </div>
+        <div class="dir-option-row">
+          <label class="check-row"><input type="checkbox" id="workspace-recursive" checked /> 包含子目录</label>
+          <span class="field-hint" id="workspace-format-hint">文档 / 代码 / 配置 / PDF / Word / PPTX / RTF / EPUB / ZIP 内的文本都会尝试读取；图片、音视频、可执行文件会标注“读不出文字”，不影响其他文件。</span>
+        </div>
+        <div class="dir-import-summary" id="workspace-summary">尚未读取目录。</div>
+        <div class="dir-import-list workspace-preview-list" id="workspace-list"></div>
+        <div class="inline-message" id="workspace-message" role="status"></div>
+        <div class="form-actions">
+          <button type="button" class="primary-button" id="workspace-save" disabled>设为工作区</button>
+          <button type="button" class="secondary-button is-danger-text" id="workspace-clear" hidden>移除工作区</button>
+          <button type="button" class="secondary-button" id="workspace-cancel">取消</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="workspace-file-dialog" class="bk workspace-file-dialog">
+      <div class="dialog-card workspace-file-card">
+        <div class="dialog-heading"><div><p class="section-kicker">工作区文件 / PREVIEW</p><h2 id="workspace-file-title">文件</h2></div><button type="button" class="close-button" id="workspace-file-close">×</button></div>
+        <p class="field-hint" id="workspace-file-meta">正在读取…</p>
+        <pre class="workspace-file-text" id="workspace-file-text"></pre>
+      </div>
+    </dialog>
+
+    <dialog id="confirm-dialog" class="bk confirm-dialog"><div class="confirm-card"><h3 id="confirm-title">确认操作</h3><p id="confirm-description"></p><div class="confirm-actions"><button type="button" class="secondary-button" id="confirm-cancel">取消</button><button type="button" class="danger-button" id="confirm-ok">删除</button></div></div></dialog>
+          <dialog id="cover-preview-dialog" class="cover-preview-dialog">
       <div class="cover-preview-card"><button type="button" class="close-button" id="close-cover-preview">×</button><img id="cover-preview-large" alt="封面放大预览" /><p id="cover-preview-large-label"></p></div>
     </dialog>
     <dialog id="framework-topic-dialog" class="framework-topic-dialog">
       <form method="dialog" class="dialog-card framework-topic-card" id="framework-topic-form">
-        <div class="dialog-heading"><div><p class="section-kicker">TOPIC STUDIO / FROM FRAMEWORK</p><h2 id="framework-topic-dialog-title">编写 Topic</h2></div><button type="button" class="close-button" id="close-framework-topic-dialog">×</button></div>
+        <div class="dialog-heading"><div><p class="section-kicker">Topic 工坊 / 从框架出发</p><h2 id="framework-topic-dialog-title">编写 Topic</h2></div><button type="button" class="close-button" id="close-framework-topic-dialog">×</button></div>
         <div class="framework-topic-layout">
           <section class="framework-topic-input-pane">
             <div class="framework-topic-context" id="framework-topic-context">从框架节点带入章节概述、层级和材料范围。</div>
@@ -207,19 +319,27 @@
             <label>Topic 标题 *<input id="framework-topic-title" type="text" required /></label>
             <label>章节概述<textarea id="framework-topic-summary" rows="2" placeholder="框架节点中的章节概述，可在这里补充或修订。"></textarea></label>
             <label>需求/正文要点<textarea id="framework-topic-brief" rows="4" placeholder="补充已确认的需求、功能边界或正文要点。不要在这里填写 GUID。"></textarea></label>
-            <label>研发素材（可选）<select id="framework-topic-materials" multiple size="4"></select><span class="field-hint">可多选当前项目中的需求材料，生成时作为本 Topic 的依据。</span></label>
+            <label>研发素材（可选）<i class="hint-dot" tabindex="0" data-tip="可多选当前项目中的需求材料，生成时作为本 Topic 的依据；未选材料时会自动读取项目工作区目录。">?</i><select id="framework-topic-materials" multiple size="4"></select><span class="workspace-row"><button type="button" class="mini-button workspace-trigger" id="framework-topic-workspace-button" title="设置项目工作区：生成本 Topic 时 Agent 会直接读取该目录里的文件">工作区目录</button><span class="workspace-inline-note workspace-inline-note-shared" id="framework-topic-workspace-note">未设置工作区</span></span></label>
             <label>本 Topic 生成提示词<textarea id="framework-topic-prompt" rows="4" placeholder="例如：只写配置流程，补充成功结果和异常处理；不要虚构界面名称。"></textarea></label>
-            <div class="skill-box framework-topic-skill-box"><div class="skill-box-heading"><div><p class="section-kicker">SKILL ROUTE</p><strong>本次 Topic 使用的 Skill</strong></div><span>Writing 必选 · DITA 默认</span></div><div id="framework-topic-skill-options" class="skill-options"></div></div>
+            <div class="skill-box framework-topic-skill-box"><div class="skill-box-heading"><div><p class="section-kicker">SKILL 约束</p><strong>本次 Topic 使用的 Skill</strong></div><span>Writing 必选 · DITA 默认<i class="hint-dot" tabindex="0" data-tip="默认继承项目级 Skill；取消继承后可为本 Topic 独立选择生成约束。">?</i></span></div><div id="framework-topic-skill-options" class="skill-options"></div></div>
             <div class="placeholder-options"><label class="check-row"><input id="framework-topic-image-placeholder" type="checkbox" /> 生成 TODO_IMAGE</label><label class="check-row"><input id="framework-topic-ref-placeholder" type="checkbox" /> 生成 TODO_REF</label></div>
             <div class="framework-topic-form-actions"><button type="button" class="secondary-button" id="clear-framework-topic-form">清空</button><button type="button" class="secondary-button" id="regenerate-framework-topic">重新生成</button><button type="submit" class="primary-button" id="generate-framework-topic">生成 Topic XML</button></div>
           </section>
           <section class="framework-topic-output-pane">
-            <div class="framework-topic-output"><div class="framework-topic-output-head"><div><p class="section-kicker">XML REVIEW / LIVE EDITOR</p><strong id="framework-topic-output-status">尚未生成</strong></div><div class="framework-topic-output-actions"><button type="button" class="mini-button" id="save-framework-topic-xml" disabled>保存 XML</button><button type="button" class="mini-button" id="copy-framework-topic-xml">复制 XML</button><select id="framework-topic-download-format" aria-label="下载格式"><option value="xml">XML</option><option value="word">Word</option><option value="text">Text</option><option value="markdown">Markdown</option></select><button type="button" class="mini-button" id="download-framework-topic">下载</button></div></div><textarea id="framework-topic-xml" class="xml-editor" spellcheck="false" placeholder="生成后可在这里手动修改 XML"></textarea><div class="validation-report" id="framework-topic-validation"><div class="report-empty">等待生成 XML</div></div></div>
+            <div class="framework-topic-output"><div class="framework-topic-output-head"><div><p class="section-kicker">XML 审核 / 实时编辑</p><strong id="framework-topic-output-status">尚未生成</strong></div><div class="framework-topic-output-actions"><button type="button" class="mini-button" id="save-framework-topic-xml" disabled>保存 XML</button><button type="button" class="mini-button" id="copy-framework-topic-xml">复制 XML</button><select id="framework-topic-download-format" aria-label="下载格式"><option value="xml">XML</option><option value="word">Word</option><option value="text">Text</option><option value="markdown">Markdown</option></select><button type="button" class="mini-button" id="download-framework-topic">下载</button></div></div><textarea id="framework-topic-xml" class="xml-editor" spellcheck="false" placeholder="生成后可在这里手动修改 XML"></textarea><div class="validation-report" id="framework-topic-validation"><div class="report-empty">等待生成 XML</div></div></div>
           </section>
         </div>
         <div class="inline-message" id="framework-topic-message" role="status"></div>
       </form>
     </dialog>
-    <script src="/static/app.js?v=20260922-topic-editor-click-fix-v1"></script>
+    <div id="card-look-pop" hidden role="dialog" aria-label="卡片背景" class="bk">
+      <strong class="look-title">卡片背景</strong>
+      <div id="card-look-swatches"></div>
+      <div class="look-actions"><label class="upload-button">＋ 上传图片<input id="card-look-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label><button type="button" class="secondary-button compact-button" id="card-look-reset">恢复纯色</button></div>
+      <p class="field-hint" id="card-look-note"></p>
+      <p class="field-hint">建议横向图，宽度 800px 以上，不超过 8 MB。图片只保存在本机浏览器，并会与卡片颜色融合：右上清晰，向左下渐隐。</p>
+    </div>
+    <script src="/static/app.js?v=20261117-b19"></script>
+    <script src="/static/canvas.js?v=20261117-b19"></script>
   </body>
 </html>

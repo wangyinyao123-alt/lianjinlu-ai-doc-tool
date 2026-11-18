@@ -13,29 +13,35 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import io
 import ipaddress
 import json
 import mimetypes
+import os
 import posixpath
+import queue
 import re
 import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from contextlib import contextmanager
+from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile, ZipFile
 from xml.sax.saxutils import escape as xml_escape
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parent
@@ -52,23 +58,187 @@ MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 64 * 1024 * 1024
 MAX_MATERIAL_BYTES = 48 * 1024 * 1024
 MAX_MATERIAL_TEXT_CHARS = 120_000
+# 目录导入：单次最多勘察/导入的文件数，以及扫描时跳过的目录名
+DIR_IMPORT_MAX_FILES = 500
+DIR_IMPORT_SKIP_DIRS = {
+    "node_modules", "__pycache__", ".git", ".svn", ".hg", ".venv", "venv", "env",
+    "dist", "build", "target", ".idea", ".vscode", ".cache", "site-packages",
+}
 MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024
 MAX_SKILL_ATTACHMENTS = 20
+# Global prompt budget (characters, incl. CJK). Roughly fits a 128k-token model.
+DEFAULT_CONTEXT_CHAR_BUDGET = 200_000
+DEFAULT_FRAMEWORK_MAX_TOKENS = 9000
+DEFAULT_TOPIC_MAX_TOKENS = 6000
+DEFAULT_ANALYSIS_MAX_TOKENS = 7000
 HIK_SKILL = "HIK Writing Skill"
 HIK_DITA_RULE_SKILL = "HIK DITA Rule"
 BUILTIN_SKILL_IDS = {"hik-writing", "hik-dita-rule"}
 PROJECT_MODES = {"new": "全新开发", "update": "版本更新", "optimize": "Topic 优化"}
+# 项目封面循环色板（B11 薄荷芭乐主题）：deepmint / rose / guava / lime / cocoa
+PROJECT_COLOR_PALETTE = ["deepmint", "rose", "guava", "lime", "cocoa"]
 TOPIC_TYPES = {"concept": "Concept", "task": "Task", "appendix": "附录类 Concept"}
 MATERIAL_TEXT_EXTENSIONS = {
-    ".md", ".markdown", ".txt", ".html", ".htm", ".xml", ".json", ".csv", ".yaml", ".yml"
+    ".md", ".markdown", ".txt", ".html", ".htm", ".xml", ".json", ".csv", ".yaml", ".yml",
+    ".rst", ".tex", ".log", ".diff", ".patch",
+    # 代码与配置：需求交底、样例脚本、参数文件在工程里常以这些形式存在
+    ".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".vue", ".svelte",
+    ".java", ".kt", ".scala", ".go", ".rs", ".rb", ".php", ".cs", ".swift", ".m", ".mm",
+    ".c", ".h", ".cpp", ".hpp", ".cc", ".lua", ".pl", ".r", ".jl", ".dart",
+    ".sql", ".sh", ".bash", ".zsh", ".bat", ".cmd", ".ps1",
+    ".ini", ".toml", ".conf", ".cfg", ".properties",
+    ".css", ".scss", ".less", ".gradle", ".cmake",
 }
 MATERIAL_EXTENSIONS = MATERIAL_TEXT_EXTENSIONS | {".doc", ".docx", ".pdf", ".chm", ".xlsx", ".xls"}
-GUID_PATTERN = re.compile(r"GUID(?:-|=)[A-Z0-9-]+", re.IGNORECASE)
+# zip 容器 + XML 的文档格式：直接读包内正文（pptx/odt/epub/xmind…）
+ZIP_TEXT_EXTENSIONS = {
+    ".pptx", ".pptm", ".ppsx", ".potx", ".odt", ".odp", ".ods", ".epub", ".xmind",
+    ".pages", ".numbers", ".key", ".sketch", ".kth", ".krz",
+}
+# 确实读不出文字的格式（图片/音视频/字体/可执行/压缩包），按类型给出原因
+NO_TEXT_EXTENSIONS = {
+    **{ext: "图片格式，取不到文字" for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".ico", ".heic", ".heif", ".raw", ".cr2", ".nef", ".psd", ".ai", ".eps")},
+    **{ext: "音视频格式，取不到文字" for ext in (".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".webm", ".amr")},
+    **{ext: "字体文件，取不到正文" for ext in (".ttf", ".otf", ".woff", ".woff2", ".eot")},
+    **{ext: "可执行/二进制文件，取不到文字" for ext in (".exe", ".dll", ".so", ".dylib", ".bin", ".iso", ".dmg", ".pkg", ".msi", ".class", ".pyc", ".o", ".a", ".lib", ".jar", ".apk", ".ipa")},
+    **{ext: "压缩包，请解压后再导入目录" for ext in (".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".tgz", ".cab")},
+}
+# KC GUID 样例：GUID-0007E23C-6BE9-4DB4-A8AB-233CE6EA1815（阶段0 文档确认）。
+# 收紧为 8-4-4-4-12 十六进制段，避免误伤 "GUID-based" 这类英文正文。
+GUID_PATTERN = re.compile(r"GUID[-=][0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}")
 PLACEHOLDER_PATTERN = re.compile(r"\bTODO_(?:IMAGE|REF)\b")
+CONFIRM_PATTERN = re.compile(r"\bTODO_CONFIRM\b")
+# 超过该长度的单份素材在 Topic 生成时按主题相关性切片（含原文偏移，便于溯源）。
+TOPIC_SLICE_MAX_CHARS = 40_000
+DATA_LOCK = threading.RLock()
+BACKGROUND_JOBS: dict[str, dict[str, Any]] = {}
+BACKGROUND_JOBS_LOCK = threading.RLock()
+JOB_CONTEXT = threading.local()
+# 线程级配置覆盖：并行子 Agent 在各自线程里用档案配置替换主配置，
+# 让下游 load_settings() 自然读到本 Agent 的模型/地址/Key，而不必改所有函数签名。
+SETTINGS_CONTEXT = threading.local()
+GENERATION_SLOTS = threading.BoundedSemaphore(2)
+
+
+class JobCancelled(RuntimeError):
+    pass
+
+
+def check_job_cancelled() -> None:
+    job_id = getattr(JOB_CONTEXT, 'job_id', None)
+    with BACKGROUND_JOBS_LOCK:
+        if job_id and BACKGROUND_JOBS.get(job_id, {}).get('status') == 'cancelled':
+            raise JobCancelled('任务已取消，生成结果不会写入项目。')
+
+
+@contextmanager
+def generation_commit():
+    # Never hold these locks during an AI request. Cancellation and a short
+    # disk commit are mutually exclusive; completed commits cannot be cancelled.
+    with DATA_LOCK, BACKGROUND_JOBS_LOCK:
+        check_job_cancelled()
+        yield
+        job = BACKGROUND_JOBS.get(getattr(JOB_CONTEXT, 'job_id', None))
+        if job is not None:
+            job['committed'] = True
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def new_job_id() -> str:
+    return f"job_{int(time.time())}_{secrets.token_hex(5)}"
+
+
+def start_background_job(operation: str, callback) -> str:
+    """Run an AI operation outside the HTTP request thread.
+
+    The local app keeps the job registry in memory. Generated results are still
+    written to the normal project version files by the existing callbacks, so a
+    browser refresh does not lose completed work.
+    """
+    job_id = new_job_id()
+    with BACKGROUND_JOBS_LOCK:
+        BACKGROUND_JOBS[job_id] = {
+            "id": job_id,
+            "operation": operation,
+            "status": "queued",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+            "result": None,
+            "error": None,
+        }
+
+    def worker() -> None:
+        JOB_CONTEXT.job_id = job_id
+        try:
+            with GENERATION_SLOTS:
+                with BACKGROUND_JOBS_LOCK:
+                    check_job_cancelled()
+                    job = BACKGROUND_JOBS[job_id]
+                    job["status"] = "running"
+                    job["updated_at"] = now_iso()
+                result = callback()
+                with BACKGROUND_JOBS_LOCK:
+                    job = BACKGROUND_JOBS.get(job_id)
+                    if job and job.get("status") != "cancelled":
+                        job["status"] = "success"
+                        job["result"] = result
+                        job["updated_at"] = now_iso()
+        except Exception as exc:  # pragma: no cover - worker boundary
+            with BACKGROUND_JOBS_LOCK:
+                job = BACKGROUND_JOBS.get(job_id)
+                if job and job.get("status") != "cancelled":
+                    job["status"] = "failed"
+                    job["error"] = str(exc)
+                    job["updated_at"] = now_iso()
+        finally:
+            del JOB_CONTEXT.job_id
+
+    threading.Thread(target=worker, name=f"lianjinlu-{operation}", daemon=True).start()
+    return job_id
+
+
+def background_job_summary(job: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": job.get("id"),
+        "operation": job.get("operation"),
+        "status": job.get("status"),
+        "created_at": job.get("created_at"),
+        "updated_at": job.get("updated_at"),
+        "progress": job.get("progress"),
+        "result": job.get("result") if job.get("status") == "success" else None,
+        "error": job.get("error") if job.get("status") in {"failed", "cancelled"} else None,
+    }
+
+
+def update_job_progress(done: int, total: int, detail: str = "") -> None:
+    """Publish coarse progress for long-running jobs (best effort, read-only UI)."""
+    job_id = getattr(JOB_CONTEXT, "job_id", None)
+    if not job_id:
+        return
+    with BACKGROUND_JOBS_LOCK:
+        job = BACKGROUND_JOBS.get(job_id)
+        if job is not None:
+            job["progress"] = {"done": done, "total": total, "detail": detail, "updated_at": now_iso()}
+
+
+def get_background_job(job_id: str) -> dict[str, Any] | None:
+    with BACKGROUND_JOBS_LOCK:
+        job = BACKGROUND_JOBS.get(job_id)
+        return background_job_summary(job) if job else None
+
+
+def cancel_background_job(job_id: str) -> bool:
+    with BACKGROUND_JOBS_LOCK:
+        job = BACKGROUND_JOBS.get(job_id)
+        if not job or job.get("committed") or job.get("status") in {"success", "failed", "cancelled"}:
+            return False
+        job["status"] = "cancelled"
+        job["updated_at"] = now_iso()
+        job["error"] = "任务已取消。"
+        return True
 
 
 def ensure_dirs() -> None:
@@ -77,21 +247,54 @@ def ensure_dirs() -> None:
 
 
 def read_json(path: Path, default: Any) -> Any:
-    if not path.exists():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return default
+    with DATA_LOCK:
+        if not path.exists():
+            return default
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            corrupt = path.with_name(f"{path.name}.corrupt.{time.time_ns()}")
+            shutil.copy2(path, corrupt)
+            try:
+                raw = path.with_suffix(path.suffix + '.bak').read_text(encoding='utf-8')
+                restored = json.loads(raw)
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                raise ValueError(f'本地数据 {path.name} 损坏且无可用备份，已保留损坏副本，请恢复备份后重试。') from exc
+            temporary = path.with_suffix(path.suffix + '.restore.tmp')
+            temporary.write_text(raw, encoding='utf-8')
+            temporary.replace(path)
+            print(f'已从备份恢复 {path.name}；损坏副本：{corrupt.name}')
+            return restored
+        except OSError:
+            return default
 
 
 def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    temporary.replace(path)
+    with DATA_LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        try:
+            with temporary.open('w', encoding='utf-8') as stream:
+                stream.write(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            if path.exists():
+                read_json(path, None)
+                backup_tmp = path.with_suffix(path.suffix + '.bak.tmp')
+                shutil.copy2(path, backup_tmp)
+                backup_tmp.replace(path.with_suffix(path.suffix + '.bak'))
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def synchronized(func):
+    """Serialize small read/modify/write operations in the local store."""
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        with DATA_LOCK:
+            return func(*args, **kwargs)
+    return wrapped
 
 
 def sanitize_text(value: Any) -> str:
@@ -132,6 +335,75 @@ def parse_outline_items(value: Any) -> list[dict[str, Any]]:
             level = 1
         result.append({"title": title, "level": level})
     return result
+
+
+class PromptSection:
+    """One labelled block of prompt context with a trim priority (1 = keep longest)."""
+
+    def __init__(self, key: str, title: str, priority: int, text: str):
+        self.key = key
+        self.title = title
+        self.priority = max(1, int(priority))
+        self.text = str(text or "")
+
+
+def context_char_budget(settings: dict[str, Any] | None = None) -> int:
+    """Total character budget shared by all context sections of one AI prompt."""
+    source = settings if isinstance(settings, dict) else load_settings()
+    try:
+        value = int(source.get("context_char_budget") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return value if value >= 40_000 else DEFAULT_CONTEXT_CHAR_BUDGET
+
+
+def fit_prompt_sections(sections: list[PromptSection], budget: int) -> tuple[list[PromptSection], list[dict[str, Any]]]:
+    """Waterfall-trim sections by priority so their total length fits the budget.
+
+    Returns the sections (original order, texts trimmed in place) plus a report
+    listing every section that was truncated or dropped, for UI transparency.
+    """
+    remaining = max(0, budget)
+    kept: dict[str, str] = {}
+    report: list[dict[str, Any]] = []
+    for section in sorted(sections, key=lambda item: (item.priority, item.key)):
+        total = len(section.text)
+        if remaining <= 0:
+            kept[section.key] = ""
+            report.append({"key": section.key, "title": section.title, "total_chars": total, "kept_chars": 0, "dropped": True})
+            continue
+        if total <= remaining:
+            kept[section.key] = section.text
+            remaining -= total
+            continue
+        kept[section.key] = section.text[:remaining]
+        report.append(
+            {
+                "key": section.key,
+                "title": section.title,
+                "total_chars": total,
+                "kept_chars": remaining,
+                "dropped": False,
+                "truncated": True,
+            }
+        )
+        remaining = 0
+    trimmed: list[PromptSection] = []
+    for section in sections:
+        section.text = kept.get(section.key, "")
+        trimmed.append(section)
+    return trimmed, report
+
+
+def context_report_summary(report: list[dict[str, Any]]) -> str:
+    """Human-readable one-line summary of budget trimming for generation results."""
+    if not report:
+        return ""
+    parts = []
+    for item in report:
+        state = "未送入 AI" if item.get("dropped") else f"截断至 {item.get('kept_chars', 0):,} 字符"
+        parts.append(f"{item.get('title', item.get('key', ''))}（{item.get('total_chars', 0):,} 字符）{state}")
+    return "；".join(parts)
 
 
 def normalize_skills(value: Any, *, default_dita: bool = False) -> list[str]:
@@ -640,6 +912,10 @@ def delete_skill(skill_id: str) -> None:
     if not path.exists():
         raise ValueError("Skill 不存在。")
     path.unlink()
+    # 连同附件目录一起清掉，避免 data/skills/<id>/ 残留孤儿目录。
+    skill_folder = SKILLS_DIR / skill_id
+    if skill_folder.is_dir():
+        shutil.rmtree(skill_folder, ignore_errors=True)
 
 
 def slugify(value: str) -> str:
@@ -701,10 +977,9 @@ def save_project_cover(payload: Any, directory: Path) -> dict[str, str] | None:
             if not fallback:
                 return None
             file_name = fallback["file"]
-            source_path = EDITORIAL_DIR / file_name
-        stored_file = directory / f"cover{source_path.suffix.lower()}"
-        shutil.copy2(source_path, stored_file)
-        return {"type": "asset", "file": stored_file.name, "source_file": file_name}
+        # 内置素材封面只存引用、不再复制原图到项目目录：
+        # 列表/详情统一走 /static 共享资源（浏览器只缓存一份），展示用缩略图。
+        return {"type": "asset", "file": file_name, "source_file": file_name}
 
     if cover_type != "upload":
         raise ValueError("不支持的项目封面类型。")
@@ -723,7 +998,7 @@ def save_project_cover(payload: Any, directory: Path) -> dict[str, str] | None:
         raise ValueError("项目封面仅支持 JPG、PNG、WEBP 或 GIF 图片。")
     try:
         raw = base64.b64decode(encoded, validate=True)
-    except (ValueError, base64.binascii.Error) as exc:
+    except (ValueError, binascii.Error) as exc:
         raise ValueError("项目封面数据无法读取，请重新选择图片。") from exc
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise ValueError("项目封面大小不能超过 8 MB。")
@@ -744,6 +1019,9 @@ def default_settings() -> dict[str, Any]:
 
 
 def load_settings() -> dict[str, Any]:
+    override = getattr(SETTINGS_CONTEXT, "settings", None)
+    if isinstance(override, dict):
+        return dict(override)
     settings = default_settings()
     settings.update(read_json(SETTINGS_FILE, {}))
     return settings
@@ -859,13 +1137,22 @@ class KeychainStore:
         api.CredFree.restype = None
         return ctypes, CREDENTIALW, api
 
-    def _windows_target(self) -> str:
-        return f"{KEYCHAIN_SERVICE}/{KEYCHAIN_ACCOUNT}"
+    def _windows_target(self, account: str | None = None) -> str:
+        return f"{KEYCHAIN_SERVICE}/{account or KEYCHAIN_ACCOUNT}"
 
-    def get(self) -> str | None:
+    def get(self, account: str | None = None) -> str | None:
+        account = account or KEYCHAIN_ACCOUNT
         if not self.available:
             return None
         if sys.platform == "win32":
+            if account != KEYCHAIN_ACCOUNT:
+                path = self._windows_profile_secret_path(account)
+                if not path.is_file():
+                    return None
+                try:
+                    return self._windows_dpapi_unprotect(path.read_bytes())
+                except (OSError, RuntimeError, UnicodeError):
+                    return None
             try:
                 path = self._windows_secret_path
                 if path.is_file():
@@ -891,7 +1178,7 @@ class KeychainStore:
                 "security",
                 "find-generic-password",
                 "-a",
-                KEYCHAIN_ACCOUNT,
+                account,
                 "-s",
                 KEYCHAIN_SERVICE,
                 "-w",
@@ -905,15 +1192,20 @@ class KeychainStore:
         value = result.stdout.strip()
         return value or None
 
-    def save(self, value: str) -> None:
+    def save(self, value: str, account: str | None = None) -> None:
+        account = account or KEYCHAIN_ACCOUNT
         if not self.available:
             raise RuntimeError("当前系统未检测到可用的系统凭据存储，暂不保存 API Key。")
         if sys.platform == "win32":
             protected = self._windows_dpapi_protect(value)
             DATA_DIR.mkdir(parents=True, exist_ok=True)
-            temporary = self._windows_secret_path.with_suffix(".dpapi.tmp")
+            if account == KEYCHAIN_ACCOUNT:
+                path = self._windows_secret_path
+            else:
+                path = self._windows_profile_secret_path(account)
+            temporary = path.with_suffix(".dpapi.tmp")
             temporary.write_bytes(protected)
-            temporary.replace(self._windows_secret_path)
+            temporary.replace(path)
             return
         result = subprocess.run(
             [
@@ -921,7 +1213,7 @@ class KeychainStore:
                 "add-generic-password",
                 "-U",
                 "-a",
-                KEYCHAIN_ACCOUNT,
+                account,
                 "-s",
                 KEYCHAIN_SERVICE,
                 "-w",
@@ -935,6 +1227,29 @@ class KeychainStore:
             message = result.stderr.strip() or "写入 macOS Keychain 失败。"
             raise RuntimeError(message)
 
+    def delete(self, account: str | None = None) -> bool:
+        account = account or KEYCHAIN_ACCOUNT
+        if not self.available:
+            return False
+        if sys.platform == "win32":
+            path = self._windows_secret_path if account == KEYCHAIN_ACCOUNT else self._windows_profile_secret_path(account)
+            try:
+                path.unlink()
+                return True
+            except FileNotFoundError:
+                return False
+        result = subprocess.run(
+            ["security", "delete-generic-password", "-a", account, "-s", KEYCHAIN_SERVICE],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+
+    def _windows_profile_secret_path(self, account: str) -> Path:
+        safe = re.sub(r"[^A-Za-z0-9_-]", "_", account)[:64] or "profile"
+        return DATA_DIR / f".api-key-{safe}.dpapi"
+
 
 KEYCHAIN = KeychainStore()
 
@@ -943,7 +1258,190 @@ def public_settings() -> dict[str, Any]:
     settings = load_settings()
     settings["api_key_configured"] = bool(KEYCHAIN.get())
     settings["key_storage"] = KEYCHAIN.backend or "不可用"
+    settings["agent_profiles"] = [agent_profile_public(item) for item in settings.get("agent_profiles", [])]
     return settings
+
+
+# =========================================================================
+# Agent 档案（多 Agent 并行生成）：每个档案独立的模型配置与 API Key。
+# =========================================================================
+
+PROFILE_FIELDS = {"name", "provider", "base_url", "model", "temperature", "max_tokens", "timeout_seconds"}
+
+
+def agent_profile_key_account(profile_id: str) -> str:
+    return f"profile:{profile_id}"
+
+
+def agent_profile_public(profile: dict[str, Any]) -> dict[str, Any]:
+    profile_id = str(profile.get("id", ""))
+    own_key = bool(KEYCHAIN.get(agent_profile_key_account(profile_id)))
+    account_key = bool(KEYCHAIN.get())
+    if own_key:
+        key_source = "custom"
+    elif account_key:
+        key_source = "fallback"
+    else:
+        key_source = "none"
+    origin = profile.get("key_origin") if profile.get("key_origin") in {"account", "custom"} else ("custom" if own_key else "")
+    return {
+        "id": profile_id,
+        "name": profile.get("name", ""),
+        "provider": profile.get("provider", "openai-compatible"),
+        "base_url": profile.get("base_url", ""),
+        "model": profile.get("model", ""),
+        "temperature": profile.get("temperature", 0.2),
+        "max_tokens": profile.get("max_tokens"),
+        "timeout_seconds": profile.get("timeout_seconds", 60),
+        "key_configured": own_key,
+        "account_key_configured": account_key,
+        "key_source": key_source,
+        "key_origin": origin,
+        "last_test": profile.get("last_test") if isinstance(profile.get("last_test"), dict) else None,
+    }
+
+
+def record_agent_profile_test(profile_id: str, ok: bool, message: str) -> None:
+    """把最近一次「测试连接」的结果写回档案，供列表页状态点展示。"""
+    settings = load_settings()
+    profiles = settings.get("agent_profiles") or []
+    changed = False
+    for item in profiles:
+        if isinstance(item, dict) and item.get("id") == profile_id:
+            item["last_test"] = {"ok": bool(ok), "at": now_iso(), "message": str(message)[:200]}
+            changed = True
+    if changed:
+        settings["agent_profiles"] = profiles
+        settings["updated_at"] = now_iso()
+        write_json(SETTINGS_FILE, settings)
+
+
+def normalize_agent_profile(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    name = sanitize_text(raw.get("name"))
+    if not name:
+        raise ValueError("Agent 档案名称不能为空。")
+    profile_id = sanitize_text(raw.get("id")) or f"profile_{secrets.token_hex(3)}"
+    profile = {"id": profile_id, "name": name}
+    if raw.get("provider") in {"openai-compatible", "anthropic", "local"}:
+        profile["provider"] = raw["provider"]
+    for field in ("base_url", "model"):
+        profile[field] = sanitize_text(raw.get(field))
+    for field in ("temperature", "timeout_seconds"):
+        raw_value = raw.get(field)
+        if raw_value in (None, ""):
+            profile[field] = None
+            continue
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            profile[field] = None
+            continue
+        if field == "timeout_seconds":
+            # 超时 0/负数等于不设限，按未设置处理，沿用主配置。
+            profile[field] = value if value > 0 else None
+        else:
+            profile[field] = value if value >= 0 else None
+    try:
+        tokens = int(raw.get("max_tokens") or 0)
+    except (TypeError, ValueError):
+        tokens = 0
+    profile["max_tokens"] = tokens if tokens >= 256 else None
+    return profile
+
+
+def save_agent_profile(payload: dict[str, Any]) -> dict[str, Any]:
+    profile = normalize_agent_profile(payload)
+    assert profile is not None
+    profile_id = profile["id"]
+    settings = load_settings()
+    profiles = [item for item in settings.get("agent_profiles", []) if isinstance(item, dict)]
+    previous = next((item for item in profiles if item.get("id") == profile_id), None)
+
+    # Key 处理：填了就用这个子 Agent 自己的 Key；没填且它还没有 Key 时，
+    # 默认把本账号主 Key 复制过来，让子 Agent 开箱可用（之后可单独替换）。
+    api_key = str(payload.get("api_key") or "").strip()
+    own_key = KEYCHAIN.get(agent_profile_key_account(profile_id))
+    if api_key:
+        KEYCHAIN.save(api_key, agent_profile_key_account(profile_id))
+        profile["key_origin"] = "custom"
+    elif own_key:
+        profile["key_origin"] = (previous or {}).get("key_origin") or "custom"
+    else:
+        master_key = KEYCHAIN.get()
+        if master_key:
+            KEYCHAIN.save(master_key, agent_profile_key_account(profile_id))
+            profile["key_origin"] = "account"
+        else:
+            profile["key_origin"] = "custom"
+
+    replaced = False
+    for index, item in enumerate(profiles):
+        if item.get("id") == profile_id:
+            profiles[index] = profile
+            replaced = True
+            break
+    if not replaced:
+        if len(profiles) >= 8:
+            raise ValueError("Agent 档案最多 8 个。")
+        profiles.append(profile)
+    settings["agent_profiles"] = profiles
+    settings["updated_at"] = now_iso()
+    write_json(SETTINGS_FILE, settings)
+    return agent_profile_public(profile)
+
+
+def copy_account_key_to_profile(profile_id: str) -> dict[str, Any]:
+    """把「AI 服务」里的本账号主 Key 复制成某个子 Agent 的独立 Key。"""
+    settings = load_settings()
+    profile = next((item for item in settings.get("agent_profiles", []) if isinstance(item, dict) and item.get("id") == profile_id), None)
+    if profile is None:
+        raise ValueError("Agent 档案不存在。")
+    master_key = KEYCHAIN.get()
+    if not master_key:
+        raise ValueError("设置页还没有保存主 API Key，请先在「AI 服务」里保存。")
+    KEYCHAIN.save(master_key, agent_profile_key_account(profile_id))
+    profile["key_origin"] = "account"
+    settings["updated_at"] = now_iso()
+    write_json(SETTINGS_FILE, settings)
+    return agent_profile_public(profile)
+
+
+def delete_agent_profile(profile_id: str) -> dict[str, Any]:
+    settings = load_settings()
+    profiles = [item for item in settings.get("agent_profiles", []) if isinstance(item, dict) and item.get("id") != profile_id]
+    settings["agent_profiles"] = profiles
+    settings["updated_at"] = now_iso()
+    write_json(SETTINGS_FILE, settings)
+    KEYCHAIN.delete(agent_profile_key_account(profile_id))
+    return {"ok": True, "id": profile_id}
+
+
+def save_agent_profile_key(profile_id: str, api_key: str) -> dict[str, Any]:
+    settings = load_settings()
+    profile = next((item for item in settings.get("agent_profiles", []) if isinstance(item, dict) and item.get("id") == profile_id), None)
+    if profile is None:
+        raise ValueError("Agent 档案不存在。")
+    if not str(api_key or "").strip():
+        raise ValueError("API Key 不能为空。")
+    KEYCHAIN.save(str(api_key).strip(), agent_profile_key_account(profile_id))
+    return {"ok": True, "id": profile_id, "key_configured": True}
+
+
+def resolve_agent_profile_settings(profile_id: str) -> dict[str, Any] | None:
+    """把档案字段合并进主配置；档案没有自己的 Key 时回退主 Key。"""
+    settings = load_settings()
+    profile = next((item for item in settings.get("agent_profiles", []) if isinstance(item, dict) and item.get("id") == profile_id), None)
+    if profile is None:
+        return None
+    merged = dict(settings)
+    for field in PROFILE_FIELDS:
+        if profile.get(field) not in (None, ""):
+            merged[field] = profile[field]
+    profile_key = KEYCHAIN.get(agent_profile_key_account(profile_id))
+    merged["_api_key"] = profile_key or KEYCHAIN.get()
+    return merged
 
 
 def new_project_id() -> str:
@@ -1020,12 +1518,172 @@ def compact_extracted_text(value: str) -> tuple[str, bool]:
     return text[:MAX_MATERIAL_TEXT_CHARS], truncated
 
 
+def decode_text_bytes(raw: bytes) -> str | None:
+    """把字节按常见编码解成文本；明显是二进制则返回 None。"""
+    if not raw:
+        return None
+    if b"\x00" in raw[:8192]:
+        for encoding in ("utf-16", "utf-16-le", "utf-16-be"):
+            try:
+                text = raw.decode(encoding)
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+            printable = sum(1 for ch in text if ch.isprintable() or ch in "\n\r\t")
+            if text and printable >= len(text) * 0.9:
+                return text
+        return None
+    for encoding in ("utf-8", "gb18030", "utf-16"):
+        try:
+            text = raw.decode(encoding)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+        printable = sum(1 for ch in text if ch.isprintable() or ch in "\n\r\t")
+        if text and printable >= len(text) * 0.9:
+            return text
+    return None
+
+
+def looks_like_text(raw: bytes) -> bool:
+    """只看文件头判断是否文本（扫描目录时用，避免逐个整文件解码）。"""
+    sample = raw[:8192]
+    if not sample:
+        return False
+    for encoding in ("utf-8", "gb18030"):
+        try:
+            text = sample.decode(encoding, errors="replace")
+        except LookupError:
+            continue
+        if not text:
+            continue
+        bad = sum(1 for ch in text if ch == "\ufffd" or (not ch.isprintable() and ch not in "\n\r\t"))
+        if bad <= len(text) * 0.1:
+            return True
+    return False
+
+
+def text_from_zip(raw: bytes) -> str:
+    """从 zip 容器里抽取文本：pptx/odt/odp/ods/epub/xmind 等本质都是 zip + XML。"""
+    chunks: list[str] = []
+    try:
+        with ZipFile(io.BytesIO(raw)) as archive:
+            names = [
+                name
+                for name in archive.namelist()
+                if name.lower().endswith((".xml", ".html", ".htm", ".txt", ".md", ".json", ".csv"))
+                and "/theme/" not in name.lower()
+                and not name.lower().endswith(".rels")
+            ]
+            for name in names[:300]:
+                try:
+                    data = archive.read(name)
+                except (KeyError, OSError, RuntimeError):
+                    continue
+                if not data or len(data) > 8 * 1024 * 1024:
+                    continue
+                text = decode_text_bytes(data)
+                if not text:
+                    continue
+                if name.lower().endswith((".html", ".htm", ".xml")):
+                    parser = PlainTextHTMLParser()
+                    parser.feed(text)
+                    text = "".join(parser.parts) or re.sub(r"<[^>]+>", " ", text)
+                if text.strip():
+                    chunks.append(text)
+    except (BadZipFile, OSError):
+        return ""
+    return "\n\n".join(chunks)
+
+
+def text_from_rtf(raw: bytes) -> str:
+    source = raw.decode("latin-1", errors="replace")
+    source = re.sub(r"\\'([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), source)
+    source = re.sub(r"\\u(-?\d+)\??", lambda m: chr(int(m.group(1)) % 65536), source)
+    source = re.sub(r"\\par[d]?\b", "\n", source)
+    source = re.sub(r"\\[a-zA-Z]+-?\d* ?", "", source)
+    source = source.replace("{", "").replace("}", "")
+    return source.replace("\\", "")
+
+
+def system_text_extract(path: Path) -> tuple[str, str]:
+    """系统自带工具兜底（macOS: textutil 转文本 / Spotlight 已索引正文）。"""
+    commands: list[list[str]] = []
+    textutil = shutil.which("textutil")
+    if textutil:
+        commands.append([textutil, "-convert", "txt", "-stdout", str(path)])
+    mdls = shutil.which("mdls")
+    if mdls:
+        commands.append([mdls, "-raw", "-name", "kMDItemTextContent", str(path)])
+    for command in commands:
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=45, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if result.returncode != 0:
+            continue
+        output = result.stdout or ""
+        if output.strip() in {"", "(null)", "null"}:
+            continue
+        return output, Path(command[0]).name
+    return "", ""
+
+
+def has_system_text_tool(extension: str) -> bool:
+    """本机是否有能读取该扩展名的系统工具（用于目录扫描时预判）。"""
+    if extension in {".doc", ".docx", ".rtf", ".rtfd", ".html", ".htm", ".odt", ".wordml", ".webarchive"}:
+        return bool(shutil.which("textutil"))
+    if extension in {".pdf", ".xls", ".chm", ".pptx", ".ppt", ".pages", ".numbers", ".key", ".sketch", ".xmind"}:
+        return bool(shutil.which("mdls"))
+    return bool(shutil.which("textutil") or shutil.which("mdls"))
+
+
+def zip_has_text_entries(path: Path) -> bool:
+    """压缩包里是否有可以直接读的文本/XML 条目（决定 .zip 能不能当材料）。"""
+    try:
+        with ZipFile(path) as archive:
+            for name in archive.namelist()[:300]:
+                if name.lower().endswith((".xml", ".html", ".htm", ".txt", ".md", ".json", ".csv", ".yaml", ".yml")):
+                    return True
+    except (BadZipFile, OSError, RuntimeError):
+        return False
+    return False
+
+
+def material_readability(path: Path, size: int) -> tuple[bool, str]:
+    """判断这份文件能否读出文字（供目录扫描打标）。"""
+    extension = path.suffix.lower()
+    if size <= 0:
+        return False, "空文件"
+    if size > MAX_MATERIAL_BYTES:
+        return False, f"超过 {MAX_MATERIAL_BYTES // (1024 * 1024)} MB"
+    if extension in NO_TEXT_EXTENSIONS:
+        return False, NO_TEXT_EXTENSIONS[extension]
+    if extension in MATERIAL_TEXT_EXTENSIONS or extension in ZIP_TEXT_EXTENSIONS:
+        return True, ""
+    if extension in {".doc", ".docx", ".pdf", ".chm", ".xlsx", ".xls", ".rtf", ".rtfd"}:
+        return True, ""
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(8192)
+    except OSError:
+        return False, "无法读取"
+    if looks_like_text(head):
+        return True, "按文本读取"
+    if head[:2] == b"PK":
+        if zip_has_text_entries(path):
+            return True, "按压缩包内文档读取"
+        return False, "压缩包里没有可读的文本文件"
+    if has_system_text_tool(extension):
+        return True, "由系统工具尝试读取"
+    return False, "本机缺少可读取该格式的工具"
+
+
 def extract_material_text(path: Path) -> tuple[str, str, str]:
     """Return extracted text, status, and a user-facing extraction message."""
     extension = path.suffix.lower()
     try:
         if extension in MATERIAL_TEXT_EXTENSIONS:
-            raw = path.read_text(encoding="utf-8", errors="replace")
+            raw_bytes = path.read_bytes()
+            raw = decode_text_bytes(raw_bytes) or raw_bytes.decode("utf-8", errors="replace")
             if extension in {".html", ".htm"}:
                 parser = PlainTextHTMLParser()
                 parser.feed(raw)
@@ -1038,6 +1696,14 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
 
         if extension in {".xlsx", ".xls"}:
             if extension == ".xls":
+                output, tool = system_text_extract(path)
+                if output.strip():
+                    fallback_text, fallback_truncated = compact_extracted_text(output)
+                    if fallback_text:
+                        fallback_message = f"已用系统工具 {tool} 读取旧版 Excel 文本。"
+                        if fallback_truncated:
+                            fallback_message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                        return fallback_text, "success", fallback_message
                 return "", "unsupported", "旧版 .xls 暂不支持自动读取，请另存为 .xlsx 后导入。"
             text, sheet_name = extract_xlsx_framework(path.read_bytes())
             if not text:
@@ -1082,7 +1748,15 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
         if extension == ".pdf":
             executable = shutil.which("pdftotext")
             if not executable:
-                return "", "unsupported", "未检测到 pdftotext，已保留 PDF 原文件，暂未提取文本。"
+                output, tool = system_text_extract(path)
+                if output.strip():
+                    fallback_text, fallback_truncated = compact_extracted_text(output)
+                    if fallback_text:
+                        fallback_message = f"未检测到 pdftotext，已用系统工具 {tool} 读取 PDF 文本。"
+                        if fallback_truncated:
+                            fallback_message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                        return fallback_text, "success", fallback_message
+                return "", "unsupported", "未检测到 pdftotext，且系统工具读不出该 PDF 文本，已保留原文件。"
             result = subprocess.run(
                 [executable, "-layout", str(path), "-"],
                 capture_output=True,
@@ -1133,7 +1807,46 @@ def extract_material_text(path: Path) -> tuple[str, str, str]:
                     message = f"CHM 文本已提取，超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI。"
                 return text, "success", message
 
-        return "", "unsupported", f"暂不支持直接提取 {extension or '该格式'} 文本，已保留原文件。"
+        # ---------- 通用兜底：不认识的格式也尽量读出来 ----------
+        raw_bytes = path.read_bytes()
+        if raw_bytes[:5] == b"{\\rtf" or extension in {".rtf", ".rtfd"}:
+            text, truncated = compact_extracted_text(text_from_rtf(raw_bytes))
+            if text:
+                message = "RTF 文本已提取。"
+                if truncated:
+                    message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                return text, "success", message
+
+        if raw_bytes[:2] == b"PK":
+            text, truncated = compact_extracted_text(text_from_zip(raw_bytes))
+            if text:
+                message = f"{extension or '压缩文档'} 内部文本已提取。"
+                if truncated:
+                    message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                return text, "success", message
+
+        decoded = decode_text_bytes(raw_bytes)
+        if decoded:
+            text, truncated = compact_extracted_text(decoded)
+            if text:
+                message = "按文本读取成功。"
+                if truncated:
+                    message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                return text, "success", message
+
+        output, tool = system_text_extract(path)
+        if output.strip():
+            text, truncated = compact_extracted_text(output)
+            if text:
+                message = f"已用系统工具 {tool} 读取文本。"
+                if truncated:
+                    message += f"（超过 {MAX_MATERIAL_TEXT_CHARS:,} 字符的部分未送入 AI）"
+                return text, "success", message
+
+        reason = NO_TEXT_EXTENSIONS.get(extension)
+        if reason:
+            return "", "unsupported", f"{reason}，已保留原文件。"
+        return "", "unsupported", f"本机没有可读取 {extension or '该格式'} 文本的工具，已保留原文件。"
     except (OSError, BadZipFile, ET.ParseError, subprocess.TimeoutExpired) as exc:
         return "", "failed", f"材料读取失败：{str(exc)[:240]}"
 
@@ -1367,6 +2080,7 @@ def material_summary(project_id: str, material: dict[str, Any]) -> dict[str, Any
         "text_length": len(str(material.get("extracted_text", ""))),
         "text_truncated": bool(material.get("text_truncated", False)),
         "created_at": material.get("created_at"),
+        "origin": str(material.get("origin", "")),
         "download_url": f"/api/projects/{quote(project_id)}/materials/{quote(material_id)}/download",
     }
 
@@ -1406,11 +2120,17 @@ def decode_material(payload: dict[str, Any]) -> tuple[str, str, bytes]:
     return name[:200], mime_type, raw
 
 
-def save_project_material(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+def persist_project_material(
+    project_id: str,
+    name: str,
+    mime_type: str,
+    raw: bytes,
+    origin: str = "",
+) -> dict[str, Any]:
+    """把一份材料字节流落盘并提取文本（上传与目录导入共用）。"""
     project = read_json(project_dir(project_id) / "project.json", None)
     if not isinstance(project, dict):
         raise ValueError("项目不存在。")
-    name, mime_type, raw = decode_material(payload)
     material_id = f"material_{int(time.time())}_{secrets.token_hex(3)}"
     directory = material_dir(project_id, material_id)
     directory.mkdir(parents=True, exist_ok=True)
@@ -1433,10 +2153,511 @@ def save_project_material(project_id: str, payload: dict[str, Any]) -> dict[str,
         "text_truncated": len(extracted_text) >= MAX_MATERIAL_TEXT_CHARS,
         "created_at": timestamp,
     }
+    if origin:
+        material["origin"] = origin
     write_json(directory / "material.json", material)
     project["updated_at"] = timestamp
     write_json(project_dir(project_id) / "project.json", project)
     return material_summary(project_id, material)
+
+
+def save_project_material(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(read_json(project_dir(project_id) / "project.json", None), dict):
+        raise ValueError("项目不存在。")
+    name, mime_type, raw = decode_material(payload)
+    return persist_project_material(project_id, name, mime_type, raw, str(payload.get("origin", "")) or "")
+
+
+def resolve_local_directory(raw: str) -> Path:
+    """把用户输入的目录字符串解析成可访问的绝对目录。"""
+    spec = str(raw or "").strip().strip('"').strip("'").strip()
+    if not spec:
+        raise ValueError("请先填写目录路径，或点「浏览」选择文件夹。")
+    path = Path(os.path.expanduser(spec))
+    if not path.is_absolute():
+        raise ValueError("请填写完整路径（以 / 或盘符开头），例如 ~/Documents/需求文档。")
+    try:
+        path = path.resolve()
+    except OSError as exc:
+        raise ValueError(f"目录无法访问：{exc}") from exc
+    if not path.exists():
+        raise ValueError("目录不存在，请检查路径是否正确。")
+    if not path.is_dir():
+        raise ValueError("该路径不是目录，请选择文件夹。")
+    return path
+
+
+def scan_directory_files(raw_path: str, recursive: bool = True) -> dict[str, Any]:
+    """列出目录下的文件（不读取内容），并标注是否可作为材料导入。"""
+    directory = resolve_local_directory(raw_path)
+    files: list[dict[str, Any]] = []
+    truncated = False
+    walker = directory.rglob("*") if recursive else directory.glob("*")
+    try:
+        for item in walker:
+            if len(files) >= DIR_IMPORT_MAX_FILES:
+                truncated = True
+                break
+            try:
+                relative_parts = item.relative_to(directory).parts
+            except ValueError:
+                continue
+            if any(part.startswith(".") or part in DIR_IMPORT_SKIP_DIRS for part in relative_parts[:-1]):
+                continue
+            name = item.name
+            if name.startswith(".") or name.startswith("~$"):
+                continue
+            try:
+                if not item.is_file():
+                    continue
+                size = item.stat().st_size
+            except OSError:
+                continue
+            extension = item.suffix.lower()
+            readable, note = material_readability(item, size)
+            files.append(
+                {
+                    "path": str(item),
+                    "name": name,
+                    "relative": "/".join(relative_parts),
+                    "extension": extension,
+                    "size": size,
+                    "supported": readable,
+                    "reason": "" if readable else note,
+                    "note": note if readable else "",
+                }
+            )
+    except PermissionError as exc:
+        raise ValueError(f"没有权限读取该目录：{exc.filename or directory}") from exc
+    files.sort(key=lambda entry: str(entry["relative"]).lower())
+    supported = [item for item in files if item["supported"]]
+    total_bytes = sum(int(item["size"]) for item in supported)
+    return {
+        "directory": str(directory),
+        "name": directory.name or str(directory),
+        "recursive": recursive,
+        "files": files,
+        "supported_count": len(supported),
+        "supported_bytes": total_bytes,
+        "truncated": truncated,
+        "max_files": DIR_IMPORT_MAX_FILES,
+    }
+
+
+# ---------------------------------------------------------------- 项目工作区
+# 工作区 = 用户指定的本地目录。项目不再把目录里的文件复制成材料，而是在生成框架 /
+# Topic 时由后端直接读取目录内容（按主题相关性挑文件），并附上完整文件清单。
+WORKSPACE_MAX_FILES = 1200
+WORKSPACE_TOPIC_FILES = 6
+WORKSPACE_FRAMEWORK_FILES = 12
+WORKSPACE_INDEX_TTL_SECONDS = 30
+WORKSPACE_CACHE_VERSION = 1
+WORKSPACE_EXTENSION_PRIORITY = {".md": 4, ".docx": 4, ".pdf": 3, ".txt": 3, ".xlsx": 2, ".pptx": 2, ".pptm": 2}
+_WORKSPACE_INDEX_CACHE: dict[str, dict[str, Any]] = {}
+_WORKSPACE_LOCK = threading.Lock()
+
+
+def format_bytes_cn(size: int) -> str:
+    value = float(size or 0)
+    for unit in ("B", "KB", "MB"):
+        if value < 1024:
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} GB"
+
+
+def workspace_cache_dir(project_id: str) -> Path:
+    return project_dir(project_id) / "workspace-cache"
+
+
+def project_workspace(project: dict[str, Any]) -> dict[str, Any] | None:
+    raw = project.get("workspace")
+    if not isinstance(raw, dict):
+        return None
+    path = str(raw.get("path", "")).strip()
+    if not path:
+        return None
+    return {
+        "path": path,
+        "name": str(raw.get("name", "")).strip() or Path(path).name or path,
+        "recursive": raw.get("recursive", True) is not False,
+        "registered_at": str(raw.get("registered_at", "") or ""),
+        "updated_at": str(raw.get("updated_at", "") or ""),
+    }
+
+
+def resolve_workspace_directory(project: dict[str, Any]) -> tuple[Path | None, str]:
+    """校验工作区目录当前是否可访问，返回 (目录, 问题说明)。"""
+    workspace = project_workspace(project)
+    if not workspace:
+        return None, "尚未设置工作区目录。"
+    path = Path(os.path.expanduser(workspace["path"]))
+    if not path.is_absolute():
+        return None, "工作区路径必须是完整路径。"
+    try:
+        path = path.resolve()
+    except OSError:
+        return None, "工作区路径无法解析，请重新设置。"
+    if not path.exists():
+        return None, "工作区目录不存在（可能被移动或删除），请重新设置。"
+    if not path.is_dir():
+        return None, "工作区路径不是目录，请重新设置。"
+    return path, ""
+
+
+def _walk_workspace(root: Path, recursive: bool) -> tuple[list[dict[str, Any]], bool]:
+    files: list[dict[str, Any]] = []
+    truncated = False
+    walker = root.rglob("*") if recursive else root.glob("*")
+    try:
+        for item in walker:
+            if len(files) >= WORKSPACE_MAX_FILES:
+                truncated = True
+                break
+            try:
+                relative_parts = item.relative_to(root).parts
+            except ValueError:
+                continue
+            if any(part.startswith(".") or part in DIR_IMPORT_SKIP_DIRS for part in relative_parts[:-1]):
+                continue
+            name = item.name
+            if name.startswith(".") or name.startswith("~$"):
+                continue
+            try:
+                if not item.is_file():
+                    continue
+                stat = item.stat()
+            except OSError:
+                continue
+            readable, note = material_readability(item, stat.st_size)
+            files.append(
+                {
+                    "path": str(item),
+                    "relative": "/".join(relative_parts),
+                    "name": name,
+                    "extension": item.suffix.lower(),
+                    "size": stat.st_size,
+                    "mtime": stat.st_mtime,
+                    "readable": readable,
+                    "reason": "" if readable else note,
+                }
+            )
+    except PermissionError as exc:
+        raise ValueError(f"没有权限读取工作区目录：{exc.filename or root}") from exc
+    files.sort(key=lambda entry: str(entry["relative"]).lower())
+    return files, truncated
+
+
+def workspace_index(project_id: str, project: dict[str, Any], refresh: bool = False) -> dict[str, Any]:
+    """实时遍历工作区（只读元数据），30 秒内复用上一次结果，避免批量生成时反复扫描。"""
+    workspace = project_workspace(project)
+    root, problem = resolve_workspace_directory(project)
+    if root is None:
+        return {
+            "workspace": workspace,
+            "exists": False,
+            "problem": problem,
+            "directory": str((workspace or {}).get("path", "")),
+            "files": [],
+            "truncated": False,
+            "scanned_at": now_iso(),
+        }
+    key = f"{project_id}|{root}|{bool((workspace or {}).get('recursive', True))}"
+    now_ts = time.time()
+    with _WORKSPACE_LOCK:
+        cached = _WORKSPACE_INDEX_CACHE.get(key)
+        if cached and not refresh and now_ts - float(cached.get("scanned_ts", 0)) < WORKSPACE_INDEX_TTL_SECONDS:
+            return cached
+    files, truncated = _walk_workspace(root, bool((workspace or {}).get("recursive", True)))
+    result = {
+        "workspace": workspace,
+        "exists": True,
+        "problem": "",
+        "directory": str(root),
+        "name": (workspace or {}).get("name") or root.name or str(root),
+        "files": files,
+        "truncated": truncated,
+        "scanned_at": now_iso(),
+        "scanned_ts": now_ts,
+    }
+    with _WORKSPACE_LOCK:
+        if len(_WORKSPACE_INDEX_CACHE) > 24:
+            _WORKSPACE_INDEX_CACHE.clear()
+        _WORKSPACE_INDEX_CACHE[key] = result
+    return result
+
+
+def workspace_state(project_id: str, project: dict[str, Any] | None = None, refresh: bool = False) -> dict[str, Any]:
+    """给前端的完整工作区状态：目录信息 + 文件清单（可读性标注）。"""
+    project = project if isinstance(project, dict) else read_json(project_dir(project_id) / "project.json", None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    try:
+        index = workspace_index(project_id, project, refresh=refresh)
+    except ValueError as exc:
+        workspace = project_workspace(project) or {}
+        return {
+            "workspace": workspace,
+            "configured": bool(workspace),
+            "exists": False,
+            "problem": str(exc),
+            "directory": str(workspace.get("path", "")),
+            "name": workspace.get("name", ""),
+            "recursive": bool(workspace.get("recursive", True)),
+            "files": [],
+            "file_count": 0,
+            "readable_count": 0,
+            "readable_bytes": 0,
+            "truncated": False,
+            "max_files": WORKSPACE_MAX_FILES,
+            "scanned_at": now_iso(),
+            "limits": {"topic_files": WORKSPACE_TOPIC_FILES, "framework_files": WORKSPACE_FRAMEWORK_FILES},
+        }
+    files = index.get("files") or []
+    readable = [item for item in files if item.get("readable")]
+    workspace = index.get("workspace") or {}
+    return {
+        "workspace": workspace,
+        "configured": bool(workspace),
+        "exists": bool(index.get("exists")),
+        "problem": index.get("problem", ""),
+        "directory": index.get("directory", ""),
+        "name": index.get("name", ""),
+        "recursive": bool(workspace.get("recursive", True)),
+        "files": [
+            {
+                "relative": item["relative"],
+                "name": item["name"],
+                "extension": item["extension"],
+                "size": item["size"],
+                "readable": bool(item["readable"]),
+                "reason": item.get("reason", ""),
+            }
+            for item in files[:400]
+        ],
+        "file_count": len(files),
+        "readable_count": len(readable),
+        "readable_bytes": sum(int(item.get("size", 0) or 0) for item in readable),
+        "truncated": bool(index.get("truncated")),
+        "max_files": WORKSPACE_MAX_FILES,
+        "scanned_at": index.get("scanned_at", ""),
+        "limits": {"topic_files": WORKSPACE_TOPIC_FILES, "framework_files": WORKSPACE_FRAMEWORK_FILES},
+    }
+
+
+def workspace_has_readable(project_id: str, project: dict[str, Any]) -> bool:
+    try:
+        index = workspace_index(project_id, project)
+    except ValueError:
+        return False
+    if not index.get("exists"):
+        return False
+    return any(item.get("readable") for item in index.get("files") or [])
+
+
+def workspace_text(project_id: str, path: Path, relative: str) -> tuple[str, str, str]:
+    """读工作区里某份文件的文本，(mtime, size) 未变时复用磁盘缓存。"""
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        return "", "failed", f"无法读取：{exc}"
+    cache_file = workspace_cache_dir(project_id) / f"{hashlib.sha1(relative.encode('utf-8')).hexdigest()[:16]}.json"
+    cached = read_json(cache_file, None)
+    if (
+        isinstance(cached, dict)
+        and cached.get("version") == WORKSPACE_CACHE_VERSION
+        and cached.get("mtime") == stat.st_mtime
+        and cached.get("size") == stat.st_size
+    ):
+        return str(cached.get("text", "")), str(cached.get("status", "success")), str(cached.get("message", ""))
+    text, status, message = extract_material_text(path)
+    try:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        write_json(
+            cache_file,
+            {
+                "version": WORKSPACE_CACHE_VERSION,
+                "relative": relative,
+                "mtime": stat.st_mtime,
+                "size": stat.st_size,
+                "text": text,
+                "status": status,
+                "message": message,
+            },
+        )
+    except OSError:
+        pass
+    return text, status, message
+
+
+def workspace_query_terms(*sources: Any) -> list[str]:
+    """从项目信息 / Topic 描述里抽关键词，用于挑选工作区里最相关的文件。"""
+    terms: list[str] = []
+    for source in sources:
+        for token in re.findall(r"[A-Za-z0-9_]{2,}|[\u4e00-\u9fff]{2,6}", str(source or "")):
+            token = token.strip()
+            if len(token) >= 2 and token not in terms:
+                terms.append(token)
+    return terms[:60]
+
+
+def workspace_prompt_context(
+    project: dict[str, Any],
+    terms: list[str],
+    *,
+    limit: int,
+    per_file_chars: int,
+    max_chars: int,
+) -> tuple[str, list[dict[str, Any]]]:
+    """把工作区做成提示词上下文：完整文件清单 + 相关文件正文（实时读取）。
+
+    返回 (上下文文本, 实际读取的文件报告)。文件清单始终给出，让模型知道工作区范围；
+    正文按关键词命中数挑选，避免把整个目录塞进提示词。
+    """
+    project_id = str(project.get("id", ""))
+    index = workspace_index(project_id, project)
+    if not index.get("exists"):
+        return "", []
+    files = index.get("files") or []
+    readable = [item for item in files if item.get("readable")]
+    inventory_lines = [f"- {item['relative']}（{format_bytes_cn(item['size'])}）" for item in files[:300]]
+    if len(files) > 300:
+        inventory_lines.append(f"- …（其余 {len(files) - 300} 个文件未列出）")
+    header = [
+        f"### 工作区目录：{index.get('name') or index.get('directory', '')}",
+        f"- 路径：{index.get('directory', '')}",
+        f"- 文件：{len(files)} 个，其中 {len(readable)} 个可读取文本"
+        + ("（文件过多，仅索引前 %d 个）" % WORKSPACE_MAX_FILES if index.get("truncated") else ""),
+        "",
+        "#### 文件清单",
+        *(inventory_lines or ["- （空目录）"]),
+    ]
+    if not readable:
+        header.append("")
+        header.append("（该目录下没有可读取文字的文档；请确认文件格式，或换一个目录。）")
+        return "\n".join(header)[:max_chars], []
+
+    lowered_terms = [term.lower() for term in terms if len(term) >= 2]
+    scored: list[tuple[int, int, float, dict[str, Any]]] = []
+    for item in readable:
+        haystack = item["relative"].lower()
+        name = item["name"].lower()
+        score = 0
+        for term in lowered_terms:
+            if term in name:
+                score += 8
+            elif term in haystack:
+                score += 4
+        scored.append((score, WORKSPACE_EXTENSION_PRIORITY.get(item["extension"], 0), item["mtime"], item))
+    scored.sort(key=lambda entry: (-entry[0], -entry[1], -entry[2], entry[3]["relative"]))
+    candidates = scored[: max(limit * 3, limit + 6)]
+
+    loaded: list[tuple[int, dict[str, Any], str, str]] = []
+    for score, bonus, _, item in candidates:
+        text, status, message = workspace_text(project_id, Path(item["path"]), item["relative"])
+        if status != "success" or not text.strip():
+            continue
+        hits = 0
+        lowered_text = text.lower()
+        for term in lowered_terms[:40]:
+            if term in lowered_text:
+                hits += min(lowered_text.count(term), 5)
+        loaded.append((score + bonus + min(hits, 60), item, text, message))
+    loaded.sort(key=lambda entry: -entry[0])
+    selected = loaded[:limit]
+
+    blocks: list[str] = []
+    report: list[dict[str, Any]] = []
+    used = len("\n".join(header))
+    for score, item, text, message in selected:
+        body = text[:per_file_chars]
+        block = f"#### 文件：{item['relative']}（{len(text):,} 字符{'，已截取前 %d 字符' % per_file_chars if len(text) > per_file_chars else ''}）\n{body}"
+        if used + len(block) > max_chars:
+            break
+        blocks.append(block)
+        used += len(block)
+        report.append(
+            {
+                "relative": item["relative"],
+                "name": item["name"],
+                "size": item["size"],
+                "chars": len(text),
+                "used_chars": len(body),
+                "message": message,
+                "score": score,
+            }
+        )
+    if blocks:
+        header.extend(["", "#### 已读取的文件内容", *blocks])
+    else:
+        header.extend(["", "（本次没有文件被读入提示词，请参考上面的文件清单。）"])
+    return "\n".join(header)[:max_chars], report
+
+
+def save_project_workspace(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """把本地目录登记为项目工作区（不复制任何文件）。"""
+    path = project_dir(project_id) / "project.json"
+    project = read_json(path, None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    root = resolve_local_directory(str(payload.get("path", "")))
+    recursive = payload.get("recursive", True) is not False
+    timestamp = now_iso()
+    previous = project_workspace(project) or {}
+    project["workspace"] = {
+        "path": str(root),
+        "name": root.name or str(root),
+        "recursive": recursive,
+        "registered_at": previous.get("registered_at") or timestamp,
+        "updated_at": timestamp,
+    }
+    project["updated_at"] = timestamp
+    write_json(path, project)
+    with _WORKSPACE_LOCK:
+        _WORKSPACE_INDEX_CACHE.clear()
+    return workspace_state(project_id, project, refresh=True)
+
+
+def clear_project_workspace(project_id: str) -> dict[str, Any]:
+    path = project_dir(project_id) / "project.json"
+    project = read_json(path, None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    project.pop("workspace", None)
+    project["updated_at"] = now_iso()
+    write_json(path, project)
+    with _WORKSPACE_LOCK:
+        _WORKSPACE_INDEX_CACHE.clear()
+    shutil.rmtree(workspace_cache_dir(project_id), ignore_errors=True)
+    return workspace_state(project_id, project)
+
+
+def preview_workspace_file(project_id: str, relative: str) -> dict[str, Any]:
+    """预览工作区里某个文件的读取结果，让用户确认 Agent 到底读到了什么。"""
+    project = read_json(project_dir(project_id) / "project.json", None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    root, problem = resolve_workspace_directory(project)
+    if root is None:
+        raise ValueError(problem)
+    target = (root / relative).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("文件不在工作区内。") from exc
+    if not target.is_file():
+        raise ValueError("文件不存在或已被移动。")
+    text, status, message = workspace_text(project_id, target, relative)
+    return {
+        "relative": relative,
+        "name": target.name,
+        "size": target.stat().st_size,
+        "status": status,
+        "message": message,
+        "text": text[:8000],
+        "chars": len(text),
+        "truncated": len(text) > 8000,
+    }
 
 
 def get_project_material(project_id: str, material_id: str) -> dict[str, Any] | None:
@@ -1504,13 +2725,16 @@ def validate_topic_xml(xml_text: str) -> dict[str, Any]:
         errors.append(f"XML 不可解析：{exc}")
     guid_count = len(GUID_PATTERN.findall(xml_text))
     placeholder_count = len(PLACEHOLDER_PATTERN.findall(xml_text))
+    confirm_count = len(CONFIRM_PATTERN.findall(xml_text))
     if guid_count:
         errors.append(f"发现禁止的 GUID Token：{guid_count} 个")
     if placeholder_count:
         warnings.append(f"发现待人工替换占位符：{placeholder_count} 个")
+    if confirm_count:
+        warnings.append(f"发现待确认事实占位符：{confirm_count} 个（TODO_CONFIRM，需人工核实后改写）")
     if errors:
         status = "校验失败"
-    elif placeholder_count:
+    elif placeholder_count or confirm_count:
         status = "需人工处理"
     else:
         status = "结构通过"
@@ -1521,6 +2745,7 @@ def validate_topic_xml(xml_text: str) -> dict[str, Any]:
         "warnings": warnings,
         "guid_count": guid_count,
         "placeholder_count": placeholder_count,
+        "confirm_count": confirm_count,
     }
 
 
@@ -1675,6 +2900,17 @@ def get_topic(project_id: str, topic_id: str) -> dict[str, Any] | None:
     return topic_summary(project_id, topic) if isinstance(topic, dict) else None
 
 
+def enforce_xml_root_id(xml_text: str, topic_id: str) -> str:
+    """把 AI 生成 XML 的根元素 id 强制改回本地 Topic id，避免优化/重写后 id 漂移、下游关联断裂。"""
+    safe_id = re.sub(r"[^A-Za-z0-9_\-:.]", "_", str(topic_id))
+    return re.sub(
+        r'(<(?:task|concept|reference|topic)\b[^>]*?\bid=")[^"]*(")',
+        lambda match: f"{match.group(1)}{safe_id}{match.group(2)}",
+        str(xml_text),
+        count=1,
+    )
+
+
 def create_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     project = read_json(project_dir(project_id) / "project.json", None)
     if not isinstance(project, dict):
@@ -1687,9 +2923,11 @@ def create_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         ai_result = generate_ai_topic(project_id, payload)
     topic_id = f"topic_{int(time.time())}_{secrets.token_hex(2)}"
     directory = topic_dir(project_id, topic_id)
-    directory.mkdir(parents=True, exist_ok=True)
     xml_text = str(ai_result["xml"]) if ai_result else build_topic_xml(payload, topic_id)
+    if ai_result:
+        xml_text = enforce_xml_root_id(xml_text, topic_id)
     validation = validate_topic_xml(xml_text)
+    lint_report = ai_result.get("lint") if ai_result else lint_topic_xml(xml_text, str(payload.get("topic_type", "concept")))
     timestamp = now_iso()
     existing_topics = list_topics(project_id)
     heading_level = topic_level(payload.get("heading_level", payload.get("level", 1)))
@@ -1724,16 +2962,23 @@ def create_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         "material_ids": parse_lines(payload.get("material_ids")),
         "generation_source": "ai" if ai_result else "template",
         "generation_model": ai_result.get("model") if ai_result else None,
+        "generation_mode": ai_result.get("generation_mode") if ai_result else None,
+        "unconfirmed": (ai_result or {}).get("unconfirmed", []),
+        "material_slices": (ai_result or {}).get("material_slices", []),
+        "context_summary": (ai_result or {}).get("context_summary"),
         "xml": xml_text,
         "validation": validation,
+        "lint": lint_report,
         "created_at": timestamp,
         "updated_at": timestamp,
     }
-    (directory / f"{topic_id}.xml").write_text(xml_text, encoding="utf-8")
-    write_json(directory / "topic.json", topic)
-    project["updated_at"] = timestamp
-    project["topic_count"] = int(project.get("topic_count", 0)) + 1
-    write_json(project_dir(project_id) / "project.json", project)
+    with generation_commit():
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{topic_id}.xml").write_text(xml_text, encoding="utf-8")
+        write_json(directory / "topic.json", topic)
+        project["updated_at"] = timestamp
+        project["topic_count"] = int(project.get("topic_count", 0)) + 1
+        write_json(project_dir(project_id) / "project.json", project)
     return topic_summary(project_id, topic)
 
 
@@ -1763,7 +3008,7 @@ def regenerate_topic(project_id: str, topic_id: str, payload: dict[str, Any]) ->
         "ai_generate": True,
     }
     ai_result = generate_ai_topic(project_id, merged)
-    xml_text = str(ai_result["xml"])
+    xml_text = enforce_xml_root_id(str(ai_result["xml"]), topic_id)
     timestamp = now_iso()
     topic.update(
         {
@@ -1792,16 +3037,22 @@ def regenerate_topic(project_id: str, topic_id: str, payload: dict[str, Any]) ->
             "material_ids": parse_lines(merged.get("material_ids", topic.get("material_ids", []))),
             "generation_source": "ai",
             "generation_model": ai_result.get("model"),
+            "generation_mode": ai_result.get("generation_mode"),
+            "unconfirmed": (ai_result or {}).get("unconfirmed", []),
+            "material_slices": (ai_result or {}).get("material_slices", []),
+            "context_summary": (ai_result or {}).get("context_summary"),
             "xml": xml_text,
             "validation": validate_topic_xml(xml_text),
+            "lint": ai_result.get("lint") or lint_topic_xml(xml_text, str(merged.get("topic_type", topic.get("topic_type", "concept")))),
             "updated_at": timestamp,
         }
     )
-    (topic_dir(project_id, topic_id) / f"{topic_id}.xml").write_text(xml_text, encoding="utf-8")
-    write_json(topic_path, topic)
-    project["updated_at"] = timestamp
-    project["stage"] = "Topic 生成"
-    write_json(project_dir(project_id) / "project.json", project)
+    with generation_commit():
+        (topic_dir(project_id, topic_id) / f"{topic_id}.xml").write_text(xml_text, encoding="utf-8")
+        write_json(topic_path, topic)
+        project["updated_at"] = timestamp
+        project["stage"] = "Topic 生成"
+        write_json(project_dir(project_id) / "project.json", project)
     return topic_summary(project_id, topic)
 
 
@@ -2017,6 +3268,27 @@ def project_baseline_context(project: dict[str, Any], max_chars: int = 60_000) -
     return context[:max_chars]
 
 
+def cover_thumbnail(directory: Path, source: Path) -> Path | None:
+    """Best-effort 生成 400px 封面缩略图（依赖 macOS 自带 sips；其他平台返回 None，前端回退原图）。"""
+    sips = shutil.which("sips")
+    if not sips or not source.exists() or not source.is_file():
+        return None
+    is_png = source.suffix.lower() == ".png"
+    thumb = directory / ("cover_thumb.png" if is_png else "cover_thumb.jpg")
+    try:
+        if thumb.exists() and thumb.stat().st_size > 0 and thumb.stat().st_mtime >= source.stat().st_mtime:
+            return thumb
+        args = [sips, "-Z", "400"]
+        args += ["-s", "format", "png"] if is_png else ["-s", "format", "jpeg", "-s", "formatOptions", "72"]
+        args += [str(source), "--out", str(thumb)]
+        result = subprocess.run(args, capture_output=True, timeout=30)
+        if result.returncode == 0 and thumb.exists() and thumb.stat().st_size > 0:
+            return thumb
+    except Exception:
+        return None
+    return None
+
+
 def project_summary(project: dict[str, Any]) -> dict[str, Any]:
     project_id = project["id"]
     directory = project_dir(project_id)
@@ -2025,10 +3297,23 @@ def project_summary(project: dict[str, Any]) -> dict[str, Any]:
     topics = directory / "topics"
     cover = project.get("cover") if isinstance(project.get("cover"), dict) else default_cover()
     cover_url = None
+    cover_thumb_url = None
     if cover:
         stored_cover = directory / Path(str(cover.get("file", ""))).name
-        if stored_cover.exists() and stored_cover.is_file():
+        source_file = Path(str(cover.get("source_file", ""))).name
+        asset_ok = cover.get("type") == "asset" and source_file in {asset["file"] for asset in list_editorial_assets()}
+        if asset_ok:
+            # 直接引用共享素材；顺带清掉旧版本复制进项目目录的重复大文件
+            if stored_cover.exists() and stored_cover.name != source_file:
+                try:
+                    stored_cover.unlink()
+                except OSError:
+                    pass
+            cover_url = f"/static/assets/editorial/{quote(source_file)}"
+            cover_thumb_url = f"/api/projects/{quote(project_id)}/cover?thumb=1"
+        elif stored_cover.exists() and stored_cover.is_file():
             cover_url = f"/api/projects/{quote(project_id)}/cover"
+            cover_thumb_url = f"/api/projects/{quote(project_id)}/cover?thumb=1"
         elif cover.get("type") == "asset":
             asset_file = Path(str(cover.get("source_file", cover.get("file", "")))).name
             if asset_file in {asset["file"] for asset in list_editorial_assets()}:
@@ -2042,10 +3327,12 @@ def project_summary(project: dict[str, Any]) -> dict[str, Any]:
         "corpus": project_corpus_summary(project),
         "cover": cover,
         "cover_url": cover_url,
+        "cover_thumb_url": cover_thumb_url,
         "topic_count": len([p for p in topics.iterdir() if p.is_dir() and (p / "topic.json").exists()])
         if topics.exists()
         else int(project.get("topic_count", 0)),
         "material_count": len(list_project_material_records(project_id)) if materials.exists() else 0,
+        "workspace": project_workspace(project),
         "output_count": len([p for p in outputs.iterdir() if p.is_file()])
         if outputs.exists()
         else 0,
@@ -2069,6 +3356,13 @@ def create_project(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("项目名称不能为空。")
     project_id = new_project_id()
     mode = normalize_project_mode(payload.get("mode", "new"))
+    # 项目封面循环色：按现有项目数对色板长度取模，新项目依次轮换
+    existing_count = (
+        len([p for p in PROJECTS_DIR.iterdir() if p.is_dir() and (p / "project.json").exists()])
+        if PROJECTS_DIR.exists()
+        else 0
+    )
+    color_index = existing_count % len(PROJECT_COLOR_PALETTE)
     base_project_id = str(payload.get("base_project_id", "")).strip()
     if mode in {"update", "optimize"} and base_project_id:
         base_project = read_json(project_dir(base_project_id) / "project.json", None)
@@ -2105,10 +3399,18 @@ def create_project(payload: dict[str, Any]) -> dict[str, Any]:
         "base_project_id": base_project_id or None,
         "reference_project_ids": reference_project_ids,
         "topic_modes": ["new", "optimize"] if mode == "optimize" else ["new"],
+        "color_index": color_index,
         "cover": cover,
     }
     write_json(directory / "project.json", project)
     return project_summary(project)
+
+
+def delete_project(project_id: str) -> None:
+    directory = project_dir(project_id)
+    if not (directory / "project.json").exists():
+        raise ValueError("项目不存在。")
+    shutil.rmtree(directory)
 
 
 def get_project(project_id: str) -> dict[str, Any] | None:
@@ -2133,6 +3435,7 @@ def get_project(project_id: str) -> dict[str, Any] | None:
     return summary
 
 
+@synchronized
 def update_project_metadata(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     path = project_dir(project_id) / "project.json"
     project = read_json(path, None)
@@ -2336,6 +3639,7 @@ def get_framework(project_id: str) -> dict[str, Any] | None:
     return result
 
 
+@synchronized
 def save_framework(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     project = read_json(project_dir(project_id) / "project.json", None)
     if not isinstance(project, dict):
@@ -2400,42 +3704,72 @@ def framework_markdown_from_outline(project: dict[str, Any], outline: Any) -> st
 
 
 def build_framework_ai_messages(
-    project: dict[str, Any], payload: dict[str, Any], materials: list[dict[str, Any]]
-) -> tuple[str, str, list[str]]:
+    project: dict[str, Any], payload: dict[str, Any], materials: list[dict[str, Any]], settings: dict[str, Any] | None = None
+) -> tuple[str, str, list[str], list[dict[str, Any]]]:
+    """Build the framework prompt under a global context budget.
+
+    Section priority: 素材 > Skill > 基线 > 语料。Returns
+    (system, user, skill_names, context_report).
+    """
     records = selected_skill_records(payload.get("skills") or project.get("skills", []))
     skill_names = [str(item["name"]) for item in records]
-    skill_blocks: list[str] = []
+    sections: list[PromptSection] = []
     for skill in records:
         block = f"## Skill：{skill['name']}\n{skill.get('content', '')}"
         attachments = text_attachment_context(skill)
         if attachments:
             block += f"\n\n## Skill 附件上下文\n{attachments}"
-        skill_blocks.append(block)
-    material_blocks: list[str] = []
-    material_budget = 180_000
-    used = 0
+        sections.append(PromptSection(f"skill:{skill.get('id', skill['name'])}", f"Skill：{skill['name']}", 2, block))
+    empty_material_notes: list[str] = []
     for material in materials:
         text = str(material.get("extracted_text", "")).strip()
         message = str(material.get("extract_message", ""))
         if text:
-            remaining = max(0, material_budget - used)
-            if remaining <= 0:
-                material_blocks.append(f"### 材料：{material.get('name', '未命名')}\n- 文本未送入 AI：已达到本次分析上下文上限。")
-                continue
-            text = text[:remaining]
-            used += len(text)
-            material_blocks.append(f"### 材料：{material.get('name', '未命名')}\n{text}")
+            sections.append(
+                PromptSection(
+                    f"material:{material.get('id', '')}",
+                    f"材料：{material.get('name', '未命名')}",
+                    1,
+                    text,
+                )
+            )
         else:
-            material_blocks.append(f"### 材料：{material.get('name', '未命名')}\n- 暂无可读取文本。{message}")
+            empty_material_notes.append(f"### 材料：{material.get('name', '未命名')}\n- 暂无可读取文本。{message}")
+    # 项目工作区：不导入、不复制，生成时直接读目录里的文件（清单 + 相关正文）。
+    workspace_terms = workspace_query_terms(
+        project.get("name"), project.get("product"), project.get("version"), payload.get("analysis_note")
+    )
+    workspace_context, workspace_files = workspace_prompt_context(
+        project,
+        workspace_terms,
+        limit=WORKSPACE_FRAMEWORK_FILES,
+        per_file_chars=18_000,
+        max_chars=90_000,
+    )
+    if workspace_context:
+        sections.append(PromptSection("workspace", "工作区目录（生成时实时读取）", 1, workspace_context))
     corpus_context = project_corpus_context(project)
+    if corpus_context:
+        sections.append(PromptSection("corpus", "参考项目语料", 4, corpus_context))
     mode = normalize_project_mode(project.get("mode", "new"))
     baseline_context = project_baseline_context(project) if mode != "new" else ""
+    if baseline_context:
+        sections.append(PromptSection("baseline", "当前项目基线", 3, baseline_context))
+    sections, context_report = fit_prompt_sections(sections, context_char_budget(settings))
+
+    skill_blocks = [section.text for section in sections if section.key.startswith("skill:") and section.text]
+    material_blocks = [f"### {section.title}\n{section.text}" for section in sections if section.key.startswith("material:") and section.text]
+    workspace_final = next((section.text for section in sections if section.key == "workspace"), "")
+    corpus_final = next((section.text for section in sections if section.key == "corpus"), "")
+    baseline_final = next((section.text for section in sections if section.key == "baseline"), "")
+
     mode_instruction = {
         "new": "这是全新开发项目，请从输入材料组织全新的文档框架。",
         "update": "这是版本更新项目。项目中已有的框架和 Topic 是上版本基线，请结合本次材料识别新增、修改、废弃、未变化内容，并在 topic_outline 中填写 change_status。",
         "optimize": "这是 Topic 优化项目。基线框架仅用于定位上下文，除非材料明确要求，不要因为语言优化而重排文档结构。",
     }[mode]
     system = """你是 HIK 文档开发工具中的文档框架设计器。请严格遵守已选 Skill，只根据输入材料生成新的文档框架，不得补造业务事实。
+输入材料可能来自用户上传的文件，也可能来自项目工作区目录（工具实时读取）。两者都是可用依据，工作区文件的文件名可作为 source_materials。
 
 只返回一个有效 JSON 对象，不要返回 Markdown 代码围栏或解释。字段必须包含：
 - summary：本次框架的简要说明；
@@ -2464,20 +3798,24 @@ Markdown 规则：
 - 模式处理要求：{mode_instruction}
 
 ## 已选 Skill
-{chr(10).join(skill_blocks)}
+{chr(10).join(skill_blocks) or '（无可用 Skill 内容。）'}
 
 ## 原始材料提取内容
-{chr(10).join(material_blocks)}
+{chr(10).join(material_blocks + empty_material_notes) or '（无可用材料文本。）'}
+
+## 工作区目录（Agent 直接读取的本地文件）
+以下内容由工具在生成时直接从项目工作区目录读取，不属于上传材料；文件名可以作为 source_materials 的引用依据。
+{workspace_final or '当前项目未设置工作区目录。'}
 
 ## 当前项目基线（版本更新或 Topic 优化项目）
-{baseline_context or '无当前项目基线。'}
+{baseline_final or '无当前项目基线。'}
 
 ## 参考项目实时语料库
 以下内容来自用户选择的参考项目，生成时读取其当前定稿框架、Topic XML 和素材元数据。只能将其作为风格、结构和术语参考，不得把参考项目中的业务事实直接套用到当前项目；若没有参考项目，以下为空。
-{corpus_context or '暂无参考项目语料。'}
+{corpus_final or '暂无参考项目语料。'}
 
 只返回 JSON。"""
-    return system, user, skill_names
+    return system, user, skill_names, context_report
 
 
 def generate_framework(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -2485,40 +3823,62 @@ def generate_framework(project_id: str, payload: dict[str, Any]) -> dict[str, An
     if not isinstance(project, dict):
         raise ValueError("项目不存在。")
     materials = list_project_material_records(project_id)
-    if not materials:
-        raise ValueError("请先上传至少一份需求材料。")
     readable = [item for item in materials if str(item.get("extracted_text", "")).strip()]
-    if not readable:
-        raise ValueError("当前材料均未成功提取文本，暂时无法生成框架。请补充 Markdown、Word 或可提取文本的 PDF。")
-    system, user, skill_names = build_framework_ai_messages(project, payload, materials)
-    raw_text, model = call_ai_text(load_settings(), system, user, max_tokens=9000)
-    try:
-        parsed = json.loads(clean_ai_json(raw_text))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"AI 返回的框架不是有效 JSON：{str(exc)[:240]}") from exc
-    if not isinstance(parsed, dict):
-        raise RuntimeError("AI 返回的框架不是 JSON 对象。")
-    markdown = str(parsed.get("markdown", parsed.get("framework", ""))).strip()
-    if not markdown:
-        normalized = normalize_analysis_result(parsed)
-        markdown = framework_markdown_from_outline(project, normalized.get("topic_outline", []))
-    if not re.search(r"^#{1,6}\s+.+", markdown, re.MULTILINE):
-        raise RuntimeError("AI 未返回可识别的 Markdown 标题层级。")
-    supporting = normalize_analysis_result(parsed)
-    return save_framework(
-        project_id,
-        {
-            "markdown": markdown + ("\n" if not markdown.endswith("\n") else ""),
-            "layout": payload.get("layout", "mindmap"),
-            "source": "ai",
-            "model": model,
-            "skills": skill_names,
-            "material_ids": [str(item.get("id")) for item in materials],
-            "analysis_id": "",
-            "node_count": len(re.findall(r"^#{1,6}\s+.+", markdown, re.MULTILINE)),
-            "supporting_analysis": supporting,
-        },
+    workspace_ready = workspace_has_readable(project_id, project)
+    if not readable and not workspace_ready:
+        if materials:
+            raise ValueError(
+                "当前材料均未成功提取文本，且项目没有可读取的工作区目录。请补充材料，或把包含需求文档的目录设为工作区。"
+            )
+        raise ValueError("请先上传至少一份需求材料，或在项目里设置工作区目录（生成时直接读取目录内容）。")
+    settings = load_settings()
+    system, user, skill_names, context_report = build_framework_ai_messages(project, payload, materials, settings)
+
+    def parse_framework_result(raw_text: str) -> dict[str, Any]:
+        try:
+            parsed = json.loads(clean_ai_json(raw_text))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"AI 返回的框架不是有效 JSON：{str(exc)[:240]}") from exc
+        if not isinstance(parsed, dict):
+            raise RuntimeError("AI 返回的框架不是 JSON 对象。")
+        markdown = str(parsed.get("markdown", parsed.get("framework", ""))).strip()
+        if not markdown:
+            normalized = normalize_analysis_result(parsed)
+            markdown = framework_markdown_from_outline(project, normalized.get("topic_outline", []))
+        if not re.search(r"^#{1,6}\s+.+", markdown, re.MULTILINE):
+            raise RuntimeError("AI 未返回可识别的 Markdown 标题层级（需要至少一个 # 开头的标题）。")
+        return {"parsed": parsed, "markdown": markdown}
+
+    result_data, model = generate_with_repair(
+        settings,
+        system,
+        user,
+        parse_framework_result,
+        max_tokens=DEFAULT_FRAMEWORK_MAX_TOKENS,
+        json_mode=True,
     )
+    parsed = result_data["parsed"]
+    markdown = result_data["markdown"]
+    supporting = normalize_analysis_result(parsed)
+    with generation_commit():
+        result = save_framework(
+            project_id,
+            {
+                "markdown": markdown + ("\n" if not markdown.endswith("\n") else ""),
+                "layout": payload.get("layout", "mindmap"),
+                "source": "ai",
+                "model": model,
+                "skills": skill_names,
+                "material_ids": [str(item.get("id")) for item in materials],
+                "analysis_id": "",
+                "node_count": len(re.findall(r"^#{1,6}\s+.+", markdown, re.MULTILINE)),
+                "supporting_analysis": supporting,
+            },
+        )
+    result["context_report"] = context_report
+    result["context_summary"] = context_report_summary(context_report)
+    result["workspace"] = project_workspace(project)
+    return result
 
 
 def update_settings(payload: dict[str, Any]) -> dict[str, Any]:
@@ -2527,6 +3887,22 @@ def update_settings(payload: dict[str, Any]) -> dict[str, Any]:
     for key in allowed:
         if key in payload:
             settings[key] = payload[key]
+    if "max_tokens" in payload:
+        try:
+            value = int(payload["max_tokens"] or 0)
+        except (TypeError, ValueError):
+            value = 0
+        settings["max_tokens"] = value if value >= 256 else None
+    if "context_char_budget" in payload:
+        try:
+            value = int(payload["context_char_budget"] or 0)
+        except (TypeError, ValueError):
+            value = 0
+        settings["context_char_budget"] = value if value >= 40_000 else None
+    if "structured_task" in payload:
+        settings["structured_task"] = bool(payload["structured_task"])
+    if "structured_output" in payload:
+        settings["structured_output"] = bool(payload["structured_output"])
     if "api_key" in payload and str(payload["api_key"]).strip():
         KEYCHAIN.save(str(payload["api_key"]).strip())
     settings["updated_at"] = now_iso()
@@ -2534,16 +3910,262 @@ def update_settings(payload: dict[str, Any]) -> dict[str, Any]:
     return public_settings()
 
 
-def endpoint_for(settings: dict[str, Any]) -> str:
+# AI 调用采集器（线程局部）：后台 Job 在独立线程串行调用，线程局部足够安全。
+_AI_CALL_METAS = threading.local()
+
+
+def begin_ai_call_collection() -> None:
+    """Reset the per-thread AI call collector before a generation flow."""
+    _AI_CALL_METAS.items = []
+
+
+def collect_ai_call_meta(meta: dict[str, Any]) -> None:
+    items = getattr(_AI_CALL_METAS, "items", None)
+    if isinstance(items, list):
+        items.append(meta)
+
+
+def ai_call_metas() -> list[dict[str, Any]]:
+    return list(getattr(_AI_CALL_METAS, "items", []) or [])
+
+
+AI_BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+)
+AI_SDK_UA = "OpenAI/Python 1.68.0"
+
+
+def endpoint_candidates(settings: dict[str, Any]) -> list[str]:
+    """Return the endpoints worth trying for this base_url.
+
+    中转站有的只认 `/v1/chat/completions`，有的把根路径直接映射到 chat
+    completions。用户通常只粘贴一个域名，所以这里给出候选顺序，请求失败时
+    逐个回退，而不是硬拼一个路径然后 404。
+    """
     base_url = str(settings.get("base_url", "")).strip().rstrip("/")
     if not base_url:
         raise ValueError("请先填写 API 地址。")
     if base_url.endswith("/chat/completions") or base_url.endswith("/messages"):
-        return base_url
+        return [base_url]
     provider = settings.get("provider")
     if provider == "anthropic":
-        return base_url + "/v1/messages"
-    return base_url + "/chat/completions"
+        if base_url.endswith("/v1"):
+            return [base_url + "/messages"]
+        return [base_url + "/v1/messages", base_url + "/messages"]
+    if base_url.endswith("/v1"):
+        return [base_url + "/chat/completions"]
+    # 先按历史行为拼接根路径（原本能用的配置继续可用），404 再退到 /v1。
+    return [base_url + "/chat/completions", base_url + "/v1/chat/completions"]
+
+
+def endpoint_for(settings: dict[str, Any]) -> str:
+    return endpoint_candidates(settings)[0]
+
+
+def ai_user_agents(settings: dict[str, Any]) -> list[str]:
+    """The UA order to try. Cloudflare 1010 blocks `Python-urllib/x.y`."""
+    forced = str(settings.get("user_agent", "") or "").strip()
+    if forced:
+        return [forced]
+    return [AI_BROWSER_UA, AI_SDK_UA]
+
+
+def build_ai_headers(
+    settings: dict[str, Any],
+    provider: str,
+    api_key: str,
+    user_agent: str,
+) -> dict[str, str]:
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Accept-Encoding": "identity",
+        "User-Agent": user_agent,
+    }
+    if provider == "anthropic":
+        headers["x-api-key"] = api_key or ""
+        headers["anthropic-version"] = "2023-06-01"
+    elif api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+def looks_like_waf_block(status: int, raw: str) -> bool:
+    """Cloudflare 的 1010 / 挑战页，换 UA 或换路径重试才有意义。"""
+    if status not in {403, 429, 503}:
+        return False
+    text = (raw or "").lower()
+    return (
+        "1010" in text
+        or "cloudflare" in text
+        or "just a moment" in text
+        or "attention required" in text
+    )
+
+
+class AIHTTPError(RuntimeError):
+    def __init__(self, status: int, raw: str, endpoint: str, attempts: list[str]):
+        self.status = status
+        self.raw = raw
+        self.endpoint = endpoint
+        self.attempts = attempts
+        super().__init__(self.describe())
+
+    def describe(self) -> str:
+        if looks_like_waf_block(self.status, self.raw):
+            return (
+                f"HTTP {self.status}：请求被 Cloudflare 拦截（error code 1010 = 浏览器签名被封禁），"
+                "不是 API Key 无效。已自动换浏览器 UA 并改用系统 curl 重试，仍未通过；"
+                "请确认该中转站是否限制了调用来源（IP / 客户端）。"
+            )
+        if self.status in (401, 403):
+            same_host = "copilot.tencent.com" in self.endpoint
+            tip = (
+                "WorkBuddy 账号 Key 要用「套餐与用量 → API 管理」里创建的 pt_ 开头 Key，"
+                "Key 无效或已删除都会返回这个错。"
+                if same_host
+                else "请确认 Key 在这个接口地址下有效（有的中转站按 Key 区分线路）。"
+            )
+            return f"HTTP {self.status}：接口拒绝了这次请求，Key 未被接受。{tip}（请求地址：{self.endpoint}）"
+        if self.status == 504:
+            return (
+                f"HTTP 504：上游网关超时（请求地址：{self.endpoint}），不是本机网络问题。"
+                "对方返回的是「Key 校验服务暂不可用」这种通用降级文案，等一会儿重试通常能过；"
+                "如果每次都是 504，多半是 Key 类型和这个地址不匹配（例如把中转站的 sk- Key 发给了只认 pt_ Key 的地址）。"
+            )
+        return f"服务返回 HTTP {self.status}（请求地址：{self.endpoint}）：{self.raw[:500]}"
+
+
+def key_endpoint_conflict(endpoint: str, api_key: str) -> str | None:
+    """WorkBuddy 官方网关只认 pt_ Key；其它前缀的 Key 会被它的校验服务打成 504。"""
+    if "copilot.tencent.com" not in (endpoint or ""):
+        return None
+    key = (api_key or "").strip()
+    if not key or key.startswith("pt_"):
+        return None
+    prefix = f"{key[:3]}…" if len(key) > 3 else "该"
+    return (
+        "接口地址和 Key 对不上：" + endpoint + " 只接受 WorkBuddy 账号里 pt_ 开头的 API Key，"
+        f"现在这把是 {prefix} 开头的 Key（像是中转站或模型厂商发的），网关判断不了它的类型，"
+        "于是固定返回 504「API key verification service temporarily unavailable」——看着像服务挂了，其实是 Key 不对口。"
+        "两种改法：① 到 WorkBuddy 的「套餐与用量 → API 管理」创建一把 pt_ Key 填进来；"
+        "② 把这个档案的接口地址换回这把 Key 所属的中转站地址再测。"
+    )
+
+
+def curl_post_json(
+    endpoint: str,
+    data: bytes,
+    headers: dict[str, str],
+    timeout: int,
+) -> tuple[int, str] | None:
+    """Last-resort transport for sites that fingerprint the TLS handshake.
+
+    Python's stdlib cannot impersonate a browser's TLS stack, so a relay that
+    answers 1010 to every pure-Python request is retried through the system
+    curl, which uses OpenSSL/boringssl with a normal cipher order. Returns None
+    when curl is unavailable.
+    """
+    executable = shutil.which("curl")
+    if not executable:
+        return None
+    args = [executable, "-sS", "--max-time", str(max(5, timeout)), "-X", "POST", endpoint]
+    for name, value in headers.items():
+        args += ["-H", f"{name}: {value}"]
+    args += ["--data-binary", "@-", "-w", "\n%{http_code}"]
+    if is_private_endpoint(endpoint):
+        args += ["--noproxy", "*"]
+    else:
+        proxy = urllib.request.getproxies().get("https")
+        if proxy:
+            args += ["--proxy", proxy]
+    try:
+        completed = subprocess.run(
+            args,
+            input=data,
+            capture_output=True,
+            timeout=timeout + 10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    raw = completed.stdout.decode("utf-8", errors="replace")
+    body, _, status_text = raw.rpartition("\n")
+    try:
+        status = int(status_text.strip())
+    except ValueError:
+        return None
+    if completed.returncode != 0 and status == 0:
+        return None
+    return status, body
+
+
+def post_ai_json(
+    settings: dict[str, Any],
+    provider: str,
+    api_key: str,
+    body: dict[str, Any],
+    timeout: int,
+) -> tuple[int, str, str]:
+    """POST chat payload, retrying paths, UAs and finally the curl transport.
+
+    Returns (status, raw, endpoint). Raises AIHTTPError when every candidate
+    is rejected, and RuntimeError for network level failures.
+    """
+    data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    endpoints = endpoint_candidates(settings)
+    for candidate in endpoints:
+        conflict = key_endpoint_conflict(candidate, api_key)
+        if conflict:
+            raise RuntimeError(conflict)
+    user_agents = ai_user_agents(settings)
+    attempts: list[str] = []
+    waf_blocked = False
+    last: AIHTTPError | None = None
+    for endpoint in endpoints:
+        for user_agent in user_agents:
+            headers = build_ai_headers(settings, provider, api_key, user_agent)
+            request = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+            try:
+                with open_ai_request(request, endpoint, timeout=timeout) as response:
+                    raw = response.read().decode("utf-8", errors="replace")
+                    return response.status, raw, endpoint
+            except urllib.error.HTTPError as exc:
+                raw = exc.read().decode("utf-8", errors="replace")
+                attempts.append(f"{endpoint} → HTTP {exc.code}")
+                last = AIHTTPError(exc.code, raw, endpoint, attempts.copy())
+                if looks_like_waf_block(exc.code, raw):
+                    waf_blocked = True
+                    continue
+                if exc.code in {404, 405}:
+                    continue
+                raise last from exc
+            except urllib.error.URLError as exc:
+                raise RuntimeError(f"网络连接失败（请求地址：{endpoint}）：{exc.reason}") from exc
+            except ConnectionRefusedError as exc:
+                raise RuntimeError(f"模型地址拒绝连接：{endpoint}") from exc
+            except TimeoutError as exc:
+                raise RuntimeError("请求超时，请检查地址或超时设置。") from exc
+
+    if waf_blocked and not str(settings.get("transport", "")) == "urllib":
+        for endpoint in endpoints:
+            headers = build_ai_headers(settings, provider, api_key, ai_user_agents(settings)[0])
+            result = curl_post_json(endpoint, data, headers, timeout)
+            if result is None:
+                break
+            status, raw = result
+            attempts.append(f"{endpoint}（curl 传输）→ HTTP {status}")
+            if 200 <= status < 300:
+                return status, raw, endpoint
+            if status in {404, 405} or looks_like_waf_block(status, raw):
+                last = AIHTTPError(status, raw, endpoint, attempts.copy())
+                continue
+            last = AIHTTPError(status, raw, endpoint, attempts.copy())
+            raise last
+
+    if last is not None:
+        raise last
+    raise RuntimeError("请求未能发出，请检查 API 地址。")
 
 
 def is_private_endpoint(endpoint: str) -> bool:
@@ -2566,14 +4188,13 @@ def open_ai_request(request: urllib.request.Request, endpoint: str, timeout: int
     return urllib.request.urlopen(request, timeout=timeout)
 
 
-def test_ai_connection() -> dict[str, Any]:
-    settings = load_settings()
+def test_ai_connection(settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    settings = settings if isinstance(settings, dict) else load_settings()
     provider = settings.get("provider", "openai-compatible")
     model = str(settings.get("model", "")).strip()
     if not model and provider != "local":
         raise ValueError("请先填写模型名称。")
-    endpoint = endpoint_for(settings)
-    api_key = KEYCHAIN.get()
+    api_key = settings.get("_api_key") or KEYCHAIN.get()
     if provider != "local" and not api_key:
         raise ValueError("尚未配置 API Key。")
 
@@ -2583,11 +4204,6 @@ def test_ai_connection() -> dict[str, Any]:
             "max_tokens": 8,
             "messages": [{"role": "user", "content": "只回复 OK"}],
         }
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": api_key or "",
-            "anthropic-version": "2023-06-01",
-        }
     else:
         body = {
             "model": model,
@@ -2595,32 +4211,12 @@ def test_ai_connection() -> dict[str, Any]:
             "max_tokens": 8,
             "messages": [{"role": "user", "content": "只回复 OK"}],
         }
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
 
-    request = urllib.request.Request(
-        endpoint,
-        data=json.dumps(body).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
     timeout = int(settings.get("timeout_seconds", 60))
     try:
-        with open_ai_request(request, endpoint, timeout=timeout) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"服务返回 HTTP {exc.code}（请求地址：{endpoint}）：{raw[:500]}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"网络连接失败（请求地址：{endpoint}）：{exc.reason}") from exc
-    except ConnectionRefusedError as exc:
-        raise RuntimeError(f"模型地址拒绝连接：{endpoint}") from exc
-    except TimeoutError as exc:
-        raise RuntimeError("请求超时，请检查地址或超时设置。") from exc
+        status, raw, endpoint = post_ai_json(settings, provider, api_key or "", body, timeout)
+    except AIHTTPError as exc:
+        raise RuntimeError(exc.describe()) from exc
 
     try:
         data = json.loads(raw)
@@ -2688,6 +4284,361 @@ def clean_ai_json(raw_text: str) -> str:
     return text[start : end + 1].strip() if start >= 0 and end > start else text
 
 
+TASK_STRUCTURE_INSTRUCTION = """本次生成 Task Topic 时不要直接输出 XML。只返回一个 JSON 对象，字段如下：
+- "title"：Task 标题（字符串，必填）；
+- "shortdesc"：短描述（字符串，必填，3 句以内，回答 Why/What，不放具体步骤）；
+- "prerequisites"：前置条件字符串数组，使用“已创建/已执行/已完成 XX”句式，可为空数组；
+- "context": 正文说明段落字符串数组，可为空数组；
+- "steps"：操作步骤数组（必填，至少 2 步），每个元素为对象：
+  - "command"：操作命令（必填），使用“在 XX 位置，单击 XX。”句式，一个步骤只包含一个动作；
+  - "info"：该步骤的补充说明字符串数组，可为空数组；
+  - "result"：该步骤的系统反馈字符串，可为空字符串；
+- "overall_result"：整体操作结果字符串数组，可为空数组；
+- "unconfirmed"：素材未确认的事实数组，每个元素为 {"claim": "...", "reason": "..."}；禁止编造参数、按钮、数值或业务行为，素材无法确认的内容必须登记到这里，正文中对应位置使用 TODO_CONFIRM 占位，可为空数组。
+
+只返回该 JSON 对象，不要返回 Markdown 围栏、解释或 XML。"""
+
+
+def parse_task_structure(raw_text: str) -> dict[str, Any]:
+    """Parse and validate the structured Task middle representation.
+
+    Raises RuntimeError with user-facing issues so generate_with_repair can
+    feed them back to the model.
+    """
+    text = clean_ai_json(raw_text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Task 中间稿不是有效 JSON：{str(exc)[:240]}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("Task 中间稿必须是 JSON 对象。")
+    title = sanitize_text(data.get("title"))
+    shortdesc = sanitize_text(data.get("shortdesc"))
+    if not title:
+        raise RuntimeError("Task 中间稿缺少非空 title 字段。")
+    if not shortdesc:
+        raise RuntimeError("Task 中间稿缺少非空 shortdesc 字段。")
+
+    prerequisites = parse_lines(data.get("prerequisites"))
+    context = parse_lines(data.get("context"))
+
+    raw_steps = data.get("steps")
+    if not isinstance(raw_steps, list) or not raw_steps:
+        raise RuntimeError("Task 中间稿缺少 steps 数组；Task 至少需要 2 个操作步骤。")
+    steps: list[dict[str, Any]] = []
+    for index, raw_step in enumerate(raw_steps, start=1):
+        if not isinstance(raw_step, dict):
+            raise RuntimeError(f"第 {index} 个步骤必须是对象（含 command 字段）。")
+        command = sanitize_text(raw_step.get("command"))
+        if not command:
+            raise RuntimeError(f"第 {index} 个步骤缺少非空 command 字段。")
+        steps.append(
+            {
+                "command": command,
+                "info": parse_lines(raw_step.get("info")),
+                "result": sanitize_text(raw_step.get("result")),
+            }
+        )
+    if len(steps) < 2:
+        raise RuntimeError(f"Task 至少需要 2 个操作步骤，当前只有 {len(steps)} 步，请补充步骤。")
+
+    overall_result = parse_lines(data.get("overall_result"))
+
+    unconfirmed: list[dict[str, str]] = []
+    raw_unconfirmed = data.get("unconfirmed")
+    if isinstance(raw_unconfirmed, list):
+        for item in raw_unconfirmed[:50]:
+            if isinstance(item, dict):
+                claim = sanitize_text(item.get("claim"))
+                if claim:
+                    unconfirmed.append({"claim": claim, "reason": sanitize_text(item.get("reason"))})
+
+    return {
+        "title": title,
+        "shortdesc": shortdesc,
+        "prerequisites": prerequisites,
+        "context": context,
+        "steps": steps,
+        "overall_result": overall_result,
+        "unconfirmed": unconfirmed,
+    }
+
+
+def render_task_topic_xml(structure: dict[str, Any]) -> str:
+    """Render the structured Task middle representation into DITA Task XML.
+
+    Escaping, nesting, element order and step ids are guaranteed here, so the
+    model never has to produce XML itself.
+    """
+    title = sanitize_text(structure.get("title"))
+    shortdesc = sanitize_text(structure.get("shortdesc"))
+    prerequisites = [sanitize_text(item) for item in structure.get("prerequisites", []) if sanitize_text(item)]
+    context = [sanitize_text(item) for item in structure.get("context", []) if sanitize_text(item)]
+    steps = structure.get("steps", [])
+    overall_result = [sanitize_text(item) for item in structure.get("overall_result", []) if sanitize_text(item)]
+
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd"[]>',
+        f'<task id="TOPIC_{xml_escape(slugify(title))}" xml:lang="zh-CN">',
+        f"    <title>{xml_escape(title)}</title>",
+        f"    <shortdesc>{xml_escape(shortdesc)}</shortdesc>",
+        "    <taskbody>",
+    ]
+    if prerequisites:
+        lines.append("        <prereq>")
+        lines.append("            <ul>")
+        for item in prerequisites:
+            lines.extend(["                <li>", f"                    <p>{xml_escape(item)}</p>", "                </li>"])
+        lines.extend(["            </ul>", "        </prereq>"])
+    if context:
+        lines.append("        <context>")
+        for item in context:
+            lines.append(f"            <p>{xml_escape(item)}</p>")
+        lines.append("        </context>")
+    lines.append("        <steps>")
+    for index, step in enumerate(steps, start=1):
+        command = sanitize_text(step.get("command"))
+        info_items = [sanitize_text(item) for item in step.get("info", []) if sanitize_text(item)]
+        step_result = sanitize_text(step.get("result"))
+        lines.extend([f'            <step id="STEP_{index}">', f"                <cmd>{xml_escape(command)}</cmd>"])
+        for info_item in info_items:
+            lines.extend(["                <info>", f"                    <p>{xml_escape(info_item)}</p>", "                </info>"])
+        if step_result:
+            lines.extend(["                <stepresult>", f"                    <p>{xml_escape(step_result)}</p>", "                </stepresult>"])
+        lines.append("            </step>")
+    lines.append("        </steps>")
+    if overall_result:
+        lines.append("        <result>")
+        for item in overall_result:
+            lines.append(f"            <p>{xml_escape(item)}</p>")
+        lines.append("        </result>")
+    lines.extend(["    </taskbody>", "</task>"])
+    return "\n".join(lines) + "\n"
+
+
+CONCEPT_STRUCTURE_INSTRUCTION = """本次生成 Concept Topic 时不要直接输出 XML。只返回一个 JSON 对象，字段如下：
+- "title"：Concept 标题（字符串，必填）；
+- "shortdesc"：短描述（字符串，必填，3 句以内，回答 What/When/Why，不放具体步骤、图表或链接）；
+- "context"：正文引言段落字符串数组（conbody 下的直接段落，可为空数组）；
+- "sections"：章节对象数组（必填，至少 1 个），每个元素为对象：
+  - "title"：节标题（必填）；
+  - "level"：层级 1-3，默认 1；
+  - "paragraphs"：该节的段落字符串数组（至少 1 段）；
+- "unconfirmed"：素材未确认的事实数组，每个元素为 {"claim": "...", "reason": "..."}；禁止编造参数、按钮、数值或业务行为，素材无法确认的内容必须登记到这里，正文中对应位置使用 TODO_CONFIRM 占位，可为空数组。
+
+只返回该 JSON 对象，不要返回 Markdown 围栏、解释或 XML。"""
+
+
+def parse_concept_structure(raw_text: str) -> dict[str, Any]:
+    """Parse and validate the structured Concept middle representation."""
+    text = clean_ai_json(raw_text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Concept 中间稿不是有效 JSON：{str(exc)[:240]}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("Concept 中间稿必须是 JSON 对象。")
+    title = sanitize_text(data.get("title"))
+    shortdesc = sanitize_text(data.get("shortdesc"))
+    if not title:
+        raise RuntimeError("Concept 中间稿缺少非空 title 字段。")
+    if not shortdesc:
+        raise RuntimeError("Concept 中间稿缺少非空 shortdesc 字段。")
+    context = parse_lines(data.get("context"))
+
+    raw_sections = data.get("sections")
+    if not isinstance(raw_sections, list) or not raw_sections:
+        raise RuntimeError("Concept 中间稿缺少 sections 数组；至少需要 1 个章节。")
+    sections: list[dict[str, Any]] = []
+    for index, raw_section in enumerate(raw_sections, start=1):
+        if not isinstance(raw_section, dict):
+            raise RuntimeError(f"第 {index} 个章节必须是对象（含 title、paragraphs 字段）。")
+        section_title = sanitize_text(raw_section.get("title"))
+        if not section_title:
+            raise RuntimeError(f"第 {index} 个章节缺少非空 title 字段。")
+        paragraphs = parse_lines(raw_section.get("paragraphs"))
+        if not paragraphs:
+            raise RuntimeError(f"章节“{section_title}”缺少段落内容（paragraphs 至少 1 段）。")
+        try:
+            level = max(1, min(3, int(raw_section.get("level", 1))))
+        except (TypeError, ValueError):
+            level = 1
+        sections.append({"title": section_title, "level": level, "paragraphs": paragraphs})
+
+    unconfirmed: list[dict[str, str]] = []
+    raw_unconfirmed = data.get("unconfirmed")
+    if isinstance(raw_unconfirmed, list):
+        for item in raw_unconfirmed[:50]:
+            if isinstance(item, dict):
+                claim = sanitize_text(item.get("claim"))
+                if claim:
+                    unconfirmed.append({"claim": claim, "reason": sanitize_text(item.get("reason"))})
+
+    return {
+        "title": title,
+        "shortdesc": shortdesc,
+        "context": context,
+        "sections": sections,
+        "unconfirmed": unconfirmed,
+    }
+
+
+def render_concept_topic_xml(structure: dict[str, Any]) -> str:
+    """Render the structured Concept middle representation into DITA Concept XML.
+
+    Section nesting, ids and escaping are guaranteed here, mirroring the
+    hand-built template in build_topic_xml.
+    """
+    title = sanitize_text(structure.get("title"))
+    shortdesc = sanitize_text(structure.get("shortdesc"))
+    context = [sanitize_text(item) for item in structure.get("context", []) if sanitize_text(item)]
+    sections = structure.get("sections", [])
+
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd"[]>',
+        f'<concept id="TOPIC_{xml_escape(slugify(title))}" xml:lang="zh-CN">',
+        f"    <title>{xml_escape(title)}</title>",
+        f"    <shortdesc>{xml_escape(shortdesc)}</shortdesc>",
+        "    <conbody>",
+    ]
+    for paragraph in context:
+        lines.append(f"        <p>{xml_escape(paragraph)}</p>")
+
+    stack: list[dict[str, Any]] = []
+    counters: list[int] = []
+    for item in sections:
+        level = max(1, min(3, int(item.get("level", 1) or 1)))
+        if not stack:
+            level = 1
+        elif level > len(stack) + 1:
+            level = len(stack) + 1
+        while len(stack) >= level:
+            lines.append("    " * (1 + len(stack)) + "</section>")
+            stack.pop()
+        while len(counters) < level:
+            counters.append(0)
+        counters[level - 1] += 1
+        del counters[level:]
+        section_id = "SECTION_" + "_".join(str(value) for value in counters)
+        indent = "    " * (1 + len(stack))
+        lines.append(f'{indent}<section id="{section_id}">')
+        lines.append(f"{indent}    <title>{xml_escape(sanitize_text(item.get('title')))}</title>")
+        for paragraph in item.get("paragraphs", []):
+            text = sanitize_text(paragraph)
+            if text:
+                lines.append(f"{indent}    <p>{xml_escape(text)}</p>")
+        stack.append({"level": level})
+    while stack:
+        lines.append("    " * (1 + len(stack)) + "</section>")
+        stack.pop()
+    lines.extend(["    </conbody>", "</concept>"])
+    return "\n".join(lines) + "\n"
+
+
+def topic_query_terms(payload: dict[str, Any]) -> list[str]:
+    """Extract rough topic keywords (CJK runs + latin words) for material slicing."""
+    sources = [
+        payload.get("title"),
+        payload.get("shortdesc"),
+        payload.get("chapter_summary"),
+        payload.get("brief"),
+        payload.get("generation_prompt"),
+    ]
+    try:
+        outline = payload.get("outline")
+        if isinstance(outline, list):
+            sources.extend(str(item.get("title", "")) if isinstance(item, dict) else str(item) for item in outline)
+    except AttributeError:
+        pass
+    terms: list[str] = []
+    for source in sources:
+        for token in re.findall(r"[A-Za-z0-9_]{2,}|[\u4e00-\u9fff]{2,6}", str(source or "")):
+            token = token.strip()
+            if token and token not in terms:
+                terms.append(token)
+    return terms[:60]
+
+
+def slice_material_for_topic(text: str, terms: list[str], max_chars: int = TOPIC_SLICE_MAX_CHARS) -> tuple[str, list[list[int]]]:
+    """Slice an oversized material around paragraphs matching the topic terms.
+
+    Returns (context_text, ranges). ranges is empty when the material fits and
+    was returned verbatim; otherwise it records the [start, end] offsets of the
+    kept segments in the original text for paragraph-level traceability.
+    """
+    text = str(text or "")
+    if len(text) <= max_chars:
+        return text, []
+    paragraphs: list[tuple[int, int, str]] = []
+    for match in re.finditer(r"[^\n]+", text):
+        segment = match.group(0).strip()
+        if segment:
+            paragraphs.append((match.start(), match.end(), segment))
+    if not paragraphs:
+        return text[:max_chars], [[0, max_chars]]
+
+    lowered_terms = [term.lower() for term in terms if len(term) >= 2]
+
+    def score(segment: str) -> int:
+        lowered = segment.lower()
+        return sum(1 for term in lowered_terms if term in lowered)
+
+    scored = [(score(segment), index) for index, (_, _, segment) in enumerate(paragraphs)]
+    chosen: set[int] = set()
+    used = 0
+    # 优先取相关性最高的段落及其相邻段落，保证上下文完整。
+    for _, index in sorted(((value, index) for value, index in scored if value > 0), key=lambda item: (-item[0], item[1])):
+        for neighbor in (index - 1, index, index + 1):
+            if 0 <= neighbor < len(paragraphs) and neighbor not in chosen:
+                length = paragraphs[neighbor][1] - paragraphs[neighbor][0] + 1
+                if used + length > max_chars:
+                    continue
+                chosen.add(neighbor)
+                used += length
+        if used >= max_chars:
+            break
+    if not chosen:
+        chosen = set(range(min(len(paragraphs), max(1, max_chars // 200))))
+        used = sum(paragraphs[index][1] - paragraphs[index][0] + 1 for index in chosen)
+
+    ranges: list[list[int]] = []
+    blocks: list[str] = []
+    for index in sorted(chosen):
+        start, end, segment = paragraphs[index]
+        ranges.append([start, end])
+        blocks.append(f"［原文 {start}–{end}］{segment}")
+    return "\n".join(blocks), ranges
+
+
+def list_project_unconfirmed(project_id: str) -> dict[str, Any]:
+    """Aggregate every topic's unconfirmed facts and TODO_CONFIRM counts."""
+    project = read_json(project_dir(project_id) / "project.json", None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    items: list[dict[str, Any]] = []
+    total_confirm_count = 0
+    for topic in list_topics(project_id):
+        confirm_count = int((topic.get("validation") or {}).get("confirm_count", 0) or 0)
+        total_confirm_count += confirm_count
+        for entry in topic.get("unconfirmed", []) or []:
+            if isinstance(entry, dict) and entry.get("claim"):
+                items.append(
+                    {
+                        "topic_id": topic.get("id"),
+                        "topic_title": topic.get("title"),
+                        "claim": entry.get("claim"),
+                        "reason": entry.get("reason"),
+                    }
+                )
+    return {
+        "project_id": project_id,
+        "items": items,
+        "topic_confirm_count": total_confirm_count,
+    }
+
+
 def text_attachment_context(skill: dict[str, Any]) -> str:
     """Read small text attachments as prompt context; keep binary attachments local."""
     text_suffixes = {".md", ".markdown", ".txt", ".xml", ".html", ".htm", ".json", ".csv", ".yaml", ".yml"}
@@ -2732,7 +4683,57 @@ def selected_skill_records(skill_names: Any) -> list[dict[str, Any]]:
     return records
 
 
-def build_topic_ai_messages(project: dict[str, Any], payload: dict[str, Any]) -> tuple[str, str, list[str]]:
+def sibling_context_block(payload: dict[str, Any]) -> str:
+    """Render parent/sibling chapter context provided by the frontend.
+
+    Sibling titles tell the model which content belongs to other Topics so it
+    stops duplicating neighbouring sections and keeps boundaries clear.
+    """
+    parent_title = sanitize_text(payload.get("parent_title"))
+    raw_siblings = payload.get("sibling_topics")
+    siblings: list[dict[str, str]] = []
+    if isinstance(raw_siblings, list):
+        for item in raw_siblings[:30]:
+            if isinstance(item, dict):
+                title = sanitize_text(item.get("title"))
+                if not title:
+                    continue
+                siblings.append(
+                    {
+                        "title": title,
+                        "topic_type": sanitize_text(item.get("topic_type")) or "concept",
+                        "shortdesc": sanitize_text(item.get("shortdesc"))[:200],
+                    }
+                )
+            else:
+                title = sanitize_text(item)
+                if title:
+                    siblings.append({"title": title, "topic_type": "concept", "shortdesc": ""})
+    if not parent_title and not siblings:
+        return ""
+    lines: list[str] = []
+    if parent_title:
+        lines.append(f"- 所属父章节：{parent_title}")
+    for sibling in siblings:
+        desc = f"：{sibling['shortdesc']}" if sibling["shortdesc"] else ""
+        lines.append(f"- {sibling['title']}（{sibling['topic_type']}）{desc}")
+    header = (
+        "## 兄弟章节上下文\n"
+        "以下章节由其他 Topic 承担，本 Topic 不要展开它们的内容，只保持边界清晰、避免重复。"
+    )
+    return header + "\n" + "\n".join(lines)
+
+
+def build_topic_ai_messages(
+    project: dict[str, Any], payload: dict[str, Any], *, structured: bool = False, settings: dict[str, Any] | None = None
+) -> tuple[str, str, list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Build the topic generation prompt under a global context budget.
+
+    Section priority (kept longest first): 素材 > Skill > 上一版 XML > 语料。
+    Oversized materials are sliced by topic relevance with original-text offsets
+    for traceability. Returns (system, user, skill_names, context_report,
+    material_slices).
+    """
     topic_type = str(payload.get("topic_type", "concept"))
     type_name = TOPIC_TYPES.get(topic_type, "Concept")
     inherit_project_skills = payload.get("inherit_project_skills", True) is not False
@@ -2740,23 +4741,86 @@ def build_topic_ai_messages(project: dict[str, Any], payload: dict[str, Any]) ->
     effective_skills = resolve_topic_skill_names(project, selected_skills, inherit_project_skills)
     records = selected_skill_records(effective_skills)
     skill_names = [str(item["name"]) for item in records]
-    skill_blocks: list[str] = []
+
+    sections: list[PromptSection] = []
     for skill in records:
         block = f"## Skill：{skill['name']}\n{skill.get('content', '')}"
         attachments = text_attachment_context(skill)
         if attachments:
             block += f"\n\n## Skill 附件上下文\n{attachments}"
-        skill_blocks.append(block)
-    skill_context = "\n\n".join(skill_blocks)
-    corpus_context = project_corpus_context(project)
+        sections.append(PromptSection(f"skill:{skill.get('id', skill['name'])}", f"Skill：{skill['name']}", 2, block))
+
     selected_material_ids = set(parse_lines(payload.get("material_ids")))
     project_materials = list_project_material_records(str(project.get("id", "")))
     selected_materials = [item for item in project_materials if str(item.get("id")) in selected_material_ids]
-    material_context = "\n\n".join(
-        f"### 研发素材：{item.get('name', '未命名')}\n{str(item.get('extracted_text', '')).strip()[:40_000]}"
-        for item in selected_materials
-        if str(item.get("extracted_text", "")).strip()
-    ) or "暂无本次选择的研发素材。"
+    terms = topic_query_terms(payload)
+    material_slices: list[dict[str, Any]] = []
+    for item in selected_materials:
+        material_text = str(item.get("extracted_text", "")).strip()
+        if not material_text:
+            continue
+        slice_text, ranges = slice_material_for_topic(material_text, terms)
+        sliced = bool(ranges)
+        material_slices.append(
+            {
+                "material_id": str(item.get("id", "")),
+                "name": str(item.get("name", "未命名")),
+                "mode": "sliced" if sliced else "full",
+                "total_chars": len(material_text),
+                "ranges": ranges,
+            }
+        )
+        sections.append(
+            PromptSection(
+                f"material:{item.get('id', '')}",
+                f"研发素材：{item.get('name', '未命名')}" + ("（已按主题切片，保留原文偏移）" if sliced else ""),
+                1,
+                slice_text,
+            )
+        )
+
+    workspace_context, workspace_files = workspace_prompt_context(
+        project,
+        terms,
+        limit=WORKSPACE_TOPIC_FILES,
+        per_file_chars=12_000,
+        max_chars=48_000,
+    )
+    if workspace_context:
+        sections.append(PromptSection("workspace", "工作区目录（生成时实时读取）", 1, workspace_context))
+        for item in workspace_files:
+            material_slices.append(
+                {
+                    "material_id": f"workspace:{item['relative']}",
+                    "name": item["relative"],
+                    "mode": "workspace",
+                    "total_chars": item.get("chars", 0),
+                    "ranges": [],
+                }
+            )
+
+    previous_xml = str(payload.get("previous_xml") or "").strip()
+    if previous_xml:
+        # 保留原始 XML（含真实 GUID/conref 引用）；结构保留编辑在后续版本处理。
+        sections.append(PromptSection("previous_xml", "上一版 XML", 3, previous_xml))
+
+    corpus_context = project_corpus_context(project)
+    if corpus_context:
+        sections.append(PromptSection("corpus", "参考项目语料", 4, corpus_context))
+
+    sections, context_report = fit_prompt_sections(sections, context_char_budget(settings))
+
+    skill_context = "\n\n".join(section.text for section in sections if section.key.startswith("skill:") and section.text)
+    material_blocks = [
+        f"### {section.title}\n{section.text}"
+        for section in sections
+        if section.key.startswith("material:") and section.text
+    ]
+    material_context = "\n\n".join(material_blocks) or "暂无本次选择的研发素材。"
+    workspace_final = next((section.text for section in sections if section.key == "workspace"), "")
+    previous_context = next((section.text for section in sections if section.key == "previous_xml"), "")
+    corpus_final = next((section.text for section in sections if section.key == "corpus"), "")
+
     generation_mode = str(payload.get("generation_mode", "new")).strip().lower()
     if generation_mode == "optimize":
         mode_instruction = "这是 Topic 优化：只优化语言、结构、术语一致性和表达清晰度，不改变业务事实，不擅自新增功能，尽量保留原 XML 标签结构。"
@@ -2764,20 +4828,39 @@ def build_topic_ai_messages(project: dict[str, Any], payload: dict[str, Any]) ->
         mode_instruction = "这是版本更新：基于上一版 Topic 和本次输入材料更新内容，允许新增、删除或调整必要的 XML 结构，但不得编造事实。"
     else:
         mode_instruction = "这是全新 Topic：根据当前已确认材料从零编写。"
-    system = f"""你是 HIK 文档开发工具中的 Topic/XML 生成器。你必须严格遵守用户提供的 Skill。
+
+    if structured:
+        output_instruction = (
+            f"按本提示末尾“{type_name} 输出格式”返回 JSON 中间稿，不要自己输出 XML。"
+        )
+        unconfirmed_instruction = (
+            "素材无法确认的事实登记到 unconfirmed 数组，正文对应位置使用 TODO_CONFIRM 占位，绝对不要编造。"
+        )
+    else:
+        output_instruction = "只输出一个可解析的 DITA XML 文档，不输出解释、Markdown 代码围栏或前后说明。"
+        unconfirmed_instruction = (
+            "使用 TODO_CONFIRM 占位并尽量在正文中标注待确认内容，或写“请根据已确认需求补充”。"
+        )
+
+    system = f"""你是 HIK 文档开发工具中的 Topic 生成器。你必须严格遵守用户提供的 Skill。
+输入可能包含用户上传的素材，以及工具从项目工作区目录实时读取的文件；两者都属于可依据的材料，均不得超出其内容编造事实。
 
 输出要求：
-1. 只输出一个可解析的 DITA XML 文档，不输出解释、Markdown 代码围栏或前后说明。
+1. {output_instruction}
 2. Topic 类型只能是 Concept 或 Task。Reference 当前不生成。
-3. 不生成 GUID、GUID=xxx、GUID-xxx 或任何 GUID Token。XML id 使用稳定、可读且非 GUID 的英文或拼音标识。
-4. 图片引用使用 TODO_IMAGE，交叉引用使用 TODO_REF。保留占位符，供工程师后续手动替换。
-5. 事实不足时不要编造具体参数、按钮、数值或业务行为；使用“请根据已确认需求补充”或在正文中明确标注待确认内容。
-6. Concept 使用 conbody 和 section；Task 使用 taskbody、prereq、steps。每个操作步骤只包含一个动作。
-7. 文案遵守海康写作规范：使用“您”、使用“单击”、保持术语一致，数字和单位规范。
+3. 不生成 GUID Token（形如 GUID-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx 或 GUID=xxx）。XML id 使用稳定、可读且非 GUID 的英文或拼音标识。
+4. 图片引用使用 TODO_IMAGE，交叉引用使用 TODO_REF，素材未确认的事实使用 TODO_CONFIRM。保留占位符，供工程师后续手动替换。
+5. 事实不足时不要编造具体参数、按钮、数值或业务行为；{unconfirmed_instruction}
+6. Concept 使用 conbody 和 section；Task 使用 taskbody、prereq、steps。每个操作步骤只包含一个动作，步骤至少 2 步。
+7. 文案遵守海康写作规范：使用“您”、使用“单击”，短描述不超过 3 句，保持术语一致，数字和单位规范。
 8. {mode_instruction}
 """
+    if structured:
+        structure_instruction = TASK_STRUCTURE_INSTRUCTION if topic_type == "task" else CONCEPT_STRUCTURE_INSTRUCTION
+        system += "\n" + structure_instruction
+
     outline = parse_outline_items(payload.get("outline"))
-    user = f"""请基于以下信息生成 {type_name} Topic XML。
+    user = f"""请基于以下信息生成 {type_name} Topic。
 
 ## 项目信息
 - 项目：{project.get('name', '')}
@@ -2798,73 +4881,194 @@ def build_topic_ai_messages(project: dict[str, Any], payload: dict[str, Any]) ->
 - 是否需要引用占位符：{'是' if payload.get('include_ref_placeholder') else '否'}
 - 本次生成模式：{generation_mode}
 
+{sibling_context_block(payload)}
+
 ## 已选 Skill
-{skill_context}
+{skill_context or '（无可用 Skill 内容。）'}
 
 ## 本次选择的研发素材
 {material_context}
 
+## 工作区目录（Agent 直接读取的本地文件）
+以下内容由工具在生成时直接从项目工作区目录读取，不属于上传材料；文件名可以作为来源引用。
+{workspace_final or '当前项目未设置工作区目录。'}
+
 ## 上一版 XML（仅在重生成时提供）
-{sanitize_text(payload.get('previous_xml'))[:60000] or '无'}
+{previous_context or '无'}
 
 ## 参考项目实时语料库
 以下内容仅作为术语、结构和表达参考，不能替代当前项目材料，也不能直接引入其中未被当前需求确认的业务事实。
-{corpus_context or '暂无参考项目语料。'}
+{corpus_final or '暂无参考项目语料。'}
 
-请只返回最终 XML。"""
-    return system, user, skill_names
+{'请按系统提示的 JSON 中间稿格式返回。' if structured else '请只返回最终 XML。'}"""
+    return system, user, skill_names, context_report, material_slices
 
 
-def call_ai_text(settings: dict[str, Any], system: str, user: str, max_tokens: int = 6000) -> tuple[str, str]:
+def _configured_max_tokens(settings: dict[str, Any], fallback: int) -> int:
+    try:
+        value = int(settings.get("max_tokens") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return value if value >= 256 else fallback
+
+
+def call_ai_messages(
+    settings: dict[str, Any],
+    system: str,
+    messages: list[dict[str, str]],
+    max_tokens: int = 6000,
+    json_mode: bool = False,
+) -> tuple[str, str]:
+    """Send a multi-turn chat request and return (text, model).
+
+    - Inspects finish_reason/stop_reason so a max_tokens truncation is reported
+      clearly instead of surfacing later as a confusing parse error.
+    - json_mode asks for strict JSON output (OpenAI response_format or an
+      Anthropic "{" prefill); servers that reject response_format fall back to
+      plain mode automatically.
+    - Every call appends a meta entry (usage/stop_reason/model) to the
+      thread-local collector; generation flows read it via ai_call_metas().
+    """
     provider = str(settings.get("provider", "openai-compatible"))
     model = str(settings.get("model", "")).strip()
     if not model and provider != "local":
         raise ValueError("请先填写模型名称。")
     endpoint = endpoint_for(settings)
-    api_key = KEYCHAIN.get()
+    api_key = settings.get("_api_key") or KEYCHAIN.get()
     if provider != "local" and not api_key:
         raise ValueError("尚未配置 API Key，请先在“AI 服务配置”中保存。")
-    if provider == "anthropic":
-        body = {
-            "model": model,
-            "max_tokens": max_tokens,
-            "temperature": float(settings.get("temperature", 0.2)),
-            "system": system,
-            "messages": [{"role": "user", "content": user}],
-        }
-        headers = {"Content-Type": "application/json", "x-api-key": api_key or "", "anthropic-version": "2023-06-01"}
-    else:
-        body = {
-            "model": model,
-            "temperature": float(settings.get("temperature", 0.2)),
-            "max_tokens": max_tokens,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        }
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-    request = urllib.request.Request(endpoint, data=json.dumps(body, ensure_ascii=False).encode("utf-8"), headers=headers, method="POST")
-    try:
-        with open_ai_request(request, endpoint, timeout=int(settings.get("timeout_seconds", 60))) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        message = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"AI 服务返回 HTTP {exc.code}（请求地址：{endpoint}）：{message[:500]}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"AI 服务连接失败（请求地址：{endpoint}）：{exc.reason}") from exc
-    except ConnectionRefusedError as exc:
-        raise RuntimeError(f"模型地址拒绝连接：{endpoint}") from exc
-    except TimeoutError as exc:
-        raise RuntimeError("AI 生成请求超时，请检查地址或超时设置。") from exc
+    effective_max_tokens = _configured_max_tokens(settings, max_tokens)
+    temperature = float(settings.get("temperature", 0.2))
+    timeout = int(settings.get("timeout_seconds", 60))
+
+    def build_request(allow_json: bool):
+        nonlocal messages
+        anthropic_prefill = provider == "anthropic" and allow_json and json_mode
+        if provider == "anthropic":
+            body: dict[str, Any] = {
+                "model": model,
+                "max_tokens": effective_max_tokens,
+                "temperature": temperature,
+                "system": system,
+                "messages": messages + ([{"role": "assistant", "content": "{"}] if anthropic_prefill else []),
+            }
+        else:
+            body = {
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": effective_max_tokens,
+                "messages": [{"role": "system", "content": system}, *messages],
+            }
+            if allow_json and json_mode:
+                body["response_format"] = {"type": "json_object"}
+        return body, anthropic_prefill
+
+    modes = [True, False] if json_mode else [False]
+    raw = ""
+    prefill_used = False
+    last_error: Exception | None = None
+    for allow_json in modes:
+        body, prefill_used = build_request(allow_json)
+        try:
+            _, raw, _endpoint = post_ai_json(settings, provider, api_key or "", body, timeout)
+            last_error = None
+            break
+        except AIHTTPError as exc:
+            # 兼容不支持 response_format 的 OpenAI-compatible 服务：降级后重试一次。
+            if allow_json and exc.status == 400 and "response_format" in exc.raw.lower():
+                last_error = RuntimeError(exc.describe())
+                continue
+            raise RuntimeError("AI " + exc.describe()) from exc
+    if last_error is not None:
+        raise last_error
+
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError("AI 服务返回的内容不是有效 JSON。") from exc
+
+    if provider == "anthropic":
+        stop_reason = str(data.get("stop_reason", "") or "")
+    else:
+        choices = data.get("choices", [])
+        first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+        stop_reason = str(first.get("finish_reason", "") or "")
+    truncated = stop_reason in {"length", "max_tokens"}
+
     text = ai_response_text(data, provider).strip()
+    if prefill_used and text and not text.lstrip().startswith("{"):
+        text = "{" + text.lstrip()
+    if truncated and not text:
+        raise RuntimeError(
+            f"AI 输出被 max_tokens（{effective_max_tokens}）截断且无内容，请在 AI 服务配置中调大 max_tokens 或缩小输入。"
+        )
     if not text:
         raise RuntimeError("AI 服务未返回文本内容。")
+    # usage 计数（修复清单 4.5）：此前被丢弃，现采集进调用日志。
+    usage_raw = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    if provider == "anthropic":
+        usage = {
+            "input_tokens": int(usage_raw.get("input_tokens", 0) or 0),
+            "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
+        }
+    else:
+        usage = {
+            "input_tokens": int(usage_raw.get("prompt_tokens", 0) or 0),
+            "output_tokens": int(usage_raw.get("completion_tokens", 0) or 0),
+        }
+    collect_ai_call_meta({"usage": usage, "stop_reason": stop_reason, "model": model or "本地模型"})
     return text, model or "本地模型"
+
+
+def call_ai_text(
+    settings: dict[str, Any], system: str, user: str, max_tokens: int = 6000, json_mode: bool = False
+) -> tuple[str, str]:
+    return call_ai_messages(
+        settings, system, [{"role": "user", "content": user}], max_tokens=max_tokens, json_mode=json_mode
+    )
+
+
+REPAIR_FEEDBACK_TEMPLATE = (
+    "你上次的输出存在以下问题：\n{error}\n\n"
+    "请重新输出完整且已修正的结果。只返回结果本身，不要解释，不要道歉，不要附加说明。"
+)
+
+
+def generate_with_repair(
+    settings: dict[str, Any],
+    system: str,
+    user: str,
+    parse_result: Any,
+    *,
+    max_tokens: int = 6000,
+    json_mode: bool = False,
+    max_attempts: int = 3,
+) -> tuple[Any, str]:
+    """Call the AI and feed validation/parse errors back for up to max_attempts tries.
+
+    parse_result(text) must return the parsed value, or raise RuntimeError /
+    ValueError with a user-facing issue description (also sent back to the
+    model). JobCancelled always propagates so cancellation stays responsive.
+    """
+    messages: list[dict[str, str]] = [{"role": "user", "content": user}]
+    last_error = ""
+    begin_ai_call_collection()
+    for attempt in range(1, max_attempts + 1):
+        text, model = call_ai_messages(settings, system, messages, max_tokens=max_tokens, json_mode=json_mode)
+        try:
+            return parse_result(text), model
+        except JobCancelled:
+            raise
+        except (RuntimeError, ValueError, ET.ParseError) as exc:
+            last_error = str(exc)
+            if attempt >= max_attempts:
+                break
+            check_job_cancelled()
+            messages = messages + [
+                {"role": "assistant", "content": text},
+                {"role": "user", "content": REPAIR_FEEDBACK_TEMPLATE.format(error=last_error)},
+            ]
+    raise RuntimeError(f"AI 输出在 {max_attempts} 次尝试后仍未通过校验。最后错误：{last_error}")
 
 
 def call_ai_generation(settings: dict[str, Any], system: str, user: str) -> tuple[str, str]:
@@ -2885,26 +5089,112 @@ def generate_ai_topic(project_id: str, payload: dict[str, Any]) -> dict[str, Any
     title = sanitize_text(payload.get("title"))
     if not title:
         raise ValueError("Topic 标题不能为空。")
-    system, user, skill_names = build_topic_ai_messages(project, payload)
-    xml_text, model = call_ai_generation(load_settings(), system, user)
-    validation = validate_topic_xml(xml_text)
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError as exc:
-        raise RuntimeError(f"AI 返回的 XML 无法解析：{exc}") from exc
+    settings = load_settings()
     expected_root = "task" if topic_type == "task" else "concept"
-    if root.tag != expected_root:
-        raise RuntimeError(f"AI 返回的根标签为 <{root.tag}>，预期为 <{expected_root}>。")
+    previous_xml = str(payload.get("previous_xml") or "").strip()
+    structured_enabled = bool(settings.get("structured_output", settings.get("structured_task", True)))
+    # 结构化中间稿覆盖全新/更新的 Task 与 Concept；优化模式涉及既有 XML 改写，
+    # 仍走直接 XML 路径，等结构保留编辑（修复清单 2.4）落地后再切换。
+    structured = (
+        topic_type in {"task", "concept"}
+        and not previous_xml
+        and structured_enabled
+    )
+    system, user, skill_names, context_report, material_slices = build_topic_ai_messages(
+        project, payload, structured=structured, settings=settings
+    )
+    unconfirmed: list[dict[str, str]] = []
+    if structured:
+        if topic_type == "task":
+            parse_structure: Any = parse_task_structure
+            render_structure: Any = render_task_topic_xml
+        else:
+            parse_structure = parse_concept_structure
+            render_structure = render_concept_topic_xml
+        structure, model = generate_with_repair(
+            settings,
+            system,
+            user,
+            parse_structure,
+            max_tokens=DEFAULT_TOPIC_MAX_TOKENS,
+            json_mode=True,
+        )
+        xml_text = render_structure(structure)
+        unconfirmed = structure.get("unconfirmed", [])
+    else:
+        def parse_topic_xml(raw_text: str) -> str:
+            xml_candidate = clean_ai_xml(raw_text)
+            if not xml_candidate:
+                raise RuntimeError("AI 服务未返回 XML 内容。")
+            try:
+                root = ET.fromstring(xml_candidate)
+            except ET.ParseError as exc:
+                raise RuntimeError(f"AI 返回的 XML 无法解析：{exc}") from exc
+            if root.tag != expected_root:
+                raise RuntimeError(f"AI 返回的根标签为 <{root.tag}>，预期为 <{expected_root}>。")
+            return xml_candidate
+
+        xml_text, model = generate_with_repair(
+            settings,
+            system,
+            user,
+            parse_topic_xml,
+            max_tokens=DEFAULT_TOPIC_MAX_TOKENS,
+        )
+    validation = validate_topic_xml(xml_text)
+    lint_report = lint_topic_xml(xml_text, topic_type)
+    # 生成记录（修复清单 4.5）：模型参数、Skill 哈希、prompt 哈希/摘要、usage、lint 摘要。
+    metas = ai_call_metas()
+    usage = {
+        "input_tokens": sum(int((meta.get("usage") or {}).get("input_tokens", 0) or 0) for meta in metas),
+        "output_tokens": sum(int((meta.get("usage") or {}).get("output_tokens", 0) or 0) for meta in metas),
+    }
+    generation_mode = "structured-task" if structured and topic_type == "task" else ("structured-concept" if structured else "direct-xml")
+    try:
+        record_generation_log(
+            project_id,
+            {
+                "operation": "topic-generate",
+                "topic_type": topic_type,
+                "generation_mode": generation_mode,
+                "structured": structured,
+                "provider": settings.get("provider"),
+                "model": model,
+                "model_setting": settings.get("model"),
+                "temperature": settings.get("temperature"),
+                "max_tokens_setting": settings.get("max_tokens"),
+                "skill_names": skill_names,
+                "skill_hashes": _skill_content_hashes(skill_names),
+                "prompt_chars": len(system) + len(user),
+                "prompt_hash": {"system": _sha16(system), "user": _sha16(user)},
+                "prompt_summary": user[:200],
+                "material_ids": payload.get("material_ids") or [],
+                "material_slice_count": len(material_slices or []),
+                "attempts": max(1, len(metas)),
+                "usage": usage,
+                "xml_chars": len(xml_text),
+                "lint": {"error_count": lint_report["error_count"], "warning_count": lint_report["warning_count"]},
+                "unconfirmed_count": len(unconfirmed),
+            },
+        )
+    except OSError:
+        pass  # 日志落盘失败不阻断生成
     inherit_project_skills = payload.get("inherit_project_skills", True) is not False
     overrides = topic_skill_overrides(project, payload.get("skills", project.get("skills", [])), inherit_project_skills)
     return {
         "xml": xml_text,
         "validation": validation,
+        "lint": lint_report,
+        "usage": usage,
         "skills": skill_names,
-        "skill_snapshot": skill_usage_snapshot(skill_names, project),
         "skill_snapshot": skill_usage_snapshot(skill_names, project, overrides, inherit_project_skills),
         "model": model,
         "source": "ai",
+        "generation_mode": generation_mode,
+        "unconfirmed": unconfirmed,
+        "material_slices": material_slices,
+        "context_report": context_report,
+        "context_summary": context_report_summary(context_report),
         "generated_at": now_iso(),
     }
 
@@ -2968,41 +5258,55 @@ def normalize_analysis_result(value: Any) -> dict[str, Any]:
 
 
 def build_requirements_analysis_messages(
-    project: dict[str, Any], payload: dict[str, Any], materials: list[dict[str, Any]]
-) -> tuple[str, str, list[str]]:
+    project: dict[str, Any], payload: dict[str, Any], materials: list[dict[str, Any]], settings: dict[str, Any] | None = None
+) -> tuple[str, str, list[str], list[dict[str, Any]]]:
+    """Build the analysis prompt under a global context budget.
+
+    Section priority: 素材 > Skill > 基线 > 语料。Returns
+    (system, user, skill_names, context_report).
+    """
     records = selected_skill_records(payload.get("skills") or project.get("skills", []))
     skill_names = [str(item["name"]) for item in records]
-    skill_blocks: list[str] = []
+    sections: list[PromptSection] = []
     for skill in records:
         block = f"## Skill：{skill['name']}\n{skill.get('content', '')}"
         attachments = text_attachment_context(skill)
         if attachments:
             block += f"\n\n## Skill 附件上下文\n{attachments}"
-        skill_blocks.append(block)
-
-    material_blocks: list[str] = []
-    material_budget = 180_000
+        sections.append(PromptSection(f"skill:{skill.get('id', skill['name'])}", f"Skill：{skill['name']}", 2, block))
+    empty_material_notes: list[str] = []
     for material in materials:
         text = str(material.get("extracted_text", "")).strip()
         status = str(material.get("extract_status", "unsupported"))
         message = str(material.get("extract_message", ""))
         if text:
-            remaining = max(0, material_budget - sum(len(block) for block in material_blocks))
-            if remaining <= 0:
-                material_blocks.append(f"### 材料：{material.get('name', '未命名')}\n- 文本未送入 AI：已达到本次分析上下文上限。")
-                continue
-            text = text[:remaining]
-            material_blocks.append(
-                f"### 材料：{material.get('name', '未命名')}\n"
-                f"- 提取状态：{status}\n{text}"
+            sections.append(
+                PromptSection(
+                    f"material:{material.get('id', '')}",
+                    f"材料：{material.get('name', '未命名')}（提取状态：{status}）",
+                    1,
+                    text,
+                )
             )
         else:
-            material_blocks.append(
-                f"### 材料：{material.get('name', '未命名')}\n"
-                f"- 提取状态：{status}\n- 处理说明：{message or '暂无可读取文本'}"
+            empty_material_notes.append(
+                f"### 材料：{material.get('name', '未命名')}\n- 提取状态：{status}\n- 处理说明：{message or '暂无可读取文本'}"
             )
-    material_context = "\n\n".join(material_blocks)
+    workspace_terms = workspace_query_terms(
+        project.get("name"), project.get("product"), project.get("version"), payload.get("analysis_note")
+    )
+    workspace_context, _workspace_files = workspace_prompt_context(
+        project,
+        workspace_terms,
+        limit=WORKSPACE_FRAMEWORK_FILES,
+        per_file_chars=18_000,
+        max_chars=90_000,
+    )
+    if workspace_context:
+        sections.append(PromptSection("workspace", "工作区目录（生成时实时读取）", 1, workspace_context))
     corpus_context = project_corpus_context(project)
+    if corpus_context:
+        sections.append(PromptSection("corpus", "参考项目语料", 4, corpus_context))
     mode = normalize_project_mode(project.get("mode", "new"))
     mode_instruction = {
         "new": "从零梳理当前需求，输出全新文档框架。",
@@ -3010,6 +5314,18 @@ def build_requirements_analysis_messages(
         "optimize": "重点分析目标 Topic 的语言和结构问题，不因为优化表达而擅自改变业务范围。",
     }[mode]
     baseline_context = project_baseline_context(project) if mode != "new" else ""
+    if baseline_context:
+        sections.append(PromptSection("baseline", "当前项目基线", 3, baseline_context))
+    sections, context_report = fit_prompt_sections(sections, context_char_budget(settings))
+
+    skill_blocks = [section.text for section in sections if section.key.startswith("skill:") and section.text]
+    material_blocks = [
+        f"### {section.title}\n{section.text}" for section in sections if section.key.startswith("material:") and section.text
+    ]
+    material_context = "\n\n".join(material_blocks + empty_material_notes) or "（无可用材料文本。）"
+    workspace_final = next((section.text for section in sections if section.key == "workspace"), "")
+    corpus_final = next((section.text for section in sections if section.key == "corpus"), "")
+    baseline_final = next((section.text for section in sections if section.key == "baseline"), "")
     system = f"""你是 HIK 文档开发工具中的需求分析器。请严格遵守已选 Skill，并且只根据输入材料分析，不得补造业务事实。
 
 输出要求：
@@ -3033,20 +5349,23 @@ def build_requirements_analysis_messages(
 - 项目模式：{PROJECT_MODES[mode]}
 
 ## 已选 Skill
-{chr(10).join(skill_blocks)}
+{chr(10).join(skill_blocks) or '（无可用 Skill 内容。）'}
 
 ## 原始材料提取内容
 {material_context}
 
+## 工作区目录（Agent 直接读取的本地文件）
+{workspace_final or '当前项目未设置工作区目录。'}
+
 ## 当前项目基线（版本更新或 Topic 优化项目）
-{baseline_context or '无当前项目基线。'}
+{baseline_final or '无当前项目基线。'}
 
 ## 参考项目实时语料库
 仅作为结构、术语和写作风格参考，不得将参考项目中未被当前材料确认的事实当作当前项目结论。
-{corpus_context or '暂无参考项目语料。'}
+{corpus_final or '暂无参考项目语料。'}
 
 请保留证据来源，优先使用材料文件名作为 source_materials。只返回 JSON。"""
-    return system, user, skill_names
+    return system, user, skill_names, context_report
 
 
 def generate_requirements_analysis(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -3054,18 +5373,29 @@ def generate_requirements_analysis(project_id: str, payload: dict[str, Any]) -> 
     if not isinstance(project, dict):
         raise ValueError("项目不存在。")
     records = list_project_material_records(project_id)
-    if not records:
-        raise ValueError("请先上传至少一份需求材料。")
     readable_records = [item for item in records if str(item.get("extracted_text", "")).strip()]
-    if not readable_records:
-        raise ValueError("当前材料均未成功提取文本，暂时无法开始 AI 分析。请补充 Markdown、Word 或可提取文本的 PDF。")
-    system, user, skill_names = build_requirements_analysis_messages(project, payload, records)
-    raw_text, model = call_ai_text(load_settings(), system, user, max_tokens=7000)
-    try:
-        parsed = json.loads(clean_ai_json(raw_text))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"AI 返回的需求分析不是有效 JSON：{str(exc)[:240]}") from exc
-    result = normalize_analysis_result(parsed)
+    if not readable_records and not workspace_has_readable(project_id, project):
+        if records:
+            raise ValueError("当前材料均未成功提取文本，且项目没有可读取的工作区目录。请补充材料，或把包含需求文档的目录设为工作区。")
+        raise ValueError("请先上传至少一份需求材料，或在项目里设置工作区目录（生成时直接读取目录内容）。")
+    settings = load_settings()
+    system, user, skill_names, context_report = build_requirements_analysis_messages(project, payload, records, settings)
+
+    def parse_analysis_result(raw_text: str) -> dict[str, Any]:
+        try:
+            parsed = json.loads(clean_ai_json(raw_text))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"AI 返回的需求分析不是有效 JSON：{str(exc)[:240]}") from exc
+        return normalize_analysis_result(parsed)
+
+    result, model = generate_with_repair(
+        settings,
+        system,
+        user,
+        parse_analysis_result,
+        max_tokens=DEFAULT_ANALYSIS_MAX_TOKENS,
+        json_mode=True,
+    )
     created_at = now_iso()
     analysis_id = f"analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(2)}"
     record = {
@@ -3076,17 +5406,815 @@ def generate_requirements_analysis(project_id: str, payload: dict[str, Any]) -> 
         "model": model,
         "skills": skill_names,
         "material_ids": [str(item.get("id")) for item in records],
+        "context_report": context_report,
+        "context_summary": context_report_summary(context_report),
         **result,
     }
-    write_json(analysis_version_dir(project_id) / f"{analysis_id}.json", record)
-    project["updated_at"] = created_at
-    project["stage"] = "需求分析"
-    write_json(project_dir(project_id) / "project.json", project)
+    with generation_commit():
+        write_json(analysis_version_dir(project_id) / f"{analysis_id}.json", record)
+        project["updated_at"] = created_at
+        project["stage"] = "需求分析"
+        write_json(project_dir(project_id) / "project.json", project)
     return analysis_record_summary(record)
 
 
+def batch_generate_topics(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Server-side batch generation: one job iterates framework nodes.
+
+    Nodes whose framework_node_key matches an existing Topic are regenerated in
+    place (identity and history preserved); others create new Topics. A single
+    item failure does not abort the run; cancellation stops before the next
+    uncommitted item. Progress is published for the polling UI.
+    """
+    project = read_json(project_dir(project_id) / "project.json", None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    raw_nodes = payload.get("nodes")
+    if not isinstance(raw_nodes, list) or not raw_nodes:
+        raise ValueError("请提供至少一个待生成的框架节点。")
+    common_raw = payload.get("common")
+    common = common_raw if isinstance(common_raw, dict) else {}
+    nodes: list[dict[str, Any]] = []
+    for raw in raw_nodes[:200]:
+        if not isinstance(raw, dict):
+            continue
+        title = sanitize_text(raw.get("title"))
+        if not title:
+            continue
+        summary = sanitize_text(raw.get("chapter_summary", raw.get("summary")))
+        nodes.append(
+            {
+                "title": title,
+                "topic_type": str(raw.get("topic_type", "concept")),
+                "shortdesc": sanitize_text(raw.get("shortdesc")) or summary or f"说明“{title}”相关内容。",
+                "chapter_summary": summary,
+                "brief": sanitize_text(raw.get("brief", summary)),
+                "heading_level": topic_level(raw.get("heading_level", raw.get("level", 2))),
+                "framework_node_key": sanitize_text(raw.get("framework_node_key")),
+                "parent_title": sanitize_text(raw.get("parent_title")),
+                "sibling_topics": raw.get("sibling_topics") if isinstance(raw.get("sibling_topics"), list) else [],
+            }
+        )
+    if not nodes:
+        raise ValueError("节点清单中没有有效的 Topic 标题。")
+    common_fields = {
+        "generation_prompt": sanitize_text(common.get("generation_prompt")),
+        "skills": common.get("skills") if isinstance(common.get("skills"), list) else [],
+        "inherit_project_skills": common.get("inherit_project_skills", True) is not False,
+        "material_ids": parse_lines(common.get("material_ids")),
+        "include_image_placeholder": bool(common.get("include_image_placeholder")),
+        "include_ref_placeholder": bool(common.get("include_ref_placeholder")),
+        "ai_generate": True,
+    }
+    existing = {
+        str(topic.get("framework_node_key")): topic
+        for topic in list_topics(project_id)
+        if topic.get("framework_node_key")
+    }
+    items: list[dict[str, Any]] = []
+    succeeded = 0
+    failed = 0
+    total = len(nodes)
+    for index, node in enumerate(nodes):
+        check_job_cancelled()
+        update_job_progress(index, total, node["title"])
+        item_payload = {**common_fields, **node}
+        try:
+            current = existing.get(node["framework_node_key"]) if node["framework_node_key"] else None
+            if current is not None:
+                summary = regenerate_topic(project_id, str(current["id"]), item_payload)
+                status = "updated"
+            else:
+                summary = create_topic(project_id, item_payload)
+                status = "created"
+            succeeded += 1
+            items.append({"title": node["title"], "status": status, "topic_id": summary.get("id"), "error": None})
+        except JobCancelled:
+            raise
+        except Exception as exc:  # single-item failure must not abort the batch
+            failed += 1
+            items.append({"title": node["title"], "status": "failed", "topic_id": None, "error": str(exc)[:300]})
+        update_job_progress(index + 1, total, node["title"])
+    return {"total": total, "succeeded": succeeded, "failed": failed, "items": items}
+
+
+def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """多 Agent 并行批量生成（借鉴 dsh-synapse 的并行会话思路）。
+
+    N 个 worker 线程从共享队列领框架节点，每个 worker 绑定一个 Agent 档案
+    （独立模型配置 + 独立 API Key，未配 Key 回退主 Key）。单节点失败不中断；
+    取消立即生效（worker 线程各自设置 JOB_CONTEXT，取消/进度机制天然兼容）。
+    进度含 completed_titles/failed_titles，供前端逐节点点亮状态。
+    """
+    if not isinstance(read_json(project_dir(project_id) / "project.json", None), dict):
+        raise ValueError("项目不存在。")
+    raw_nodes = payload.get("nodes")
+    if not isinstance(raw_nodes, list) or not raw_nodes:
+        raise ValueError("请提供至少一个待生成的框架节点。")
+    common_raw = payload.get("common")
+    common = common_raw if isinstance(common_raw, dict) else {}
+    nodes: list[dict[str, Any]] = []
+    for raw in raw_nodes[:200]:
+        if not isinstance(raw, dict):
+            continue
+        title = sanitize_text(raw.get("title"))
+        if not title:
+            continue
+        summary = sanitize_text(raw.get("chapter_summary", raw.get("summary")))
+        nodes.append(
+            {
+                "title": title,
+                "topic_type": str(raw.get("topic_type", "concept")),
+                "shortdesc": sanitize_text(raw.get("shortdesc")) or summary or f"说明“{title}”相关内容。",
+                "chapter_summary": summary,
+                "brief": sanitize_text(raw.get("brief", summary)),
+                "heading_level": topic_level(raw.get("heading_level", raw.get("level", 2))),
+                "framework_node_key": sanitize_text(raw.get("framework_node_key")),
+                "parent_title": sanitize_text(raw.get("parent_title")),
+                "sibling_topics": raw.get("sibling_topics") if isinstance(raw.get("sibling_topics"), list) else [],
+            }
+        )
+    if not nodes:
+        raise ValueError("节点清单中没有有效的 Topic 标题。")
+    try:
+        workers = int(payload.get("workers") or 2)
+    except (TypeError, ValueError):
+        workers = 2
+    workers = max(1, min(workers, 6))
+    profile_ids = [str(item).strip() for item in (payload.get("profile_ids") or []) if str(item).strip()]
+    worker_settings: list[dict[str, Any]] = []
+    for index in range(workers):
+        profile_id = profile_ids[index % len(profile_ids)] if profile_ids else None
+        if profile_id:
+            merged = resolve_agent_profile_settings(profile_id)
+            if merged is None:
+                raise ValueError(f"Agent 档案不存在：{profile_id}")
+            worker_settings.append(merged)
+        else:
+            worker_settings.append(load_settings())
+
+    job_id = getattr(JOB_CONTEXT, "job_id", None)
+    if not job_id:
+        raise RuntimeError("并行批量生成必须在后台任务中执行。")
+
+    common_fields = {
+        "generation_prompt": sanitize_text(common.get("generation_prompt")),
+        "skills": common.get("skills") if isinstance(common.get("skills"), list) else [],
+        "inherit_project_skills": common.get("inherit_project_skills", True) is not False,
+        "material_ids": parse_lines(common.get("material_ids")),
+        "include_image_placeholder": bool(common.get("include_image_placeholder")),
+        "include_ref_placeholder": bool(common.get("include_ref_placeholder")),
+        "ai_generate": True,
+    }
+    existing = {
+        str(topic.get("framework_node_key")): topic
+        for topic in list_topics(project_id)
+        if topic.get("framework_node_key")
+    }
+    task_queue: queue.Queue = queue.Queue()
+    for index, node in enumerate(nodes):
+        task_queue.put((index, node))
+    results: list[dict[str, Any] | None] = [None] * len(nodes)
+    state_lock = threading.Lock()
+    shared: dict[str, Any] = {
+        "done": 0,
+        "completed_titles": [],
+        "failed_titles": [],
+        "running_titles": [],
+        "completed_keys": [],
+        "failed_keys": [],
+        "running_keys": [],
+    }
+
+    def mark_running(node: dict[str, Any]) -> None:
+        with state_lock:
+            shared["running_titles"].append(node["title"])
+            if node["framework_node_key"]:
+                shared["running_keys"].append(node["framework_node_key"])
+
+    def mark_finished(node: dict[str, Any], ok: bool) -> None:
+        with state_lock:
+            running_title = node["title"]
+            if running_title in shared["running_titles"]:
+                shared["running_titles"].remove(running_title)
+            if node["framework_node_key"] and node["framework_node_key"] in shared["running_keys"]:
+                shared["running_keys"].remove(node["framework_node_key"])
+            shared["done"] += 1
+            if ok:
+                shared["completed_titles"].append(node["title"])
+                if node["framework_node_key"]:
+                    shared["completed_keys"].append(node["framework_node_key"])
+            else:
+                shared["failed_titles"].append(node["title"])
+                if node["framework_node_key"]:
+                    shared["failed_keys"].append(node["framework_node_key"])
+
+    # 画布模式：每个 Agent 显式管一批节点（groups），否则沿用共享队列自动领任务。
+    # 每个 group 可携带自己的 generation_prompt / skills / material_ids，
+    # 值缺失（None）表示沿用 common，[] 则是“明确不要”。
+    thread_specs: list[dict[str, Any]] = []
+    tracked_total = len(nodes)
+    groups_raw = payload.get("groups")
+    if isinstance(groups_raw, list) and groups_raw:
+        key_index = {
+            str(node["framework_node_key"]): index
+            for index, node in enumerate(nodes)
+            if node["framework_node_key"]
+        }
+        title_index: dict[str, int] = {}
+        for index, node in enumerate(nodes):
+            title_index.setdefault(node["title"], index)
+        assigned: set[int] = set()
+        for raw_group in groups_raw[:6]:
+            if not isinstance(raw_group, dict):
+                continue
+            raw_keys = raw_group.get("node_keys")
+            raw_keys = raw_keys if isinstance(raw_keys, list) else []
+            indexes: list[int] = []
+            for raw_key in raw_keys:
+                index = key_index.get(str(raw_key))
+                if index is None:
+                    index = title_index.get(str(raw_key))
+                if index is not None and index not in assigned:
+                    indexes.append(index)
+                    assigned.add(index)
+            if not indexes:
+                continue
+            profile_id = str(raw_group.get("profile_id") or "").strip()
+            if profile_id:
+                merged = resolve_agent_profile_settings(profile_id)
+                if merged is None:
+                    raise ValueError(f"Agent 档案不存在：{profile_id}")
+            else:
+                merged = load_settings()
+            group_skills = raw_group.get("skills")
+            thread_specs.append(
+                {
+                    "indexes": indexes,
+                    "settings": merged,
+                    "prompt": sanitize_text(raw_group.get("generation_prompt")),
+                    "skills": [str(item).strip() for item in group_skills if str(item).strip()] if isinstance(group_skills, list) else None,
+                    "inherit": None if "inherit_project_skills" not in raw_group else raw_group.get("inherit_project_skills") is not False,
+                    "material_ids": parse_lines(raw_group.get("material_ids")) if "material_ids" in raw_group else None,
+                }
+            )
+        # 画布模式下未分配给任何 Agent 的节点不生成：让画布上保持“未分配”，
+        # 避免用户缩小 Agent 范围后，剩余章节被悄悄塞给最后一个 Agent。
+        if not thread_specs:
+            raise ValueError("画布未分配任何章节，请至少给一个 Agent 框选章节。")
+        tracked_total = len(assigned)
+    else:
+        thread_specs = [
+            {
+                "indexes": None,
+                "settings": worker_settings[index % len(worker_settings)],
+                "prompt": "",
+                "skills": None,
+                "inherit": None,
+                "material_ids": None,
+            }
+            for index in range(min(workers, len(nodes)))
+        ]
+
+    def publish_progress() -> None:
+        with BACKGROUND_JOBS_LOCK:
+            job = BACKGROUND_JOBS.get(job_id)
+            if job is not None:
+                job["progress"] = {
+                    "done": shared["done"],
+                    "total": tracked_total,
+                    "detail": "、".join(shared["completed_titles"][-3:]) or "进行中",
+                    "completed_titles": list(shared["completed_titles"]),
+                    "failed_titles": list(shared["failed_titles"]),
+                    "running_titles": list(shared["running_titles"]),
+                    "completed_keys": list(shared["completed_keys"]),
+                    "failed_keys": list(shared["failed_keys"]),
+                    "running_keys": list(shared["running_keys"]),
+                    "updated_at": now_iso(),
+                }
+
+    def worker(spec: dict[str, Any]) -> None:
+        JOB_CONTEXT.job_id = job_id
+        # 子 Agent 档案配置在本线程内生效：模型 / 地址 / Key 都走档案，
+        # 生成记录里的 model 也会记成该 Agent 的模型，便于回溯是哪一路产出的。
+        SETTINGS_CONTEXT.settings = spec.get("settings")
+        indexes = spec.get("indexes")
+        group_prompt = spec.get("prompt") or ""
+        cursor = 0
+        while True:
+            if indexes is None:
+                try:
+                    index, node = task_queue.get_nowait()
+                except queue.Empty:
+                    return
+            else:
+                if cursor >= len(indexes):
+                    return
+                index = indexes[cursor]
+                cursor += 1
+                node = nodes[index]
+            item_payload = {**common_fields, **node}
+            # Agent 级覆盖：prompt / Skill / 素材，未设置则沿用 common
+            if group_prompt:
+                item_payload["generation_prompt"] = group_prompt
+            if spec.get("skills") is not None:
+                item_payload["skills"] = spec["skills"]
+            if spec.get("inherit") is not None:
+                item_payload["inherit_project_skills"] = spec["inherit"]
+            if spec.get("material_ids") is not None:
+                item_payload["material_ids"] = spec["material_ids"]
+            mark_running(node)
+            try:
+                check_job_cancelled()
+                current = existing.get(node["framework_node_key"]) if node["framework_node_key"] else None
+                if current is not None:
+                    summary = regenerate_topic(project_id, str(current["id"]), item_payload)
+                    status = "updated"
+                else:
+                    summary = create_topic(project_id, item_payload)
+                    status = "created"
+                results[index] = {"title": node["title"], "status": status, "topic_id": summary.get("id"), "error": None, "framework_node_key": node["framework_node_key"]}
+                mark_finished(node, True)
+            except JobCancelled:
+                results[index] = {"title": node["title"], "status": "cancelled", "topic_id": None, "error": "已取消", "framework_node_key": node["framework_node_key"]}
+                mark_finished(node, False)
+                publish_progress()
+                return
+            except Exception as exc:  # 单节点失败不中断批次
+                results[index] = {"title": node["title"], "status": "failed", "topic_id": None, "error": str(exc)[:300], "framework_node_key": node["framework_node_key"]}
+                mark_finished(node, False)
+            publish_progress()
+
+    threads = [threading.Thread(target=worker, args=(spec,), daemon=True) for spec in thread_specs]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    check_job_cancelled()
+    items = [item or {"title": nodes[index]["title"], "status": "skipped", "topic_id": None, "error": None, "framework_node_key": nodes[index]["framework_node_key"]} for index, item in enumerate(results)]
+    succeeded = sum(1 for item in items if item["status"] in {"created", "updated"})
+    failed = sum(1 for item in items if item["status"] in {"failed", "cancelled"})
+    return {"total": tracked_total, "succeeded": succeeded, "failed": failed, "items": items}
+
+
+def check_topic_consistency(project_id: str) -> dict[str, Any]:
+    """Lightweight cross-Topic checks: duplicates, link collisions, GUID residue."""
+    project = read_json(project_dir(project_id) / "project.json", None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    topics = list_topics(project_id)
+    by_title: dict[str, list[str]] = {}
+    by_node_key: dict[str, list[str]] = {}
+    guid_residue: list[dict[str, str]] = []
+    missing_node_key: list[str] = []
+    confirm_total = 0
+    unconfirmed_total = 0
+    for topic in topics:
+        topic_id = str(topic.get("id", ""))
+        title = str(topic.get("title", ""))
+        by_title.setdefault(title, []).append(topic_id)
+        node_key = str(topic.get("framework_node_key") or "")
+        if node_key:
+            by_node_key.setdefault(node_key, []).append(topic_id)
+        else:
+            missing_node_key.append(topic_id)
+        if GUID_PATTERN.search(str(topic.get("xml", ""))):
+            guid_residue.append({"topic_id": topic_id, "title": title})
+        confirm_total += int((topic.get("validation") or {}).get("confirm_count", 0) or 0)
+        unconfirmed_total += len(topic.get("unconfirmed") or [])
+    return {
+        "project_id": project_id,
+        "topic_count": len(topics),
+        "duplicate_titles": [
+            {"title": title, "topic_ids": ids} for title, ids in by_title.items() if len(ids) > 1
+        ],
+        "duplicate_node_keys": [
+            {"framework_node_key": key, "topic_ids": ids} for key, ids in by_node_key.items() if len(ids) > 1
+        ],
+        "missing_node_key": missing_node_key,
+        "guid_residue": guid_residue,
+        "todo_confirm_total": confirm_total,
+        "unconfirmed_total": unconfirmed_total,
+        "checked_at": now_iso(),
+    }
+
+
+# =========================================================================
+# 风格 lint 引擎（修复清单 4.2）：把 Skill 中机器可查规则代码化，0 token 检查。
+# =========================================================================
+
+LINT_SENTENCE_SPLIT = re.compile(r"[。！？!?；;]+")
+LINT_CJK = re.compile(r"[\u4e00-\u9fff]")
+LINT_HALF_WIDTH_ADJACENT_CJK = re.compile(r"[\u4e00-\u9fff][,;:?!()；]|[,;:?!()][\u4e00-\u9fff]")
+LINT_NUMBER_UNIT = re.compile(r"\d(?:GB|MB|KB|TB|ms|GHz|MHz|kHz|Hz|inch|px|pt)\b")
+LINT_MAX_PER_RULE = 8
+# DITA 中这些块级容器内的文字必须包在 <p> 里，不允许裸文本。
+LINT_BLOCK_PARENTS = {"conbody", "context", "prereq", "result", "postreq", "refsyn", "section", "stepsresult"}
+
+LINT_RULE_LABELS: dict[str, tuple[str, str]] = {
+    "root-tag": ("error", "根标签与 Topic 类型不符"),
+    "task-step-count": ("error", "Task 步骤数少于 2，操作指导类 Topic 应至少包含两个步骤"),
+    "shortdesc-length": ("warning", "shortdesc 超过 3 句，规范要求控制在 3 句以内"),
+    "shortdesc-media": ("error", "shortdesc 中包含 image/xref 引用，规范禁止"),
+    "concept-conbody": ("error", "concept 缺少 <conbody> 主体容器"),
+    "block-text-in-p": ("error", "块级容器内存在未包在 <p> 中的裸文字"),
+    "word-click": ("warning", "正文使用「点击」，HIK 规范用词为「单击」"),
+    "halfwidth-punct": ("warning", "中文语句中出现半角标点，应使用全角标点"),
+    "sentence-length": ("warning", "存在超过 40 字的长句，建议拆分"),
+    "number-unit": ("warning", "数字与英文单位之间缺少空格（如 10GB 应为 10 GB）"),
+    "placeholder-residue": ("warning", "残留占位符，需人工处理后发布"),
+}
+
+
+def _lint_summary(issues: list[dict[str, Any]]) -> dict[str, Any]:
+    error_count = sum(1 for item in issues if item["severity"] == "error")
+    warning_count = sum(1 for item in issues if item["severity"] == "warning")
+    return {
+        "ok": error_count == 0,
+        "error_count": error_count,
+        "warning_count": warning_count,
+        "issues": issues,
+    }
+
+
+def lint_topic_xml(xml_text: str, topic_type: str = "") -> dict[str, Any]:
+    """Rule-based style lint for a rendered Topic XML. Returns aggregated issues.
+
+    每条 issue 聚合同一规则的多次命中（count + 首个样例），避免刷屏。
+    """
+    raw_hits: dict[str, dict[str, Any]] = {}
+
+    def note(rule: str, detail: str) -> None:
+        entry = raw_hits.setdefault(rule, {"count": 0, "samples": []})
+        entry["count"] += 1
+        if len(entry["samples"]) < 3 and detail:
+            entry["samples"].append(detail)
+
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        return _lint_summary(
+            [{"rule": "xml-parse", "severity": "error", "message": f"XML 不可解析，跳过风格检查：{exc}", "count": 1, "samples": []}]
+        )
+
+    if topic_type in {"task", "concept"} and root.tag != topic_type:
+        note("root-tag", f"实际为 <{root.tag}>，预期 <{topic_type}>")
+
+    if root.tag == "task":
+        step_count = len(root.findall(".//step"))
+        if step_count < 2:
+            note("task-step-count", f"当前步骤数：{step_count}")
+
+    shortdesc = root.find("shortdesc")
+    if shortdesc is None:
+        shortdesc = root.find(".//shortdesc")
+    if shortdesc is not None:
+        text = "".join(shortdesc.itertext())
+        sentences = [s for s in LINT_SENTENCE_SPLIT.split(text) if s.strip()]
+        if len(sentences) > 3:
+            note("shortdesc-length", f"当前 {len(sentences)} 句：「{text[:40]}…」")
+        if shortdesc.find(".//image") is not None or shortdesc.find(".//xref") is not None:
+            note("shortdesc-media", "shortdesc 内含 image 或 xref")
+
+    if root.tag == "concept" and root.find("conbody") is None:
+        note("concept-conbody", "根元素下未找到 <conbody>")
+
+    for elem in root.iter():
+        if elem.tag in LINT_BLOCK_PARENTS:
+            direct_text = (elem.text or "").strip()
+            if direct_text:
+                note("block-text-in-p", f"<{elem.tag}>：「{direct_text[:36]}」")
+
+    def iter_texts(elem: ET.Element):
+        if elem.text and elem.text.strip():
+            yield elem.text
+        for child in elem:
+            if child.tail and child.tail.strip():
+                yield child.tail
+            yield from iter_texts(child)
+
+    for text in iter_texts(root):
+        if not LINT_CJK.search(text):
+            continue
+        stripped = text.strip()
+        if "点击" in stripped:
+            note("word-click", f"「{stripped[:36]}」")
+        if LINT_HALF_WIDTH_ADJACENT_CJK.search(stripped):
+            note("halfwidth-punct", f"「{stripped[:36]}」")
+        for sentence in LINT_SENTENCE_SPLIT.split(stripped):
+            sentence = sentence.strip()
+            if len(sentence) > 40:
+                note("sentence-length", f"{len(sentence)} 字：「{sentence[:36]}…」")
+        match = LINT_NUMBER_UNIT.search(stripped)
+        if match:
+            note("number-unit", f"「{match.group(0)}」")
+
+    residue = 0
+    residue += len(re.findall(r"TODO_IMAGE|TODO_REF", xml_text))
+    residue += len(re.findall(r"TODO_CONFIRM", xml_text))
+    if residue:
+        note("placeholder-residue", f"共 {residue} 个占位符")
+
+    issues: list[dict[str, Any]] = []
+    for rule, entry in raw_hits.items():
+        severity, label = LINT_RULE_LABELS.get(rule, ("warning", rule))
+        if entry["count"] > LINT_MAX_PER_RULE:
+            message = f"{label}（共 {entry['count']} 处，仅列出前几处）"
+        else:
+            message = f"{label}（{entry['count']} 处）"
+        issues.append(
+            {
+                "rule": rule,
+                "severity": severity,
+                "message": message,
+                "count": entry["count"],
+                "samples": entry["samples"],
+            }
+        )
+    severity_order = {"error": 0, "warning": 1}
+    issues.sort(key=lambda item: (severity_order.get(item["severity"], 2), -item["count"]))
+    return _lint_summary(issues)
+
+
+def check_project_lint(project_id: str) -> dict[str, Any]:
+    """Run the style lint over every stored Topic of a project."""
+    if not isinstance(read_json(project_dir(project_id) / "project.json", None), dict):
+        raise ValueError("项目不存在。")
+    results: list[dict[str, Any]] = []
+    for topic in list_topics(project_id):
+        report = lint_topic_xml(str(topic.get("xml", "")), str(topic.get("topic_type", "")))
+        results.append(
+            {
+                "topic_id": topic.get("id"),
+                "title": topic.get("title"),
+                "topic_type": topic.get("topic_type"),
+                "lint": report,
+            }
+        )
+    error_topics = sum(1 for item in results if item["lint"]["error_count"])
+    warning_topics = sum(1 for item in results if item["lint"]["warning_count"])
+    total_errors = sum(item["lint"]["error_count"] for item in results)
+    total_warnings = sum(item["lint"]["warning_count"] for item in results)
+    return {
+        "project_id": project_id,
+        "topic_count": len(results),
+        "results": results,
+        "error_topic_count": error_topics,
+        "warning_topic_count": warning_topics,
+        "total_errors": total_errors,
+        "total_warnings": total_warnings,
+        "ok": total_errors == 0,
+        "checked_at": now_iso(),
+    }
+
+
+# =========================================================================
+# 生成记录（修复清单 4.5）：每次 AI 生成落盘黑匣子，可复现、可统计。
+# =========================================================================
+
+GENERATION_LOG_DIR = DATA_DIR / "generation_logs"
+GENERATION_LOG_KEEP = 200
+
+
+def _sha16(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _skill_content_hashes(skill_names: list[str]) -> dict[str, str]:
+    listed = {str(item.get("name", "")): item for item in list_skills()}
+    hashes: dict[str, str] = {}
+    for name in skill_names:
+        content = str((listed.get(name) or {}).get("content", ""))
+        hashes[name] = _sha16(content)
+    return hashes
+
+
+def record_generation_log(project_id: str, record: dict[str, Any]) -> None:
+    directory = GENERATION_LOG_DIR / project_id
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}"
+    payload = {"schema_version": 1, **record, "logged_at": now_iso()}
+    write_json(directory / f"{stamp}.json", payload)
+    files = sorted(directory.glob("*.json"))
+    for path in files[:-GENERATION_LOG_KEEP]:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def list_generation_logs(project_id: str) -> dict[str, Any]:
+    directory = GENERATION_LOG_DIR / project_id
+    entries: list[dict[str, Any]] = []
+    if directory.exists():
+        for path in sorted(directory.glob("*.json"), reverse=True):
+            data = read_json(path, None)
+            if not isinstance(data, dict):
+                continue
+            lint = data.get("lint") or {}
+            entries.append(
+                {
+                    "id": path.stem,
+                    "operation": data.get("operation"),
+                    "topic_type": data.get("topic_type"),
+                    "generation_mode": data.get("generation_mode"),
+                    "provider": data.get("provider"),
+                    "model": data.get("model"),
+                    "prompt_chars": data.get("prompt_chars"),
+                    "attempts": data.get("attempts"),
+                    "usage": data.get("usage"),
+                    "lint_error_count": int(lint.get("error_count", 0) or 0),
+                    "lint_warning_count": int(lint.get("warning_count", 0) or 0),
+                    "unconfirmed_count": data.get("unconfirmed_count"),
+                    "logged_at": data.get("logged_at"),
+                }
+            )
+    totals = {
+        "input_tokens": sum(int((entry.get("usage") or {}).get("input_tokens", 0) or 0) for entry in entries),
+        "output_tokens": sum(int((entry.get("usage") or {}).get("output_tokens", 0) or 0) for entry in entries),
+    }
+    return {
+        "project_id": project_id,
+        "total_calls": len(entries),
+        "totals": totals,
+        "entries": entries[:100],
+    }
+
+
+# =========================================================================
+# 回归集（修复清单 4.4）：基准捕获 + 结构指纹，为改 prompt/换模型提供度量。
+# =========================================================================
+
+REGRESSION_DIR = DATA_DIR / "regression"
+
+
+def topic_structure_fingerprint(xml_text: str) -> dict[str, Any]:
+    """结构指纹：根标签、章节标题序列、步骤数、标签轮廓。用于生成结果对比。"""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        return {"ok": False, "error": f"XML 不可解析：{exc}"}
+
+    def tag_outline(elem: ET.Element, depth: int = 0) -> Any:
+        if depth >= 4:
+            return elem.tag
+        return {"tag": elem.tag, "children": [tag_outline(child, depth + 1) for child in list(elem)]}
+
+    shortdesc_text = ""
+    shortdesc = root.find("shortdesc")
+    if shortdesc is None:
+        shortdesc = root.find(".//shortdesc")
+    if shortdesc is not None:
+        shortdesc_text = "".join(shortdesc.itertext())
+    sentences = [s for s in LINT_SENTENCE_SPLIT.split(shortdesc_text) if s.strip()]
+    return {
+        "ok": True,
+        "root": root.tag,
+        "title": (root.findtext("title") or "").strip(),
+        "shortdesc_sentence_count": len(sentences),
+        "section_titles": [(s.findtext("title") or "").strip() for s in root.findall(".//section")],
+        "step_count": len(root.findall(".//step")),
+        "prereq_present": root.find(".//prereq") is not None,
+        "result_present": root.find(".//result") is not None,
+        "tag_outline": tag_outline(root),
+    }
+
+
+def _fingerprint_paths(value: Any, prefix: str = "") -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        tag = str(value.get("tag", ""))
+        path = f"{prefix}/{tag}"
+        paths.append(path)
+        for child in value.get("children", []):
+            paths.extend(_fingerprint_paths(child, path))
+    elif isinstance(value, str):
+        paths.append(f"{prefix}/{value}")
+    return paths
+
+
+def fingerprint_similarity(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    """对比两个结构指纹：标签轮廓 Jaccard 相似度 + 关键计数差异。"""
+    if not baseline.get("ok") or not candidate.get("ok"):
+        return {"ok": False, "reason": "指纹不可用（XML 解析失败）"}
+    base_paths = set(_fingerprint_paths(baseline.get("tag_outline")))
+    cand_paths = set(_fingerprint_paths(candidate.get("tag_outline")))
+    union = base_paths | cand_paths
+    jaccard = len(base_paths & cand_paths) / len(union) if union else 1.0
+    differences: list[str] = []
+    if baseline.get("root") != candidate.get("root"):
+        differences.append(f"根标签：{baseline.get('root')} → {candidate.get('root')}")
+    if baseline.get("section_titles") != candidate.get("section_titles"):
+        differences.append(f"章节标题：{baseline.get('section_titles')} → {candidate.get('section_titles')}")
+    if baseline.get("step_count") != candidate.get("step_count"):
+        differences.append(f"步骤数：{baseline.get('step_count')} → {candidate.get('step_count')}")
+    if baseline.get("shortdesc_sentence_count") != candidate.get("shortdesc_sentence_count"):
+        differences.append(
+            f"shortdesc 句数：{baseline.get('shortdesc_sentence_count')} → {candidate.get('shortdesc_sentence_count')}"
+        )
+    if baseline.get("prereq_present") != candidate.get("prereq_present"):
+        differences.append("prereq 有无变化")
+    if baseline.get("result_present") != candidate.get("result_present"):
+        differences.append("result 有无变化")
+    return {
+        "ok": True,
+        "tag_jaccard": round(jaccard, 4),
+        "differences": differences,
+    }
+
+
+def capture_regression_case(project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """把当前项目的全部 Topic（含生成输入与 XML）捕获为一个回归基准用例。"""
+    project_path = project_dir(project_id) / "project.json"
+    project = read_json(project_path, None)
+    if not isinstance(project, dict):
+        raise ValueError("项目不存在。")
+    settings = load_settings()
+    topics: list[dict[str, Any]] = []
+    directory = topics_dir(project_id)
+    if directory.exists():
+        for path in sorted(directory.iterdir()):
+            metadata = path / "topic.json"
+            if not (path.is_dir() and metadata.exists()):
+                continue
+            topic = read_json(metadata, None)
+            if not isinstance(topic, dict) or not topic.get("id"):
+                continue
+            payload_snapshot = {
+                "topic_type": topic.get("topic_type", "concept"),
+                "title": topic.get("title", ""),
+                "shortdesc": topic.get("shortdesc", ""),
+                "brief": topic.get("brief", ""),
+                "chapter_summary": topic.get("chapter_summary", ""),
+                "generation_prompt": topic.get("generation_prompt", ""),
+                "outline": topic.get("outline", []),
+                "prerequisites": topic.get("prerequisites", []),
+                "steps": topic.get("steps", []),
+                "skills": topic.get("skills", []),
+                "inherit_project_skills": topic.get("inherit_project_skills", True),
+                "material_ids": topic.get("material_ids", []),
+                "framework_node_key": topic.get("framework_node_key", ""),
+                "heading_level": topic.get("heading_level", 1),
+            }
+            topics.append(
+                {
+                    "topic_id": topic.get("id"),
+                    "payload": payload_snapshot,
+                    "baseline_xml": str(topic.get("xml", "")),
+                    "baseline_fingerprint": topic_structure_fingerprint(str(topic.get("xml", ""))),
+                    "baseline_lint": lint_topic_xml(str(topic.get("xml", "")), str(topic.get("topic_type", ""))),
+                }
+            )
+    case_id = f"case_{int(time.time())}_{secrets.token_hex(2)}"
+    case = {
+        "schema_version": 1,
+        "id": case_id,
+        "name": sanitize_text(payload.get("name")) or f"{project.get('name', '未命名项目')} 基准",
+        "source_project_id": project_id,
+        "created_at": now_iso(),
+        "settings_snapshot": {
+            "provider": settings.get("provider"),
+            "model": settings.get("model"),
+            "structured_output": bool(settings.get("structured_output", True)),
+        },
+        "topic_count": len(topics),
+        "topics": topics,
+    }
+    REGRESSION_DIR.mkdir(parents=True, exist_ok=True)
+    write_json(REGRESSION_DIR / f"{case_id}.json", case)
+    return {"case_id": case_id, "name": case["name"], "topic_count": len(topics), "created_at": case["created_at"]}
+
+
+def list_regression_cases(project_id: str | None = None) -> dict[str, Any]:
+    cases: list[dict[str, Any]] = []
+    if REGRESSION_DIR.exists():
+        for path in sorted(REGRESSION_DIR.glob("case_*.json"), reverse=True):
+            data = read_json(path, None)
+            if not isinstance(data, dict):
+                continue
+            if project_id and data.get("source_project_id") != project_id:
+                continue
+            cases.append(
+                {
+                    "id": data.get("id"),
+                    "name": data.get("name"),
+                    "source_project_id": data.get("source_project_id"),
+                    "topic_count": data.get("topic_count"),
+                    "created_at": data.get("created_at"),
+                }
+            )
+    return {"cases": cases}
+
+
+def enqueue_project_generation(operation: str, project_id: str, callback) -> dict[str, Any]:
+    if not isinstance(read_json(project_dir(project_id) / "project.json", None), dict):
+        raise ValueError("项目不存在。")
+    job_id = start_background_job(operation, callback)
+    return {"job_id": job_id, "status": "queued", "operation": operation}
+
+
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "LianJinLu/2.0.1"
+    server_version = "LianJinLu/2.1.0"
 
     def log_message(self, format: str, *args: Any) -> None:
         print(f"[{now_iso()}] {format % args}")
@@ -3096,6 +6224,8 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.end_headers()
         self.wfile.write(encoded)
 
@@ -3109,6 +6239,8 @@ class AppHandler(BaseHTTPRequestHandler):
             content_type += "; charset=utf-8"
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.end_headers()
         self.wfile.write(data)
 
@@ -3153,13 +6285,24 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         try:
             if path == "/api/health":
-                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "2.0.1"})
+                self.send_json(200, {"ok": True, "app": "炼金炉", "version": "2.1.0"})
+            elif path.startswith("/api/jobs/"):
+                job_id = unquote(path.removeprefix("/api/jobs/").strip("/"))
+                job = get_background_job(job_id)
+                self.send_json(200 if job else 404, job or {"error": "生成任务不存在。"})
             elif path == "/api/assets":
                 self.send_json(200, {"assets": list_editorial_assets()})
             elif path == "/api/settings":
                 self.send_json(200, public_settings())
+            elif path == "/api/agent-profiles":
+                self.send_json(200, {"profiles": [agent_profile_public(item) for item in load_settings().get("agent_profiles", [])]})
             elif path == "/api/skills":
                 self.send_json(200, {"skills": list_skills()})
+            elif path == "/api/fs/scan-directory":
+                query = parse_qs(urlparse(self.path).query)
+                raw_path = (query.get("path") or [""])[0]
+                recursive = (query.get("recursive") or ["1"])[0] not in {"0", "false", "no"}
+                self.send_json(200, scan_directory_files(raw_path, recursive))
             elif path == "/api/projects":
                 self.send_json(200, {"projects": list_projects()})
             elif path.startswith("/api/skills/"):
@@ -3180,13 +6323,37 @@ class AppHandler(BaseHTTPRequestHandler):
                 if len(parts) == 2 and parts[1] == "cover":
                     project = read_json(project_dir(project_id) / "project.json", None)
                     cover = project.get("cover") if isinstance(project, dict) else None
-                    cover_path = project_dir(project_id) / Path(str(cover.get("file", ""))).name if isinstance(cover, dict) else None
-                    if isinstance(cover_path, Path) and cover_path.exists() and cover_path.is_file():
-                        self.send_file(cover_path, image_content_type(cover_path))
-                    else:
+                    source_path: Path | None = None
+                    if isinstance(cover, dict):
+                        stored_cover = project_dir(project_id) / Path(str(cover.get("file", ""))).name
+                        source_file = Path(str(cover.get("source_file", ""))).name
+                        if cover.get("type") == "asset" and source_file in {asset["file"] for asset in list_editorial_assets()}:
+                            source_path = EDITORIAL_DIR / source_file
+                        elif stored_cover.exists() and stored_cover.is_file():
+                            source_path = stored_cover
+                    if source_path is None:
                         self.send_error(404)
+                        return
+                    query = parse_qs(urlparse(self.path).query)
+                    want_thumb = str((query.get("thumb") or ["0"])[0]).lower() in {"1", "true", "yes"}
+                    if want_thumb:
+                        thumb = cover_thumbnail(project_dir(project_id), source_path)
+                        if thumb is not None:
+                            self.send_file(thumb, image_content_type(thumb))
+                            return
+                    self.send_file(source_path, image_content_type(source_path))
                 elif len(parts) == 2 and parts[1] == "materials":
                     self.send_json(200, {"materials": list_project_materials(project_id)})
+                elif len(parts) == 2 and parts[1] == "workspace":
+                    query = parse_qs(urlparse(self.path).query)
+                    refresh = str((query.get("refresh") or ["0"])[0]).lower() in {"1", "true", "yes"}
+                    self.send_json(200, workspace_state(project_id, refresh=refresh))
+                elif len(parts) == 3 and parts[1] == "workspace" and parts[2] == "file":
+                    query = parse_qs(urlparse(self.path).query)
+                    relative = str((query.get("relative") or [""])[0])
+                    if not relative:
+                        raise ValueError("请提供要预览的文件相对路径。")
+                    self.send_json(200, preview_workspace_file(project_id, relative))
                 elif len(parts) == 4 and parts[1] == "materials" and parts[3] == "download":
                     material_file = get_project_material_file(project_id, parts[2])
                     if material_file:
@@ -3209,9 +6376,23 @@ class AppHandler(BaseHTTPRequestHandler):
                 elif len(parts) == 2 and parts[1] == "framework":
                     framework = get_framework(project_id)
                     self.send_json(200 if framework else 404, framework or {"error": "项目不存在。"})
+                elif len(parts) == 4 and parts[1] == "framework" and parts[2] == "versions":
+                    version_id = Path(parts[3]).name
+                    record = read_json(framework_version_dir(project_id) / f"{version_id}.json", None)
+                    self.send_json(200 if isinstance(record, dict) else 404, framework_record_summary(record) if isinstance(record, dict) else {"error": "框架版本不存在。"})
                 elif len(parts) == 3 and parts[1] == "analysis":
                     record = read_json(analysis_version_dir(project_id) / f"{Path(parts[2]).name}.json", None)
                     self.send_json(200 if isinstance(record, dict) else 404, analysis_record_summary(record) if isinstance(record, dict) else {"error": "分析记录不存在。"})
+                elif len(parts) == 2 and parts[1] == "unconfirmed":
+                    self.send_json(200, list_project_unconfirmed(project_id))
+                elif len(parts) == 2 and parts[1] == "consistency":
+                    self.send_json(200, check_topic_consistency(project_id))
+                elif len(parts) == 2 and parts[1] == "lint":
+                    self.send_json(200, check_project_lint(project_id))
+                elif len(parts) == 2 and parts[1] == "generation-logs":
+                    self.send_json(200, list_generation_logs(project_id))
+                elif len(parts) == 2 and parts[1] == "regression":
+                    self.send_json(200, list_regression_cases(project_id))
                 elif len(parts) == 2 and parts[1] == "topics":
                     self.send_json(200, {"topics": list_topics(project_id)})
                 elif len(parts) == 3 and parts[1] == "topics":
@@ -3230,8 +6411,17 @@ class AppHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/projects":
                 self.send_json(201, create_project(self.read_body()))
+            elif path.startswith("/api/jobs/") and path.endswith("/cancel"):
+                job_id = unquote(path.removeprefix("/api/jobs/").removesuffix("/cancel").strip("/"))
+                self.send_json(200, {"ok": cancel_background_job(job_id)})
             elif path == "/api/skills":
                 self.send_json(201, create_skill(self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/workspace"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/workspace").strip("/"))
+                self.send_json(200, save_project_workspace(project_id, self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/workspace/refresh"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/workspace/refresh").strip("/"))
+                self.send_json(200, workspace_state(project_id, refresh=True))
             elif path.startswith("/api/projects/") and path.endswith("/materials"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/materials").strip("/"))
                 self.send_json(201, save_project_material(project_id, self.read_body()))
@@ -3257,6 +6447,56 @@ class AppHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/projects/") and path.endswith("/framework/generate"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/framework/generate").strip("/"))
                 self.send_json(201, generate_framework(project_id, self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/framework/generate-async"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/framework/generate-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("framework", project_id, lambda: generate_framework(project_id, payload)))
+            elif path.startswith("/api/projects/") and path.endswith("/topics/batch-generate-async"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/topics/batch-generate-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("batch-topics", project_id, lambda: batch_generate_topics(project_id, payload)))
+            elif path.startswith("/api/projects/") and path.endswith("/topics/batch-generate-parallel-async"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/topics/batch-generate-parallel-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("batch-topics-parallel", project_id, lambda: batch_generate_topics_parallel(project_id, payload)))
+            elif path.startswith("/api/agent-profiles/"):
+                raw = unquote(path.removeprefix("/api/agent-profiles/").strip("/"))
+                parts = raw.split("/")
+                profile_id = parts[0] if parts else ""
+                action = parts[1] if len(parts) > 1 else ""
+                if action == "key":
+                    body = self.read_body()
+                    self.send_json(200, save_agent_profile_key(profile_id, str(body.get("api_key", ""))))
+                elif action == "copy-account-key":
+                    self.read_body()
+                    self.send_json(200, copy_account_key_to_profile(profile_id))
+                elif action == "delete":
+                    self.send_json(200, delete_agent_profile(profile_id))
+                elif action == "test":
+                    merged = resolve_agent_profile_settings(profile_id)
+                    if merged is None:
+                        raise ValueError("Agent 档案不存在。")
+                    try:
+                        result = test_ai_connection(merged)
+                    except Exception as exc:
+                        record_agent_profile_test(profile_id, False, str(exc))
+                        raise
+                    record_agent_profile_test(profile_id, True, "")
+                    self.send_json(200, result)
+                else:
+                    self.send_json(404, {"error": "接口不存在。"})
+            elif path == "/api/agent-profiles":
+                self.send_json(201, save_agent_profile(self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/topics/generate-async"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/topics/generate-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("topic", project_id, lambda: create_topic(project_id, payload)))
+            elif path.startswith("/api/projects/") and path.endswith("/generate-async") and "/topics/" in path:
+                raw = path.removeprefix("/api/projects/").split("/topics/", 1)
+                project_id = unquote(raw[0])
+                topic_id = unquote(raw[1].removesuffix("/generate-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("topic", project_id, lambda: regenerate_topic(project_id, topic_id, payload)))
             elif path.startswith("/api/projects/") and path.endswith("/topics/generate"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/topics/generate").strip("/"))
                 self.send_json(201, create_topic(project_id, self.read_body()))
@@ -3268,9 +6508,16 @@ class AppHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/projects/") and path.endswith("/analysis"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/analysis").strip("/"))
                 self.send_json(201, generate_requirements_analysis(project_id, self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/analysis-async"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/analysis-async").strip("/"))
+                payload = self.read_body()
+                self.send_json(202, enqueue_project_generation("analysis", project_id, lambda: generate_requirements_analysis(project_id, payload)))
             elif path.startswith("/api/projects/") and path.endswith("/topics"):
                 project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/topics").strip("/"))
                 self.send_json(201, create_topic(project_id, self.read_body()))
+            elif path.startswith("/api/projects/") and path.endswith("/regression/capture"):
+                project_id = unquote(path.removeprefix("/api/projects/").removesuffix("/regression/capture").strip("/"))
+                self.send_json(201, capture_regression_case(project_id, self.read_body()))
             elif path == "/api/settings/test":
                 self.send_json(200, test_ai_connection())
             else:
@@ -3315,9 +6562,14 @@ class AppHandler(BaseHTTPRequestHandler):
         try:
             if path.startswith("/api/projects/"):
                 parts = [unquote(item) for item in path.removeprefix("/api/projects/").split("/") if item]
-                if len(parts) == 3 and parts[1] == "materials":
+                if len(parts) == 1:
+                    delete_project(parts[0])
+                    self.send_json(200, {"ok": True})
+                elif len(parts) == 3 and parts[1] == "materials":
                     delete_project_material(parts[0], parts[2])
                     self.send_json(200, {"ok": True})
+                elif len(parts) == 2 and parts[1] == "workspace":
+                    self.send_json(200, clear_project_workspace(parts[0]))
                 else:
                     self.send_json(404, {"error": "接口不存在。"})
             elif path.startswith("/api/skills/"):
@@ -3332,7 +6584,8 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json(500, {"error": str(exc)})
 
 
-def main() -> None:
+def create_server() -> ThreadingHTTPServer:
+    """初始化数据目录并启动 HTTP 服务，供命令行与独立窗口两种入口复用。"""
     ensure_dirs()
     migrated = migrate_legacy_projects()
     if migrated:
@@ -3344,6 +6597,11 @@ def main() -> None:
     print(f"数据目录：{DATA_DIR}")
     if not KEYCHAIN.available:
         print("警告：当前未检测到可用的系统凭据存储，API Key 保存功能不可用。")
+    return server
+
+
+def main() -> None:
+    server = create_server()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

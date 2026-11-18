@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>方案 C · 静水工坊</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --ink: #23262b; --muted: #84888f;
+    --brand: #0a86ad; --brand-deep: #086a88; --brand-soft: #e6f4f9;
+    --line: #e3e5e9; --card: #ffffff;
+    --green: #3f9d6a; --pink: #c9564a;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", sans-serif; color: var(--ink); min-height: 100vh; background: var(--bg); }
+  header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); background: rgba(255,255,255,.72); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1080px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; }
+  .logo i { width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(from 210deg, var(--brand), #6db6d4, var(--brand)); }
+  nav { display: flex; gap: 4px; }
+  nav button { padding: 7px 13px; border: 0; border-radius: 999px; background: transparent; font-size: 13px; color: var(--muted); cursor: pointer; transition: all .15s; }
+  nav button:hover { color: var(--ink); background: rgba(0,0,0,.05); }
+  nav button.on { background: var(--ink); color: #fff; }
+  main { max-width: 1080px; margin: 0 auto; padding: 56px 24px 60px; }
+  .kicker { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; color: var(--brand-deep); background: var(--brand-soft); border: 1px solid #cfe8f2; border-radius: 999px; padding: 4px 12px; }
+  h1 { font-size: 34px; letter-spacing: -.022em; line-height: 1.25; margin: 18px 0 10px; }
+  .lede { color: var(--muted); font-size: 15px; max-width: 560px; line-height: 1.8; }
+  .toolbar { display: flex; gap: 10px; margin: 30px 0 36px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 999px; border: 1px solid transparent; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .16s; }
+  .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.14); }
+  .btn-primary:hover { background: var(--brand-deep); box-shadow: 0 4px 12px rgba(10,134,173,.3); transform: translateY(-1px); }
+  .btn-secondary { background: var(--card); border-color: var(--line); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .btn-secondary:hover { border-color: var(--muted); }
+  .btn-danger { background: var(--card); border-color: var(--line); color: var(--pink); }
+  .btn-danger:hover { border-color: var(--pink); background: #fdf3f2; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .search { flex: 1; max-width: 320px; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 9px 15px; color: var(--muted); font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .search input { border: 0; outline: 0; flex: 1; font-size: 13px; color: var(--ink); background: transparent; }
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+  .book { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px 18px 16px; cursor: pointer; transition: all .2s; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .book:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(20,40,60,.12); border-color: transparent; }
+  .cover { height: 128px; border-radius: 11px; background: linear-gradient(160deg, #eaf6fb, #d3eaf3); display: flex; align-items: flex-end; padding: 12px; margin-bottom: 14px; position: relative; overflow: hidden; }
+  .cover::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(10,134,173,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(10,134,173,.1) 1px, transparent 1px); background-size: 16px 16px; }
+  .cover span { position: relative; font-family: var(--mono); font-size: 11px; color: var(--brand-deep); background: rgba(255,255,255,.9); border-radius: 6px; padding: 3px 8px; }
+  .book h3 { font-size: 14px; margin-bottom: 6px; }
+  .book .meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+  .book .meta b { font-family: var(--mono); font-weight: 500; font-size: 10px; background: rgba(0,0,0,.05); padding: 2px 8px; border-radius: 999px; }
+  .panel { margin-top: 44px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .panel-head strong { font-size: 14px; }
+  .panel-head span { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .fact { padding: 16px 20px; }
+  .fact + .fact { border-left: 1px solid var(--line); }
+  .fact i { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .fact b { font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .row { display: flex; gap: 14px; margin-top: 44px; }
+  .msg { flex: 1; font-size: 12px; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--muted); position: relative; padding-bottom: 22px; }
+  .msg.ok { border-color: #c4e3d0; background: #f2faf5; color: var(--green); }
+  .msg.err { border-color: #f0ccc6; background: #fdf4f3; color: var(--pink); }
+  .msg::after { content: ""; position: absolute; left: 15px; right: 15px; bottom: 10px; height: 3px; border-radius: 2px; background-image: linear-gradient(90deg, transparent, currentColor, transparent); background-size: 42% 100%; background-repeat: no-repeat; animation: slide 1.15s ease-in-out infinite; }
+  @keyframes slide { 0% { background-position: -45% 0; } 100% { background-position: 145% 0; } }
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="logo"><i></i> 炼金炉</div>
+  <nav id="nav"><button class="on">首页</button><button>项目</button><button>框架</button><button>Topic</button><button>Skill</button><button>配置</button></nav>
+</div></header>
+<main>
+  <span class="kicker">● PROJECT SHELF — 12 本在架上</span>
+  <h1>把需求投进来，<br />按模式炼出 Topic。</h1>
+  <p class="lede">方案 C：参考站所在的那一类"现代工具站"气质——大留白、大圆角、胶囊按钮、毛玻璃吸顶导航、等宽数字徽章。最克制、最安静的一版。</p>
+  <div class="toolbar">
+    <label class="search">⌕ <input placeholder="搜索项目，按 / 聚焦" /></label>
+    <button class="btn btn-primary">＋ 新建项目</button>
+    <button class="btn btn-secondary">生成框架</button>
+    <button class="btn btn-danger" disabled>删除…</button>
+  </div>
+  <div class="shelf">
+    <div class="book"><div class="cover"><span>NEWTOPIC.xml</span></div><h3>VCP 用户手册</h3><div class="meta"><span>全新开发</span><b>v2.4</b></div></div>
+    <div class="book"><div class="cover" style="background:linear-gradient(160deg,#f0eaf9,#dccdf1)"><span>UPDATE.xml</span></div><h3>网管平台操作指南</h3><div class="meta"><span>版本更新</span><b>v1.1</b></div></div>
+    <div class="book"><div class="cover" style="background:linear-gradient(160deg,#e9f6ee,#cfeadd)"><span>OPTIMIZE.xml</span></div><h3>告警模块 Topic 优化</h3><div class="meta"><span>Topic 优化</span><b>v3.0</b></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><strong>项目速览 · VCP 用户手册</strong><span>LOCAL-FIRST / HIK</span></div>
+    <div class="facts">
+      <div class="fact"><i>产品 / 模块</i><b>VCP-2400</b></div>
+      <div class="fact"><i>版本</i><b>2.4.1</b></div>
+      <div class="fact"><i>Topic 数</i><b>38</b></div>
+      <div class="fact"><i>参考语料</i><b>5 / 112</b></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="msg ok">材料已保存。请检查提取状态后开始 AI 分析。</div>
+    <div class="msg err">无法连接本地服务，请重新启动炼金炉。</div>
+    <div class="msg">AI 正在生成框架，页面仍可操作…</div>
+  </div>
+</main>
+<script>
+  document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#nav button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+  }));
+</script>
+</body>
+</html>

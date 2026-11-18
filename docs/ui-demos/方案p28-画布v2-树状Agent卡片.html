@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案p28 · 画布v2 · 树状结构 + 可扩框 Agent 卡片</title>
+<style>
+  :root{
+    --canvas:#eef1e6; --paper:#fffbf0; --side:#f7f2e4; --ink:#2b211c; --ink2:#4a3f3a;
+    --muted:#6b625a; --raspberry:#d63a63; --raspberry-dark:#bf2f55; --selected:#f6e4e2;
+    --line:#d8d2c4; --ok:#3f8f6b; --run:#4a78c2; --wait:#9a9284; --fail:#d63a63;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--canvas);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ===== 顶栏 ===== */
+  .appbar{display:flex;align-items:center;gap:18px;background:var(--side);border-bottom:1px solid var(--line);padding:0 20px;height:52px;flex:none}
+  .brand{font-weight:800;font-size:15px;color:var(--raspberry);white-space:nowrap}
+  .tabs{display:flex;gap:4px;flex:1}
+  .tab{padding:7px 14px;border-radius:999px;font-size:13px;color:var(--ink2);cursor:pointer;white-space:nowrap}
+  .tab:hover{background:rgba(214,58,99,.08)}
+  .tab.active{background:var(--raspberry);color:#fff;font-weight:600}
+
+  /* ===== 工具条（主按钮醒目） ===== */
+  .toolbar{display:flex;align-items:center;gap:10px;padding:9px 20px;background:var(--paper);border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  .crumb{font-size:13px;color:var(--muted)}
+  .crumb b{color:var(--ink)}
+  .tool-btn{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .tool-btn:hover{border-color:var(--raspberry);color:var(--raspberry-dark)}
+  .hero-btn{padding:8px 22px;border-radius:999px;border:none;background:var(--raspberry);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 var(--raspberry-dark);transition:transform .08s}
+  .hero-btn:hover{background:var(--raspberry-dark)}
+  .hero-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--raspberry-dark)}
+  .hero-btn.stop{background:#8a5fb0;box-shadow:0 3px 0 #6d4a8f}
+  .spacer{flex:1}
+  .zoombox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .zoombox input[type=range]{width:110px;accent-color:var(--raspberry)}
+
+  /* ===== 画布 ===== */
+  #viewport{flex:1;position:relative;overflow:hidden;cursor:grab;
+    background-image:radial-gradient(circle,#c9c4b4 1px,transparent 1px);background-size:22px 22px}
+  #viewport.panning{cursor:grabbing}
+  #world{position:absolute;top:0;left:0;width:10px;height:10px;transform-origin:0 0}
+  svg#tree-edges{position:absolute;top:0;left:0;width:10px;height:10px;overflow:visible;pointer-events:none}
+  svg#tree-edges path{fill:none;stroke:#b8b0a0;stroke-width:1.6}
+
+  /* ===== 树节点 ===== */
+  .root-node{position:absolute;width:240px;background:#fff;border:2px solid var(--raspberry);border-radius:14px;padding:12px 14px;box-shadow:0 3px 0 rgba(43,33,28,.12);text-align:center;z-index:3}
+  .root-node h3{font-size:14px;color:var(--raspberry-dark)}
+  .root-node p{font-size:11px;color:var(--muted);margin-top:3px}
+  .chap-node{position:absolute;width:200px;background:var(--paper);border:2px solid var(--line);border-radius:12px;padding:9px 12px;box-shadow:0 2px 0 rgba(43,33,28,.10);z-index:3;transition:border-color .2s, box-shadow .2s}
+  .chap-node .t{font-size:13px;font-weight:700;line-height:1.35}
+  .chap-node .sub{font-size:10.5px;color:var(--muted);margin-top:4px}
+  .chap-node .owner{font-size:10px;font-weight:700;margin-top:5px;display:none;align-items:center;gap:5px}
+  .chap-node.owned .owner{display:flex}
+  .sec-node{position:absolute;width:200px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 10px;z-index:3;cursor:pointer;transition:opacity .25s}
+  .sec-node .t{font-size:12px;line-height:1.35}
+  .sec-node .meta{display:flex;gap:6px;margin-top:5px;align-items:center}
+  .badge{font-size:10px;padding:1px 7px;border-radius:999px;font-weight:600}
+  .badge.wait{background:#eceade;color:var(--wait)}
+  .badge.run{background:#e3edfa;color:var(--run);animation:pulse 1.2s ease-in-out infinite}
+  .badge.ok{background:#e2f1ea;color:var(--ok)}
+  .badge.fail{background:#f8e3e8;color:var(--fail)}
+  @keyframes pulse{50%{opacity:.55}}
+  .sec-node.now{border-color:var(--run);box-shadow:0 0 0 3px rgba(74,120,194,.25)}
+
+  /* ===== Agent 卡片（框架最底层） ===== */
+  .agent-card{position:absolute;border-radius:18px;border:2.5px solid;z-index:2;
+    transition:left .25s,top .25s,width .25s,height .25s;
+    display:flex;flex-direction:column;overflow:hidden}
+  .agent-card.snapping{transition:left .25s,top .25s,width .25s,height .25s}
+  .agent-card.drag-resize{transition:none}
+  .ac-head{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:grab}
+  .ac-head .dot{width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+  .ac-head .nm{font-size:13px;font-weight:800}
+  .ac-head .model{font-size:10.5px;color:var(--muted)}
+  .ac-head .scope{margin-left:auto;font-size:11px;font-weight:700;background:rgba(255,255,255,.7);padding:2px 9px;border-radius:999px}
+  .ac-head .del{border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px}
+  .ac-body{padding:0 12px 8px;display:flex;flex-direction:column;gap:6px}
+  .ac-prompt{width:100%;font-size:11px;font-family:inherit;background:rgba(255,255,255,.85);border:1px solid var(--line);border-radius:8px;padding:6px 8px;resize:none;color:var(--ink2);line-height:1.45}
+  .ac-mats{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .mat-chip{font-size:10.5px;background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:999px;padding:2px 8px;display:inline-flex;align-items:center;gap:4px}
+  .mat-chip.dir{border-color:#7fa3cf;background:#eef4fb}
+  .mat-add{font-size:10.5px;border:1px dashed var(--muted);background:none;border-radius:999px;padding:2px 9px;cursor:pointer;color:var(--ink2)}
+  .ac-foot{margin-top:auto;display:flex;align-items:center;gap:8px;padding:6px 12px 10px}
+  .pbar{flex:1;height:6px;border-radius:999px;background:rgba(43,33,28,.1);overflow:hidden}
+  .pbar i{display:block;height:100%;width:0;border-radius:999px;transition:width .35s}
+  .ac-foot .cnt{font-size:10.5px;color:var(--ink2);font-weight:600}
+  /* 拖拽手柄 */
+  .rh{position:absolute;z-index:4}
+  .rh-r{right:-2px;top:24px;bottom:24px;width:12px;cursor:ew-resize}
+  .rh-r::after{content:"";position:absolute;right:3px;top:50%;transform:translateY(-50%);width:4px;height:26px;border-radius:3px;background:rgba(43,33,28,.28)}
+  .rh-c{right:-2px;bottom:-2px;width:18px;height:18px;cursor:nwse-resize}
+  .rh-c::after{content:"";position:absolute;right:3px;bottom:3px;width:9px;height:9px;border-right:3px solid rgba(43,33,28,.35);border-bottom:3px solid rgba(43,33,28,.35);border-radius:0 0 3px 0}
+  .agent-card:active .rh-r::after,.agent-card:active .rh-c::after{background:rgba(43,33,28,.55)}
+
+  /* ===== 素材下拉 / 浏览弹窗 ===== */
+  .drop{position:absolute;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(43,33,28,.2);padding:6px;z-index:80;display:none;width:190px}
+  .drop.show{display:block}
+  .drop button{display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:8px 10px;border-radius:8px;font-size:12px;cursor:pointer;text-align:left;color:var(--ink)}
+  .drop button:hover{background:var(--selected)}
+  #dir-form{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(43,33,28,.2);padding:12px;z-index:85;width:300px;position:fixed}
+  #dir-form.show{display:block}
+  #dir-form h5{font-size:12.5px;margin-bottom:8px;color:var(--raspberry-dark)}
+  #dir-form .row{display:flex;gap:6px}
+  #dir-form input{flex:1;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+  #dir-form .hint{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5}
+  #picker{position:fixed;inset:0;background:rgba(43,33,28,.35);display:none;align-items:center;justify-content:center;z-index:100}
+  #picker.show{display:flex}
+  #picker .box{width:420px;background:var(--paper);border-radius:16px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.3)}
+  #picker h4{font-size:14px;margin-bottom:10px}
+  #picker .path{font-size:11px;color:var(--muted);margin-bottom:10px;font-family:ui-monospace,monospace}
+  .pitem{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:12.5px;cursor:pointer}
+  .pitem:hover{background:var(--selected)}
+  .pitem.sel{background:var(--selected);font-weight:700}
+  #picker .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+
+  /* ===== 整体素材面板 ===== */
+  #global-panel{position:fixed;left:20px;top:104px;width:300px;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 26px rgba(43,33,28,.22);padding:13px;display:none;z-index:70}
+  #global-panel.show{display:block}
+  #global-panel h4{font-size:13px;color:var(--raspberry-dark);margin-bottom:4px}
+  #global-panel .cap{font-size:10.5px;color:var(--muted);margin-bottom:9px;line-height:1.5}
+  #global-panel .close{position:absolute;top:8px;right:10px;border:none;background:none;font-size:16px;cursor:pointer;color:var(--muted)}
+
+  .hintline{position:fixed;right:20px;bottom:16px;font-size:11.5px;color:var(--muted);background:rgba(255,251,240,.9);padding:6px 12px;border-radius:999px;border:1px solid var(--line);z-index:40}
+  .note{position:fixed;top:104px;right:20px;background:#fff8e0;border:1px solid #e6d9a8;color:#7a6a1f;font-size:12px;padding:8px 14px;border-radius:10px;max-width:320px;line-height:1.65;z-index:60;box-shadow:0 4px 14px rgba(43,33,28,.12)}
+  .note button{float:right;border:none;background:none;color:#7a6a1f;cursor:pointer;font-size:14px;margin-left:8px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:12.5px;padding:9px 18px;border-radius:999px;display:none;z-index:120}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <span class="brand">🔥 炼金炉</span>
+  <nav class="tabs">
+    <span class="tab">首页</span><span class="tab">项目工作台</span><span class="tab">框架工坊</span>
+    <span class="tab">Topic 工作台</span><span class="tab">质量巡检</span><span class="tab active">生成画布</span>
+  </nav>
+  <span style="font-size:12px;color:var(--muted)">CODESYS 手册 · 6 大章 · 18 节点</span>
+</header>
+
+<div class="toolbar">
+  <button class="hero-btn" id="run-btn">▶ 批量生成 Topic</button>
+  <button class="tool-btn" id="add-agent">➕ 新增 Agent</button>
+  <button class="tool-btn" id="global-mats">📦 整体素材 <span id="gm-count">2</span></button>
+  <span class="crumb" style="margin-left:6px">每卡共用 1 套 prompt 与素材 · 框选以章节为单位</span>
+  <span class="spacer"></span>
+  <span class="zoombox">缩放 <input type="range" id="zoom" min="40" max="160" value="100"><span id="zoom-label">100%</span></span>
+  <button class="tool-btn" id="fit">适应画布</button>
+</div>
+
+<div id="viewport">
+  <div id="world">
+    <svg id="tree-edges"></svg>
+  </div>
+</div>
+
+<!-- 素材来源下拉（共享模板） -->
+<div class="drop" id="mat-drop">
+  <button data-src="upload">📎 上传文件…</button>
+  <button data-src="paste">📋 粘贴文本</button>
+  <button data-src="dir">📁 读取本地目录…</button>
+</div>
+
+<!-- 读取目录表单 -->
+<div id="dir-form">
+  <h5>📁 读取目录下所有文件</h5>
+  <div class="row">
+    <input id="dir-input" placeholder="粘贴目录路径，如 /Users/我/需求资料">
+    <button class="tool-btn" id="dir-browse">浏览…</button>
+  </div>
+  <p class="hint">将读取该目录下全部 .md / .docx / .pdf / .txt 作为生成素材（含子目录）。</p>
+  <div class="row" style="margin-top:10px;justify-content:flex-end">
+    <button class="tool-btn" id="dir-cancel">取消</button>
+    <button class="tool-btn primary" id="dir-ok" style="background:var(--raspberry);border-color:var(--raspberry);color:#fff">读取</button>
+  </div>
+</div>
+
+<!-- 模拟访达 -->
+<div id="picker">
+  <div class="box">
+    <h4>选择素材目录</h4>
+    <div class="path" id="picker-path">/Users/我/Documents</div>
+    <div id="picker-list"></div>
+    <div class="acts">
+      <button class="tool-btn" id="picker-cancel">取消</button>
+      <button class="tool-btn" id="picker-open">打开</button>
+      <button class="tool-btn" style="background:var(--raspberry);border-color:var(--raspberry);color:#fff" id="picker-choose">选择此目录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 整体素材面板 -->
+<div id="global-panel">
+  <button class="close" onclick="this.parentElement.classList.remove('show')">×</button>
+  <h4>📦 整体素材</h4>
+  <p class="cap">对所有 Agent 生效，与各卡片自有素材叠加使用。</p>
+  <div class="ac-mats" id="gm-list"></div>
+  <div style="margin-top:8px"><button class="mat-add" id="gm-add">＋ 添加整体素材 ▾</button></div>
+</div>
+
+<div class="hintline">拖拽平移 · 滚轮缩放 · 拖卡片右缘/右下角可扩大管辖章节</div>
+<div class="note" id="note"><button onclick="document.getElementById('note').remove()">×</button>📌 <b>v2 概念：</b>树状框架保留；「新增 Agent」在框架最底层生成卡片，默认框住 1 个大章节；卡片共框住的章节=该子 Agent 的职责范围；拉大卡片（拖右缘/右下角）可框住更多章节，松手自动吸附整章。每张卡共用 1 套 prompt + 素材；「整体素材」对所有 Agent 生效。素材支持上传 / 粘贴 / <b>读取目录</b> 三种来源。</div>
+<div id="toast"></div>
+
+<script>
+/* ================= 数据 ================= */
+const CHAPTERS=[
+  {t:"第1章 入门与安装", secs:["安装与环境配置","许可证激活流程","首次运行向导"]},
+  {t:"第2章 编程基础", secs:["变量与数据类型","POU 程序组织单元","函数与功能块"]},
+  {t:"第3章 工程结构", secs:["任务配置与调度","库管理与引用","设备树与硬件组态"]},
+  {t:"第4章 调试诊断", secs:["在线调试与断点","交叉引用与监视","仿真模式使用"]},
+  {t:"第5章 可视化", secs:["可视化界面开发","报警与日志系统","配方与趋势图"]},
+  {t:"第6章 交付管理", secs:["导出与版本管理","文档发布流程","团队协作规范"]},
+];
+const AGENT_COLORS=["#3f8f6b","#4a78c2","#d9822b","#8a5fb0","#d63a63","#2b8f8f"];
+const ARCHIVES=["glm-4.7","gpt-5.2","haiku-4.5","主 Key 回退","deepseek-v3.2","GLM-5"];
+const PT=112, PB=46, PS=16;  /* 卡片吸附留白：顶部放头部+prompt+素材，底部放进度条 */
+
+/* 布局计算 */
+const BLOCK={w:200,gap:26,x0:60,top:212};
+const SEC_H=52, SEC_GAP=10, SEC_TOP=58;
+CHAPTERS.forEach((c,i)=>{
+  c.x=BLOCK.x0+i*(BLOCK.w+BLOCK.gap);
+  c.y=BLOCK.top;
+  c.h=SEC_TOP+ c.secs.length*(SEC_H+SEC_GAP);
+  c.secs=c.secs.map((t,j)=>({t, x:c.x, y:c.y+SEC_TOP+j*(SEC_H+SEC_GAP), st:"wait", el:null, ci:i, si:j}));
+});
+const WORLD={w:BLOCK.x0*2+CHAPTERS.length*(BLOCK.w+BLOCK.gap), h:BLOCK.top+360+90};
+const ROOTX=WORLD.w/2-120, ROOTY=24;
+
+/* ================= 状态 ================= */
+let view={x:40,y:30,s:1}, agents=[], agentSeq=0, playing=false, timers=[];
+const $=s=>document.querySelector(s);
+const world=$("#world"), svg=$("#tree-edges"), vp=$("#viewport");
+
+/* ================= 树渲染 ================= */
+function buildTree(){
+  const root=document.createElement("div");
+  root.className="root-node"; root.id="root-node";
+  root.style.left=ROOTX+"px"; root.style.top=ROOTY+"px";
+  root.innerHTML=`<h3>📕 CODESYS 手册</h3><p>框架树 · 6 大章节 · 18 个 Topic 节点</p>`;
+  world.appendChild(root);
+
+  CHAPTERS.forEach((c,i)=>{
+    const ch=document.createElement("div");
+    ch.className="chap-node"; ch.id="ch"+i;
+    ch.style.left=c.x+"px"; ch.style.top=c.y+"px";
+    ch.innerHTML=`<div class="t">${c.t}</div><div class="sub">${c.secs.length} 个节点</div>
+      <div class="owner"><span class="odot" style="width:8px;height:8px;border-radius:50%;display:inline-block"></span><span class="ot"></span></div>`;
+    world.appendChild(ch);
+    c.secs.forEach(s=>{
+      const el=document.createElement("div");
+      el.className="sec-node"; el.id=`sec${i}-${s.si}`;
+      el.style.left=s.x+"px"; el.style.top=s.y+"px";
+      el.innerHTML=`<div class="t">${s.t}</div><div class="meta"><span class="badge wait">○ 排队</span></div>`;
+      el.addEventListener("click",e=>{e.stopPropagation();toast(`节点「${s.t}」：由管辖它的 Agent 卡片负责生成`);});
+      world.appendChild(el); s.el=el;
+    });
+  });
+  drawTreeEdges();
+}
+function drawTreeEdges(){
+  svg.setAttribute("width",WORLD.w); svg.setAttribute("height",WORLD.h);
+  svg.style.width=WORLD.w+"px"; svg.style.height=WORLD.h+"px";
+  svg.innerHTML="";
+  const rootCx=ROOTX+120, rootBy=ROOTY+62;
+  CHAPTERS.forEach((c,i)=>{
+    const cx=c.x+100, cy=c.y;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d",`M ${rootCx} ${rootBy} C ${rootCx} ${rootBy+40}, ${cx} ${cy-40}, ${cx} ${cy}`);
+    svg.appendChild(p);
+    c.secs.forEach(s=>{
+      const sx=s.x+100, sy=s.y;
+      const p2=document.createElementNS("http://www.w3.org/2000/svg","path");
+      p2.setAttribute("d",`M ${cx} ${cy+44} C ${cx} ${(cy+44+sy)/2}, ${sx} ${(cy+44+sy)/2}, ${sx} ${sy}`);
+      p2.setAttribute("opacity","0.55");
+      svg.appendChild(p2);
+    });
+  });
+}
+
+/* ================= 视图变换 ================= */
+function applyView(){
+  world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;
+  $("#zoom").value=Math.round(view.s*100);
+  $("#zoom-label").textContent=Math.round(view.s*100)+"%";
+}
+$("#zoom").addEventListener("input",e=>{
+  const ns=e.target.value/100, cx=vp.clientWidth/2, cy=vp.clientHeight/2;
+  view.x=cx-(cx-view.x)/view.s*ns; view.y=cy-(cy-view.y)/view.s*ns; view.s=ns; applyView();
+});
+vp.addEventListener("wheel",e=>{
+  if(e.target.closest("#picker,#global-panel,#dir-form"))return;
+  e.preventDefault();
+  const k=e.deltaY<0?1.1:0.9, ns=Math.min(1.6,Math.max(0.4,view.s*k));
+  const r=vp.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  view.x=mx-(mx-view.x)/view.s*ns; view.y=my-(my-view.y)/view.s*ns; view.s=ns; applyView();
+},{passive:false});
+let pan=null;
+vp.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".agent-card,.sec-node,.chap-node,.root-node"))return;
+  pan={sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y}; vp.classList.add("panning");
+});
+window.addEventListener("pointermove",e=>{
+  if(pan){view.x=pan.ox+e.clientX-pan.sx;view.y=pan.oy+e.clientY-pan.sy;applyView();}
+});
+window.addEventListener("pointerup",()=>{pan=null;vp.classList.remove("panning");});
+$("#fit").addEventListener("click",()=>{
+  const s=Math.min((vp.clientWidth-70)/WORLD.w,(vp.clientHeight-70)/WORLD.h,1.2);
+  view={x:35,y:25,s}; applyView();
+});
+
+/* ================= Agent 卡片 ================= */
+function cardRect(a){return {x:a.x,y:a.y,w:a.w,h:a.h};}
+function applyRect(a){
+  a.el.style.left=a.x+"px"; a.el.style.top=a.y+"px";
+  a.el.style.width=a.w+"px"; a.el.style.height=a.h+"px";
+}
+function blocksInRect(r){
+  const hits=[];
+  CHAPTERS.forEach((c,i)=>{
+    const cx=c.x+c.w/2, cy=c.y+c.h/2;
+    if(cx>=r.x&&cx<=r.x+r.w&&cy>=r.y&&cy<=r.y+r.h)hits.push(i);
+  });
+  return hits;
+}
+function snapToBlocks(hits){
+  const xs=hits.map(i=>CHAPTERS[i].x), xe=hits.map(i=>CHAPTERS[i].x+BLOCK.w);
+  const ys=Math.min(...hits.map(i=>CHAPTERS[i].y)), ye=Math.max(...hits.map(i=>CHAPTERS[i].y+CHAPTERS[i].h));
+  return {x:Math.min(...xs)-PS, y:ys-PT, w:Math.max(...xe)-Math.min(...xs)+2*PS, h:ye-ys+PT+PB};
+}
+function nearestBlock(r){
+  let best=0,bd=1e9;
+  CHAPTERS.forEach((c,i)=>{
+    const cx=c.x+c.w/2, cy=c.y+c.h/2;
+    const d=Math.hypot(cx-(r.x+r.w/2),cy-(r.y+r.h/2));
+    if(d<bd){bd=d;best=i;}
+  });
+  return best;
+}
+function markOwner(i,agent){
+  const ch=$("#ch"+i), owner=ch.querySelector(".owner");
+  if(agent){
+    ch.classList.add("owned");
+    ch.style.borderColor=agent.color;
+    ch.querySelector(".odot").style.background=agent.color;
+    ch.querySelector(".ot").textContent=agent.nm;
+    ch.querySelector(".ot").style.color=agent.color;
+  }else{
+    ch.classList.remove("owned"); ch.style.borderColor="var(--line)";
+  }
+}
+function refreshOwnership(){
+  CHAPTERS.forEach((c,i)=>markOwner(i,null));
+  agents.forEach(a=>a.hits.forEach(i=>markOwner(i,a)));
+}
+function unassignedBlocks(){
+  const used=new Set(); agents.forEach(a=>a.hits.forEach(i=>used.add(i)));
+  return CHAPTERS.map((c,i)=>i).filter(i=>!used.has(i));
+}
+
+function addAgent(){
+  agentSeq++;
+  const free=unassignedBlocks();
+  const target=free.length?free[0]:nearestBlock(cardRect({x:60,y:118,w:200,h:300}));
+  const rect=snapToBlocks([target]);
+  const color=AGENT_COLORS[(agentSeq-1)%AGENT_COLORS.length];
+  const nm="A"+agentSeq+" "+["主力","校对","快速","增补","巡检","润色"][(agentSeq-1)%6];
+  const a={id:"ag"+agentSeq,nm,color,model:ARCHIVES[(agentSeq-1)%ARCHIVES.length],
+    x:rect.x,y:rect.y,w:rect.w,h:rect.h,hits:[target],done:0,total:0,fail:0,
+    mats:[{icon:"📎",t:"需求规格.md"},{icon:"📋",t:"粘贴：术语对照"}]};
+  const el=document.createElement("div");
+  el.className="agent-card";
+  el.style.borderColor=color; el.style.background=color+"14"; /* 8% 透明 */
+  el.innerHTML=`
+    <div class="ac-head">
+      <span class="dot" style="background:${color}"></span>
+      <span><span class="nm">${nm}</span> <span class="model">· ${a.model}</span></span>
+      <span class="scope">1 章</span>
+      <button class="del" title="移除该 Agent">×</button>
+    </div>
+    <div class="ac-body">
+      <textarea class="ac-prompt" rows="2" placeholder="本卡共用 prompt：如「角色：资深 DITA 技术写作；统一术语；Task 步骤≥2」"></textarea>
+      <div class="ac-mats"></div>
+    </div>
+    <div class="ac-foot">
+      <div class="pbar"><i style="background:${color}"></i></div>
+      <span class="cnt">待生成</span>
+    </div>
+    <div class="rh rh-r"></div><div class="rh rh-c"></div>`;
+  a.el=el; world.appendChild(el); agents.push(a);
+  applyRect(a);
+  renderMats(a); refreshOwnership();
+
+  /* 删除 */
+  el.querySelector(".del").addEventListener("click",e=>{
+    e.stopPropagation(); agents=agents.filter(x=>x!==a); el.remove(); refreshOwnership();
+    toast(`已移除 ${nm}，其章节回到未分配`);
+  });
+  /* 调整大小（右缘/右下角） */
+  ["rh-r","rh-c"].forEach(cls=>{
+    el.querySelector("."+cls).addEventListener("pointerdown",e=>{
+      e.stopPropagation(); e.preventDefault();
+      el.classList.add("drag-resize");
+      const sx=e.clientX, sy=e.clientY, ow=a.w, oh=a.h, vh=cls==="rh-c";
+      const move=ev=>{
+        const dx=(ev.clientX-sx)/view.s, dy=(ev.clientY-sy)/view.s;
+        a.w=Math.max(150,ow+dx); if(vh)a.h=Math.max(150,oh+dy);
+        applyRect(a);
+        a.hits=blocksInRect(cardRect(a));           // 实时高亮预览
+        refreshOwnership();
+        el.querySelector(".scope").textContent=(a.hits.length||"0")+" 章";
+      };
+      const up=()=>{
+        window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up);
+        el.classList.remove("drag-resize");
+        if(!a.hits.length)a.hits=[nearestBlock(cardRect(a))];
+        /* 从别的卡抢章 */
+        agents.forEach(o=>{if(o!==a)o.hits=o.hits.filter(i=>!a.hits.includes(i));});
+        const snapped=snapToBlocks(a.hits);
+        Object.assign(a,snapped); applyRect(a);
+        el.querySelector(".scope").textContent=a.hits.length+" 章";
+        refreshOwnership();
+        toast(`${nm} 现管辖 ${a.hits.length} 章（${a.hits.map(i=>i+1).join("、")}）`);
+      };
+      window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+    });
+  });
+  toast(`已新增 ${nm}，默认管辖第 ${target+1} 章；拖右缘/右下角可扩框`);
+  return a;
+}
+function renderMats(a){
+  const box=a.el.querySelector(".ac-mats");
+  box.innerHTML=a.mats.map(m=>`<span class="mat-chip ${m.dir?"dir":""}">${m.icon} ${m.t}</span>`).join("")
+    +`<button class="mat-add">＋ 素材 ▾</button>`;
+  box.querySelector(".mat-add").addEventListener("click",e=>{
+    e.stopPropagation(); openMatDrop(e.clientX,e.clientY,a);
+  });
+}
+
+/* ================= 素材来源（上传/粘贴/目录） ================= */
+let matTarget=null;  // agent 或 "global"
+const gmats=[{icon:"📎",t:"术语总表.xlsx"},{icon:"📁",t:"需求资料（5 个文件）",dir:true}];
+function renderGlobal(){
+  $("#gm-list").innerHTML=gmats.map(m=>`<span class="mat-chip ${m.dir?"dir":""}">${m.icon} ${m.t}</span>`).join("");
+  $("#gm-count").textContent=gmats.length;
+}
+function openMatDrop(x,y,target){
+  matTarget=target;
+  const d=$("#mat-drop"); d.style.left=Math.min(x,innerWidth-200)+"px"; d.style.top=(y+6)+"px";
+  d.style.position="fixed"; d.classList.add("show");
+}
+document.addEventListener("click",e=>{
+  if(!e.target.closest("#mat-drop"))$("#mat-drop").classList.remove("show");
+});
+document.querySelectorAll("#mat-drop button").forEach(b=>b.addEventListener("click",()=>{
+  $("#mat-drop").classList.remove("show");
+  const src=b.dataset.src;
+  if(src==="dir"){openDirForm(innerWidth/2-150,innerHeight/2-90);return;}
+  const chip=src==="upload"?{icon:"📎",t:"接口清单.docx"}:{icon:"📋",t:"粘贴：受众画像"};
+  pushMat(chip);
+}));
+function pushMat(chip){
+  if(matTarget==="global"){gmats.push(chip);renderGlobal();toast("已加入整体素材");}
+  else if(matTarget){matTarget.mats.push(chip);renderMats(matTarget);toast(`已加入 ${matTarget.nm} 的素材`);}
+}
+/* 目录读取表单 */
+function openDirForm(x,y){
+  $("#dir-form").style.left=x+"px"; $("#dir-form").style.top=y+"px";
+  $("#dir-form").classList.add("show");
+}
+$("#dir-cancel").addEventListener("click",()=>$("#dir-form").classList.remove("show"));
+$("#dir-ok").addEventListener("click",()=>{
+  const p=$("#dir-input").value.trim()||"/Users/我/需求资料";
+  $("#dir-form").classList.remove("show");
+  pushMat({icon:"📁",t:p.split("/").filter(Boolean).pop()+"（自动读取，12 个文件）",dir:true});
+});
+/* 模拟浏览 */
+const PICKER_DIRS=[["📁","需求资料"],["📁","CODESYS 参考"],["📁","旧版手册"],["📁","术语与规范"],["📁","竞品分析"]];
+$("#dir-browse").addEventListener("click",()=>{
+  $("#picker").classList.add("show");
+  $("#picker-list").innerHTML=PICKER_DIRS.map((d,i)=>`<div class="pitem ${i===0?"sel":""}" data-nm="${d[1]}"><span>${d[0]}</span>${d[1]}<span style="margin-left:auto;font-size:10.5px;color:var(--muted)">${8+i*3} 个文件</span></div>`).join("");
+  $("#picker-list").querySelectorAll(".pitem").forEach(p=>p.addEventListener("click",()=>{
+    $("#picker-list").querySelectorAll(".pitem").forEach(x=>x.classList.remove("sel")); p.classList.add("sel");
+  }));
+});
+$("#picker-cancel").addEventListener("click",()=>$("#picker").classList.remove("show"));
+$("#picker-choose").addEventListener("click",()=>{
+  const sel=$("#picker-list .pitem.sel");
+  $("#dir-input").value="/Users/我/Documents/"+sel.dataset.nm;
+  $("#picker").classList.remove("show");
+});
+$("#picker-open").addEventListener("click",()=>toast("（演示）进入该目录"));
+
+/* 整体素材面板 */
+$("#global-mats").addEventListener("click",()=>$("#global-panel").classList.toggle("show"));
+$("#gm-add").addEventListener("click",e=>{e.stopPropagation();openMatDrop(e.clientX,e.clientY,"global");});
+
+/* ================= 批量生成演示 ================= */
+const BADGE={wait:["wait","○ 排队"],run:["run","◐ 生成中"],ok:["ok","● 完成"],fail:["fail","× 失败"]};
+function setSec(sec,st){
+  sec.st=st; const [cls,txt]=BADGE[st];
+  const b=sec.el.querySelector(".badge"); b.className="badge "+cls; b.textContent=txt;
+  sec.el.classList.toggle("now",st==="run");
+}
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.style.display="block";
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2600);
+}
+$("#run-btn").addEventListener("click",()=>{
+  if(playing){ // 取消
+    timers.forEach(clearTimeout); playing=false;
+    $("#run-btn").className="hero-btn"; $("#run-btn").textContent="▶ 批量生成 Topic";
+    toast("批次已取消，已完成结果保留"); return;
+  }
+  if(!agents.length){toast("请先「新增 Agent」框选章节");return;}
+  playing=true; timers=[];
+  $("#run-btn").className="hero-btn stop"; $("#run-btn").textContent="■ 取消批次";
+
+  /* 复位 */
+  CHAPTERS.forEach(c=>c.secs.forEach(s=>setSec(s,"wait")));
+  agents.forEach(a=>{a.done=0;a.fail=0;
+    a.total=a.hits.reduce((n,i)=>n+CHAPTERS[i].secs.length,0);
+    a.el.querySelector(".pbar i").style.width="0";
+    a.el.querySelector(".cnt").textContent=`0/${a.total}`;
+  });
+
+  /* 每个 Agent 一条并行时间线 */
+  let maxT=0, failSec=pickFailSection();
+  agents.forEach(a=>{
+    let t=600;
+    a.hits.forEach(ci=>{
+      CHAPTERS[ci].secs.forEach(sec=>{
+        const dur=900+Math.random()*900;
+        timers.push(setTimeout(()=>{setSec(sec,"run");},t));
+        t+=dur;
+        timers.push(setTimeout(()=>{
+          const isFail=(failSec===sec);
+          setSec(sec,isFail?"fail":"ok");
+          if(isFail)a.fail++; else a.done++;
+          const cnt=a.el.querySelector(".cnt");
+          cnt.textContent=`${a.done}/${a.total}${a.fail?` · ${a.fail} 失败`:""}`;
+          a.el.querySelector(".pbar i").style.width=((a.done+a.fail)/a.total*100)+"%";
+        },t));
+        t+=250;
+      });
+    });
+    maxT=Math.max(maxT,t);
+  });
+  timers.push(setTimeout(()=>{
+    playing=false; $("#run-btn").className="hero-btn"; $("#run-btn").textContent="▶ 重新生成";
+    const done=agents.reduce((n,a)=>n+a.done,0), fail=agents.reduce((n,a)=>n+a.fail,0);
+    toast(`批次完成：${done} 成功 · ${fail} 失败（失败节点已重新排队）`);
+  },maxT+400));
+});
+function pickFailSection(){
+  const c=CHAPTERS[3]; return c?c.secs[1]:null;
+}
+
+/* ================= 初始化 ================= */
+buildTree(); renderGlobal();
+setTimeout(()=>$("#fit").click(),80);
+setTimeout(()=>{addAgent();addAgent();addAgent();},150);  // 预置 3 个 Agent 各管一章
+if(location.hash==="#run")setTimeout(()=>$("#run-btn").click(),800);
+</script>
+</body>
+</html>

@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案p29 · 画布v3 · 横向树 + Agent 配置面板</title>
+<style>
+  :root{
+    --page:#cdd0e2; --canvas:#ffffff; --paper:#ffffff; --side:#f7f7fb; --ink:#111111; --ink2:#44444d;
+    --muted:#6a6a78; --raspberry:#111111; --raspberry-dark:#2a2a2a; --selected:#dcf8b6;
+    --line:#dcdce6; --ok:#111111; --run:#8a6a00; --wait:#777783; --fail:#c12f67;
+    --lime:#dcf8b6; --yellow:#fff07a; --pink:#ff8fbd;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Avenir Next","PingFang SC","Microsoft YaHei",sans-serif;background:var(--page);color:var(--ink);height:100vh;display:flex;overflow:hidden;padding:12px}
+  .shell{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #d9d9e4;border-radius:26px;overflow:hidden;box-shadow:0 18px 50px rgba(35,35,70,.16)}
+
+  .appbar{display:flex;align-items:center;gap:20px;background:#fff;padding:0 24px;height:58px;flex:none}
+  .brand{font-weight:800;font-size:16px;color:var(--ink);white-space:nowrap;letter-spacing:-.01em}
+  .tabs{display:flex;gap:6px;flex:1;justify-content:center;overflow:hidden}
+  .tab{padding:6px 15px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;color:var(--ink2);cursor:pointer;white-space:nowrap;background:#fff}
+  .tab.active{border:1.5px solid var(--ink);color:var(--ink);font-weight:700;background:#fff}
+  .project-meta{white-space:nowrap;font-size:12px;color:var(--muted)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;padding:13px 24px 15px;background:#fff;border-top:1px solid #efeff4;flex:none;flex-wrap:wrap}
+  .hero-copy{display:flex;flex-direction:column;min-width:330px;margin-right:8px}
+  .hero-copy h1{display:flex;align-items:center;gap:10px;font-size:29px;line-height:1;letter-spacing:-.025em;font-weight:800}
+  .hero-copy .mark{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--lime);font-size:22px;font-weight:800}
+  .hero-copy em{font:italic 400 30px/1 Georgia,"Songti SC",serif;letter-spacing:0;color:var(--ink)}
+  .hero-copy p{font-size:12px;color:var(--muted);margin:6px 0 0 48px}
+  .hero-btn{margin-left:4px;padding:7px 8px 7px 20px;border-radius:999px;border:none;background:var(--ink);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:none}
+  .hero-btn::after{content:"▶";display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--lime);color:var(--ink);font-size:11px}
+  .hero-btn.stop::after{content:"■"}
+  .hero-btn:hover{background:#2a2a2a}
+  .tool-btn{padding:7px 15px;border-radius:999px;border:1px solid #cfcfda;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .tool-btn:hover{border-color:var(--ink);color:var(--ink)}
+  #arch-count{margin-left:4px;padding:1px 7px;background:var(--lime);border-radius:999px;color:var(--ink);font-size:11px}
+  .seg{display:flex;border:1px solid #cfcfda;border-radius:999px;background:#fff;padding:2px}
+  .seg button{border:none;background:none;padding:5px 13px;border-radius:999px;font-size:12px;cursor:pointer;color:var(--ink2)}
+  .seg button.on{background:var(--ink);color:#fff;font-weight:700}
+  .spacer{flex:1}
+  .zoombox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .zoombox input[type=range]{width:105px;accent-color:var(--ink)}
+
+  #viewport{flex:1;min-height:0;position:relative;overflow:hidden;cursor:grab;margin:0 12px 12px;border:1px solid var(--line);border-radius:20px;background-color:var(--canvas);
+    background-image:radial-gradient(circle,#e7e7ee 1px,transparent 1px);background-size:24px 24px}
+  #viewport.panning{cursor:grabbing}
+  #world{position:absolute;top:0;left:0;width:10px;height:10px;transform-origin:0 0}
+  svg#edges{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:2}
+  svg#edges path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ===== 节点（章节同色主题） ===== */
+  .root-node{position:absolute;width:180px;background:var(--ink);border:none;border-radius:20px;padding:12px 16px;box-shadow:0 10px 24px rgba(17,17,17,.18);text-align:left;z-index:3}
+  .root-node h3{font-size:14.5px;color:#fff}
+  .root-node p{font-size:11px;color:var(--lime);margin-top:3px}
+  .chap-node{position:absolute;width:190px;height:76px;border-radius:18px;padding:9px 12px;z-index:3;border:1.5px solid;box-shadow:0 7px 18px rgba(17,17,17,.08);background:#fff}
+  .chap-node .t{font-size:13px;font-weight:800;line-height:1.35}
+  .chap-node .sub{font-size:10.5px;color:var(--muted);margin-top:3px}
+  .chap-node .owner{font-size:10px;font-weight:700;margin-top:4px;display:flex;align-items:center;gap:5px;visibility:hidden}
+  .chap-node.owned .owner{visibility:visible}
+  .sec-node{position:absolute;width:200px;height:52px;border-radius:999px;padding:0 6px 0 15px;z-index:3;cursor:pointer;border:1px solid #d7d7e1;border-left:4px solid;background:#fff;display:flex;align-items:center;gap:8px;box-shadow:0 3px 10px rgba(17,17,17,.04)}
+  .sec-node .t{font-size:12px;line-height:1.3;flex:1;min-width:0}
+  .sec-node .meta{display:flex;gap:6px;align-items:center;flex:none}
+  .badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:700;border:1px solid #cfcfda;white-space:nowrap}
+  .badge.wait{background:#fff;color:var(--wait)}
+  .badge.run{background:var(--yellow);border-color:var(--yellow);color:var(--ink);animation:pulse 1.2s ease-in-out infinite}
+  .badge.ok{background:var(--ink);border-color:var(--ink);color:#fff}
+  .badge.fail{background:var(--pink);border-color:var(--pink);color:var(--ink)}
+  @keyframes pulse{50%{opacity:.55}}
+  .sec-node.now{border-color:var(--ink);box-shadow:0 0 0 3px rgba(255,240,122,.65)}
+
+  /* ===== Agent 卡片 ===== */
+  .agent-card{position:absolute;border-radius:26px;border:1.5px solid var(--ink);z-index:1;background:#fff;
+    display:flex;flex-direction:column;overflow:hidden;box-shadow:0 14px 32px rgba(17,17,17,.10);
+    transition:left .25s,top .25s,width .25s,height .25s,box-shadow .2s}
+  .agent-card.drag-resize{transition:none;box-shadow:0 18px 42px rgba(17,17,17,.20),0 0 0 3px rgba(220,248,182,.9)}
+  .ac-head{display:flex;align-items:center;gap:9px;height:56px;padding:0 14px 0 16px;flex:none}
+  .ac-head .dot{width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);flex:none}
+  .ac-head .nm{font-size:15px;font-weight:800;white-space:nowrap}
+  .ac-head .model{font:italic 400 14px Georgia,"Songti SC",serif;color:var(--ink2);white-space:nowrap}
+  .ac-head .scope{font-size:11px;font-weight:700;background:#fff;border:1px solid var(--ink);padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .ac-head .acts{margin-left:auto;display:flex;gap:5px;align-items:center}
+  .ac-head .acts button{cursor:pointer;color:var(--ink2);border-radius:999px}
+  .ac-head .acts .cfgbtn{border:1.5px solid var(--ink);background:#fff;font-size:11.5px;font-weight:800;padding:5px 10px;white-space:nowrap}
+  .ac-head .acts .cfgbtn:hover{background:var(--ink);border-color:var(--ink);color:#fff}
+  .ac-head .acts .del{border:none;background:none;font-size:19px;color:var(--muted);padding:2px 4px}
+  .ac-head .acts .del:hover{color:var(--ink)}
+  .ac-foot{margin-top:auto;display:flex;align-items:center;gap:9px;padding:7px 14px 20px}
+  .ac-foot .node-total{font-size:11.5px;color:var(--ink);font-weight:800;white-space:nowrap}
+  .pbar{flex:1;height:7px;border-radius:999px;background:rgba(17,17,17,.12);overflow:hidden}
+  .pbar i{display:block;height:100%;width:0;border-radius:999px;transition:width .35s}
+  .ac-foot .cnt{font-size:11px;color:var(--ink2);font-weight:700;white-space:nowrap}
+  .rh{position:absolute;z-index:5;touch-action:none}
+  .rh-b{left:18px;right:18px;bottom:0;height:18px;cursor:ns-resize}
+  .rh-b::after{content:"";position:absolute;bottom:4px;left:50%;transform:translateX(-50%);height:5px;width:46px;border-radius:5px;background:var(--ink);opacity:.28}
+  .rh-b:hover::after,.drag-resize .rh-b::after{background:var(--ink);opacity:.75}
+  .rh-r{right:0;top:18px;bottom:18px;width:18px;cursor:ew-resize}
+  .rh-r::after{content:"";position:absolute;right:4px;top:50%;transform:translateY(-50%);width:5px;height:46px;border-radius:5px;background:var(--ink);opacity:.28}
+  .rh-r:hover::after,.drag-resize .rh-r::after{background:var(--ink);opacity:.75}
+  .agent-card[data-layout="v"] .rh-b{display:none}
+  .chap-node.resize-blocked{opacity:.38;filter:grayscale(.45)}
+
+  /* ===== Agent 配置面板（右侧悬浮卡） ===== */
+  #cfg{position:fixed;right:24px;top:148px;bottom:24px;width:372px;background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 22px 60px rgba(35,35,70,.24);z-index:90;display:none;flex-direction:column;overflow:hidden}
+  #cfg.show{display:flex}
+  #cfg header{display:flex;align-items:flex-start;gap:9px;padding:20px 22px 12px;background:#fff}
+  #cfg header h3{font-size:22px;line-height:1.1;letter-spacing:-.01em}
+  #cfg header .cap{font-size:11.5px;color:var(--muted);margin-top:4px}
+  #cfg header button{margin-left:auto;border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
+  #cfg .body{flex:1;overflow-y:auto;padding:8px 22px 16px;display:flex;flex-direction:column;gap:15px}
+  .fld label{display:block;font-size:12px;font-weight:800;color:var(--ink2);margin-bottom:6px}
+  .fld label small{font-weight:400;color:var(--muted)}
+  .fld input[type=text],.fld select,.fld textarea{width:100%;font-size:12.5px;padding:9px 12px;border:1.5px solid var(--line);border-radius:14px;background:#fff;font-family:inherit;color:var(--ink)}
+  .fld textarea{resize:vertical;line-height:1.5}
+  .fld .row{display:flex;gap:6px}
+  .fld .row select{flex:1}
+  .link-btn{border:1px solid #cfcfda;background:#fff;border-radius:999px;padding:7px 12px;font-size:11.5px;cursor:pointer;color:var(--ink2);white-space:nowrap}
+  .link-btn:hover{border-color:var(--ink);color:var(--ink)}
+  #cfg-newarch{display:none;gap:6px;margin-top:6px}
+  #cfg-newarch.show{display:flex}
+  .ac-mats{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .mat-chip{font-size:11px;background:#fff;border:1px solid #cfcfda;border-radius:999px;padding:3px 9px;display:inline-flex;align-items:center;gap:4px}
+  .mat-chip.dir{border-color:#a8c8e8;background:#eef4fb}
+  .mat-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:11px}
+  .color-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .color-swatch{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #bfc0cc;cursor:pointer}
+  .color-swatch.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--ink)}
+  #cfg-color{width:34px;height:30px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+  #cfg-color-label{font-size:11px;color:var(--muted);margin-left:2px}
+  .reuse-box{background:var(--lime);border:1px solid transparent;border-radius:16px;padding:12px 14px}
+  .reuse-box label{font-size:11px;font-weight:800;color:var(--ink2);display:block;margin-bottom:6px}
+  .reuse-box select{width:100%;font-size:12.5px;padding:9px 12px;border:1px solid transparent;border-radius:12px;background:#fff}
+  #cfg footer{padding:13px 22px 18px;border-top:1px solid #efeff4;display:flex;gap:8px;justify-content:flex-end;background:#fff}
+  .btn-p{padding:8px 20px;border-radius:999px;border:none;background:var(--ink);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
+  .btn-p:hover{background:#2a2a2a}
+  .btn-s{padding:8px 16px;border-radius:999px;border:1px solid #cfcfda;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+
+  /* ===== 素材下拉/目录/浏览（沿用 v2） ===== */
+  .drop{position:fixed;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(43,33,28,.2);padding:6px;z-index:120;display:none;width:190px}
+  .drop.show{display:block}
+  .drop button{display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:8px 10px;border-radius:8px;font-size:12px;cursor:pointer;text-align:left;color:var(--ink)}
+  .drop button:hover{background:var(--selected)}
+  #dir-form{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(43,33,28,.2);padding:12px;z-index:130;width:300px;position:fixed}
+  #dir-form.show{display:block}
+  #dir-form h5{font-size:12.5px;margin-bottom:8px;color:var(--raspberry-dark)}
+  #dir-form .row{display:flex;gap:6px}
+  #dir-form input{flex:1;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+  #dir-form .hint{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5}
+  #dir-form .row.end{margin-top:10px;justify-content:flex-end}
+  #picker{position:fixed;inset:0;background:rgba(43,33,28,.35);display:none;align-items:center;justify-content:center;z-index:140}
+  #picker.show{display:flex}
+  #picker .box{width:420px;background:var(--paper);border-radius:16px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.3)}
+  #picker h4{font-size:14px;margin-bottom:10px}
+  .pitem{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:12.5px;cursor:pointer}
+  .pitem:hover{background:var(--selected)}
+  .pitem.sel{background:var(--selected);font-weight:700}
+  #picker .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+
+  /* ===== 模型档案管理 ===== */
+  #arch-panel{position:fixed;left:24px;top:152px;width:330px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 40px rgba(35,35,70,.22);padding:13px;display:none;z-index:80}
+  #arch-panel.show{display:block}
+  #arch-panel h4{font-size:13px;color:var(--raspberry-dark);margin-bottom:4px}
+  #arch-panel .cap{font-size:10.5px;color:var(--muted);margin-bottom:9px;line-height:1.5}
+  .arch-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:#fff}
+  .arch-item .nm{font-size:12px;font-weight:700}
+  .arch-item .md{font-size:10.5px;color:var(--muted)}
+  .arch-item button{margin-left:auto;border:none;background:none;color:var(--muted);cursor:pointer}
+  #arch-panel .close{position:absolute;top:8px;right:10px;border:none;background:none;font-size:16px;cursor:pointer;color:var(--muted)}
+
+  .hintline{position:fixed;right:24px;bottom:26px;font-size:11.5px;color:var(--muted);background:rgba(255,255,255,.94);padding:7px 13px;border-radius:999px;border:1px solid var(--line);z-index:40}
+  .note{position:fixed;top:160px;right:24px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-size:12px;padding:9px 14px;border-radius:14px;max-width:320px;line-height:1.65;z-index:60;box-shadow:0 10px 28px rgba(35,35,70,.16)}
+  .note button{float:right;border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;margin-left:8px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:12.5px;padding:9px 18px;border-radius:999px;display:none;z-index:150;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<header class="appbar">
+  <span class="brand">✦ 炼金炉</span>
+  <nav class="tabs">
+    <span class="tab">首页</span><span class="tab">项目工作台</span><span class="tab">框架工坊</span>
+    <span class="tab">Topic 工作台</span><span class="tab">质量巡检</span><span class="tab active">生成画布</span>
+  </nav>
+  <span class="project-meta">CODESYS 手册</span>
+</header>
+
+<div class="toolbar">
+  <div class="hero-copy">
+    <h1><span class="mark">✱</span>生成画布 <em>Topic Canvas</em></h1>
+    <p id="hero-sub">0 个 Agent · 18 个节点待分配</p>
+  </div>
+  <span class="spacer"></span>
+  <button class="tool-btn" id="add-agent">新增 Agent</button>
+  <button class="tool-btn" id="arch-btn">模型档案 <span id="arch-count">4</span></button>
+  <div class="seg" id="layout-seg">
+    <button data-lo="h" class="on">横向树</button>
+    <button data-lo="v">纵向树</button>
+  </div>
+  <span class="zoombox">缩放 <input type="range" id="zoom" min="40" max="160" value="100"><span id="zoom-label">100%</span></span>
+  <button class="tool-btn" id="fit">适应画布</button>
+  <button class="hero-btn" id="run-btn">批量生成 Topic</button>
+</div>
+
+<div id="viewport">
+  <div id="world">
+    <svg id="edges"></svg>
+  </div>
+</div>
+</div>
+
+<!-- Agent 配置面板 -->
+<aside id="cfg">
+  <header>
+    <span style="font-size:18px">🤖</span>
+    <div><h3 id="cfg-title">新增 Agent</h3><p class="cap">框住的章节 = 该子 Agent 的职责范围</p></div>
+    <button onclick="closeCfg()">×</button>
+  </header>
+  <div class="body">
+    <div class="fld">
+      <label>名称 <small>不填则自动命名 A、B、C…</small></label>
+      <input type="text" id="cfg-name" placeholder="如：入门章节专员">
+    </div>
+    <div class="reuse-box" id="cfg-reuse-box">
+      <label>⚡ 一键复用已有 Agent 的配置（模型 / prompt / 素材）</label>
+      <select id="cfg-reuse"><option value="">不复用，从零配置</option></select>
+    </div>
+    <div class="fld">
+      <label>模型档案 <small>档案在顶部「模型档案」统一管理，也可现场新建</small></label>
+      <div class="row">
+        <select id="cfg-model"></select>
+        <button class="link-btn" id="cfg-newarch-btn">＋ 新建档案</button>
+      </div>
+      <div id="cfg-newarch">
+        <input type="text" id="na-name" placeholder="档案名，如 润色·GLM-5" style="flex:1.2">
+        <input type="text" id="na-model" placeholder="模型，如 glm-5" style="flex:1">
+        <button class="link-btn" id="na-ok" style="border-style:solid">添加</button>
+      </div>
+    </div>
+    <div class="fld">
+      <label>卡片颜色 <small>默认白色，也可以选择便签色或自定义</small></label>
+      <div class="color-row" id="cfg-colors">
+        <button type="button" class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="默认白"></button>
+        <button type="button" class="color-swatch" data-color="#fff4c7" style="background:#fff4c7" title="奶油黄"></button>
+        <button type="button" class="color-swatch" data-color="#dceafb" style="background:#dceafb" title="晴空蓝"></button>
+        <button type="button" class="color-swatch" data-color="#ddf1df" style="background:#ddf1df" title="薄荷绿"></button>
+        <button type="button" class="color-swatch" data-color="#f9dce5" style="background:#f9dce5" title="樱花粉"></button>
+        <button type="button" class="color-swatch" data-color="#e9def6" style="background:#e9def6" title="鸢尾紫"></button>
+        <input type="color" id="cfg-color" value="#ffffff" title="自定义颜色">
+        <span id="cfg-color-label">默认白</span>
+      </div>
+    </div>
+    <div class="fld">
+      <label>共用 prompt <small>对本卡全部章节生效</small></label>
+      <textarea id="cfg-prompt" rows="4" placeholder="角色：资深 DITA 技术写作；统一术语；Task 步骤≥2；shortdesc≤3 句"></textarea>
+    </div>
+    <div class="fld">
+      <label>素材资料 <small>支持上传 / 粘贴 / 读取目录</small></label>
+      <div class="ac-mats" id="cfg-mats"></div>
+    </div>
+  </div>
+  <footer>
+    <button class="btn-s" onclick="closeCfg()">取消</button>
+    <button class="btn-p" id="cfg-save">创建并框选章节</button>
+  </footer>
+</aside>
+
+<!-- 素材下拉 / 目录表单 / 模拟访达 -->
+<div class="drop" id="mat-drop">
+  <button data-src="upload">📎 上传文件…</button>
+  <button data-src="paste">📋 粘贴文本</button>
+  <button data-src="dir">📁 读取本地目录…</button>
+</div>
+<div id="dir-form">
+  <h5>📁 读取目录下所有文件</h5>
+  <div class="row">
+    <input id="dir-input" placeholder="粘贴目录路径，如 /Users/我/需求资料">
+    <button class="tool-btn" id="dir-browse">浏览…</button>
+  </div>
+  <p class="hint">将读取该目录下全部 .md / .docx / .pdf / .txt 作为生成素材（含子目录）。</p>
+  <div class="row end">
+    <button class="tool-btn" id="dir-cancel">取消</button>
+    <button class="tool-btn" style="background:var(--raspberry);border-color:var(--raspberry);color:#fff" id="dir-ok">读取</button>
+  </div>
+</div>
+<div id="picker">
+  <div class="box">
+    <h4>选择素材目录</h4>
+    <div id="picker-list"></div>
+    <div class="acts">
+      <button class="tool-btn" id="picker-cancel">取消</button>
+      <button class="tool-btn" style="background:var(--raspberry);border-color:var(--raspberry);color:#fff" id="picker-choose">选择此目录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 模型档案管理 -->
+<div id="arch-panel">
+  <button class="close" onclick="this.parentElement.classList.remove('show')">×</button>
+  <h4>🧩 模型档案</h4>
+  <p class="cap">与设置页共用一份档案；每个档案绑独立模型与 API Key。Agent 配置页从这里选择。</p>
+  <div id="arch-list"></div>
+  <div class="fld" style="margin-top:6px">
+    <div class="row">
+      <input type="text" id="ap-name" placeholder="档案名" style="flex:1.2">
+      <input type="text" id="ap-model" placeholder="模型" style="flex:1">
+      <button class="link-btn" id="ap-add" style="border-style:solid">＋</button>
+    </div>
+  </div>
+</div>
+
+<div class="hintline">拖拽平移 · 滚轮缩放 · 横向卡片：底缘增减章节，右缘仅调宽 · 只能框选未分配章节</div>
+<div class="note" id="note"><button onclick="document.getElementById('note').remove()">×</button>📌 <b>v3 要点：</b>默认横向树（可切纵向）；每个章节一种颜色、连线加粗加深；点「新增 Agent」<b>先弹配置面板</b>（不再直接出透明框）：自定义名称（空则 A/B/C…）、选模型档案或现场新建、prompt 与素材都在面板里；支持一键复用已有 Agent 配置。卡片是不透明便签（默认白色、可自定义颜色），带明显的 ⚙ 配置按钮、节点数和拖拽手柄；只能框选未分配章节。</div>
+<div id="toast"></div>
+
+<script>
+/* ================= 数据 ================= */
+const CHAP_COLORS=["#3f8f6b","#4a78c2","#d9822b","#8a5fb0","#d63a63","#2b8f8f"];
+const CHAPTERS=[
+  {t:"第1章 入门与安装", secs:["安装与环境配置","许可证激活流程","首次运行向导"]},
+  {t:"第2章 编程基础", secs:["变量与数据类型","POU 程序组织单元","函数与功能块"]},
+  {t:"第3章 工程结构", secs:["任务配置与调度","库管理与引用","设备树与硬件组态"]},
+  {t:"第4章 调试诊断", secs:["在线调试与断点","交叉引用与监视","仿真模式使用"]},
+  {t:"第5章 可视化", secs:["可视化界面开发","报警与日志系统","配方与趋势图"]},
+  {t:"第6章 交付管理", secs:["导出与版本管理","文档发布流程","团队协作规范"]},
+];
+const SETTINGS={archives:[
+  {nm:"主力·GLM",model:"glm-4.7"},{nm:"校对·GPT",model:"gpt-5.2"},
+  {nm:"快速·Haiku",model:"haiku-4.5"},{nm:"备用·主Key",model:"deepseek-v3.2"}]};
+const AGENT_COLORS=["#0e8a72","#3157c9","#c25e10","#7a3fa0","#c2255b","#0e7a8a"];
+const NAMES="ABCDEFGH";
+
+/* 布局参数：横向 h / 纵向 v */
+let LAYOUT="h";
+const PT=48,PB=52,PS=14;   /* 卡片吸附留白：头部 / 底部节点数与进度 / 两侧 */
+const CH_W=190, CH_H=76, SEC_W=200, SEC_H=52, SEC_GAP=6;
+const COL_CH=330, COL_SEC=566;
+
+let WORLD={w:0,h:0}, ROOT={x:0,y:0};
+const $=s=>document.querySelector(s);
+const world=$("#world"), svg=$("#edges"), vp=$("#viewport");
+
+/* ================= 布局计算 ================= */
+function computeLayout(expanded=false){
+  const hasAgents=expanded||agents.length>0;
+  if(LAYOUT==="h"){
+    const gapV=hasAgents?140:14;
+    let y=46;
+    CHAPTERS.forEach((c,i)=>{
+      const bh=CH_H+ c.secs.length*(SEC_H+SEC_GAP)+6;
+      c.x=COL_CH; c.y=y; c.w=CH_W; c.bandH=bh;
+      c.band={x:COL_CH-12, y:y-10, w:(COL_SEC+SEC_W+12)-(COL_CH-12), h:bh+20};
+      c.secs=c.secs.map((entry,j)=>({t:typeof entry==="string"?entry:entry.t,x:COL_SEC,y:y+4+j*(SEC_H+SEC_GAP),st:typeof entry==="object"?entry.st:"wait",el:null,ci:i,si:j}));
+      y+=bh+gapV;
+    });
+    WORLD={w:COL_SEC+SEC_W+60,h:y+30};
+    ROOT={x:52,y:Math.min(WORLD.h/2-60,470)};
+  }else{
+    const BX=60, BY=170, BGAP=hasAgents?68:26;
+    CHAPTERS.forEach((c,i)=>{
+      const bh=CH_H+ c.secs.length*(SEC_H+SEC_GAP)+6;
+      c.x=BX+i*(CH_W+BGAP); c.y=BY; c.w=CH_W; c.bandH=bh;
+      c.band={x:c.x-10,y:BY-12,w:CH_W+20,h:bh+24};
+      c.secs=c.secs.map((entry,j)=>({t:typeof entry==="string"?entry:entry.t,x:c.x-5,y:BY+CH_H+12+j*(SEC_H+SEC_GAP),st:typeof entry==="object"?entry.st:"wait",el:null,ci:i,si:j}));
+    });
+    WORLD={w:BX*2+CHAPTERS.length*(CH_W+BGAP),h:BY+330+60};
+    ROOT={x:WORLD.w/2-90,y:30};
+  }
+}
+
+/* ================= 树渲染 ================= */
+function buildTree(){
+  world.querySelectorAll(".root-node,.chap-node,.sec-node").forEach(e=>e.remove());
+  const root=document.createElement("div");
+  root.className="root-node"; root.id="root-node";
+  root.style.left=ROOT.x+"px"; root.style.top=ROOT.y+"px";
+  root.innerHTML=`<h3>📕 CODESYS 手册</h3><p>6 大章节 · 18 个 Topic 节点</p>`;
+  world.appendChild(root);
+
+  CHAPTERS.forEach((c,i)=>{
+    const col=CHAP_COLORS[i];
+    const ch=document.createElement("div");
+    ch.className="chap-node"; ch.id="ch"+i;
+    ch.style.left=c.x+"px"; ch.style.top=c.y+"px";
+    ch.style.borderColor=col; ch.style.background=col+"22";
+    ch.innerHTML=`<div class="t" style="color:${col}">${c.t}</div><div class="sub">${c.secs.length} 个节点</div>
+      <div class="owner"><span class="odot" style="width:8px;height:8px;border-radius:50%;display:inline-block"></span><span class="ot"></span></div>`;
+    world.appendChild(ch);
+    c.secs.forEach(s=>{
+      const el=document.createElement("div");
+      el.className="sec-node"; el.id=`sec${i}-${s.si}`;
+      el.style.left=s.x+"px"; el.style.top=s.y+"px";
+      el.style.borderLeftColor=col; el.style.background=col+"10";
+      el.innerHTML=`<div class="t">${s.t}</div><div class="meta"><span class="badge wait">○ 排队</span></div>`;
+      el.addEventListener("click",e=>{e.stopPropagation();toast(`「${s.t}」由管辖第${i+1}章的 Agent 负责生成`);});
+      world.appendChild(el); s.el=el;
+    });
+  });
+  drawEdges();
+}
+function drawEdges(){
+  svg.setAttribute("width",WORLD.w); svg.setAttribute("height",WORLD.h);
+  svg.style.width=WORLD.w+"px"; svg.style.height=WORLD.h+"px";
+  svg.innerHTML="";
+  const NS="http://www.w3.org/2000/svg";
+  const edge=(d,col,w=2,op=.8)=>{
+    const p=document.createElementNS(NS,"path");
+    p.setAttribute("d",d);p.setAttribute("stroke",col);
+    p.setAttribute("stroke-width",w);p.setAttribute("opacity",op);svg.appendChild(p);
+  };
+  if(LAYOUT==="h"){
+    const rootX=ROOT.x+180,rootY=ROOT.y+34,rootBranch=rootX+46;
+    const chapterYs=CHAPTERS.map(c=>c.y+CH_H/2);
+    edge(`M ${rootX} ${rootY} H ${rootBranch}`,"#756b60",2.6,.9);
+    edge(`M ${rootBranch} ${Math.min(...chapterYs)} V ${Math.max(...chapterYs)}`,"#756b60",2.6,.9);
+    CHAPTERS.forEach((c,i)=>{
+      const col=CHAP_COLORS[i],cy=c.y+CH_H/2;
+      edge(`M ${rootBranch} ${cy} H ${c.x}`,col,2.4,.9);
+      const startX=c.x+CH_W,secBranch=startX+22;
+      const secYs=c.secs.map(s=>s.y+SEC_H/2);
+      edge(`M ${startX} ${cy} H ${secBranch}`,col,2.1,.8);
+      edge(`M ${secBranch} ${Math.min(...secYs)} V ${Math.max(...secYs)}`,col,1.8,.62);
+      c.secs.forEach(s=>edge(`M ${secBranch} ${s.y+SEC_H/2} H ${s.x}`,col,1.8,.72));
+    });
+  }else{
+    CHAPTERS.forEach((c,i)=>{
+      const col=CHAP_COLORS[i];
+      const x1=ROOT.x+90,y1=ROOT.y+62,x2=c.x+CH_W/2,y2=c.y;
+      edge(`M ${x1} ${y1} C ${x1} ${y1+60}, ${x2} ${y2-60}, ${x2} ${y2}`,col,2.4,.85);
+      c.secs.forEach(s=>{
+        const sx=c.x+CH_W/2,sy=c.y+CH_H,tx=s.x+SEC_W/2,ty=s.y;
+        edge(`M ${sx} ${sy} C ${sx} ${(sy+ty)/2}, ${tx} ${(sy+ty)/2}, ${tx} ${ty}`,col,1.8,.55);
+      });
+    });
+  }
+}
+
+/* ================= 视图变换 ================= */
+let view={x:40,y:30,s:1};
+function applyView(){
+  world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;
+  $("#zoom").value=Math.round(view.s*100);
+  $("#zoom-label").textContent=Math.round(view.s*100)+"%";
+}
+$("#zoom").addEventListener("input",e=>{
+  const ns=e.target.value/100,cx=vp.clientWidth/2,cy=vp.clientHeight/2;
+  view.x=cx-(cx-view.x)/view.s*ns;view.y=cy-(cy-view.y)/view.s*ns;view.s=ns;applyView();
+});
+vp.addEventListener("wheel",e=>{
+  if(e.target.closest("#picker,#cfg,#arch-panel,#dir-form"))return;
+  e.preventDefault();
+  const k=e.deltaY<0?1.1:0.9,ns=Math.min(1.6,Math.max(0.4,view.s*k));
+  const r=vp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  view.x=mx-(mx-view.x)/view.s*ns;view.y=my-(my-view.y)/view.s*ns;view.s=ns;applyView();
+},{passive:false});
+let pan=null;
+vp.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".agent-card,.sec-node,.chap-node,.root-node"))return;
+  pan={sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y};vp.classList.add("panning");
+});
+window.addEventListener("pointermove",e=>{if(pan){view.x=pan.ox+e.clientX-pan.sx;view.y=pan.oy+e.clientY-pan.sy;applyView();}});
+window.addEventListener("pointerup",()=>{pan=null;vp.classList.remove("panning");});
+function fitAll(){
+  const s=Math.min((vp.clientWidth-70)/WORLD.w,(vp.clientHeight-70)/WORLD.h,1.2);
+  view={x:30,y:25,s};applyView();
+}
+function fitHome(){
+  /* 横向树偏高：默认按宽度适配、从顶部看起；纵向直接全局适配 */
+  if(LAYOUT==="h"){
+    const s=Math.min((vp.clientWidth-70)/WORLD.w,1.0);
+    view={x:30,y:25,s};applyView();
+  }else fitAll();
+}
+$("#fit").addEventListener("click",fitAll);
+
+/* 布局切换 */
+document.querySelectorAll("#layout-seg button").forEach(b=>b.addEventListener("click",()=>{
+  if(b.dataset.lo===LAYOUT)return;
+  LAYOUT=b.dataset.lo;
+  document.querySelectorAll("#layout-seg button").forEach(x=>x.classList.toggle("on",x===b));
+  computeLayout(); buildTree();
+  agents.forEach(a=>{a.wAdjust=0;a.hAdjust=0;a.el.dataset.layout=LAYOUT;Object.assign(a,snapToBlocks(a.hits,a));applyRect(a);});
+  refreshOwnership();
+  fitHome();
+}));
+
+/* ================= Agent 卡片 ================= */
+let agents=[],agentSeq=0;
+function snapToBlocks(hits,a){
+  const bs=hits.map(i=>CHAPTERS[i].band);
+  const x=Math.min(...bs.map(b=>b.x)),xe=Math.max(...bs.map(b=>b.x+b.w));
+  const y=Math.min(...bs.map(b=>b.y)),ye=Math.max(...bs.map(b=>b.y+b.h));
+  return {x:x-PS,y:y-PT,w:xe-x+2*PS+(a?.wAdjust||0),h:ye-y+PT+PB+(a?.hAdjust||0)};
+}
+function blocksInRect(r){
+  const hits=[];
+  CHAPTERS.forEach((c,i)=>{
+    const cx=c.band.x+c.band.w/2,cy=c.band.y+c.band.h/2;
+    if(cx>=r.x&&cx<=r.x+r.w&&cy>=r.y&&cy<=r.y+r.h)hits.push(i);
+  });
+  return hits;
+}
+function nearestBand(r,agent){
+  let best=-1,bd=1e9;
+  CHAPTERS.forEach((c,i)=>{
+    if(ownerOf(i,agent))return;
+    const d=Math.hypot(c.band.x+c.band.w/2-(r.x+r.w/2),c.band.y+c.band.h/2-(r.y+r.h/2));
+    if(d<bd){bd=d;best=i;}
+  });
+  return best;
+}
+function markOwner(i,agent){
+  const ch=$("#ch"+i);
+  if(agent){
+    ch.classList.add("owned");
+    ch.querySelector(".odot").style.background=agent.color;
+    const ot=ch.querySelector(".ot"); ot.textContent=agent.nm; ot.style.color=agent.color;
+  }else ch.classList.remove("owned");
+}
+function refreshOwnership(){
+  CHAPTERS.forEach((c,i)=>markOwner(i,null));
+  agents.forEach(a=>{a.hits.forEach(i=>markOwner(i,a));updateAgentMeta(a);});
+  updateHero();
+}
+function updateHero(){
+  const secs=CHAPTERS.flatMap(c=>c.secs);
+  const done=secs.filter(s=>s.st==="ok").length;
+  const running=secs.filter(s=>s.st==="run").length;
+  const text=`${agents.length} 个 Agent · 已完成 ${done}/${secs.length} 个节点${running?` · ${running} 个生成中`:""}`;
+  $("#hero-sub").textContent=text;
+}
+function ownerOf(i,except){return agents.find(a=>a!==except&&a.hits.includes(i))||null;}
+function agentNodeTotal(a){return a.hits.reduce((n,i)=>n+CHAPTERS[i].secs.length,0);}
+function updateAgentMeta(a){
+  if(!a.el)return;
+  a.el.querySelector(".scope").textContent=a.hits.length+" 章";
+  a.el.querySelector(".node-total").textContent=agentNodeTotal(a)+" 个节点";
+}
+function unassignedBlocks(){
+  const used=new Set(); agents.forEach(a=>a.hits.forEach(i=>used.add(i)));
+  return CHAPTERS.map((c,i)=>i).filter(i=>!used.has(i));
+}
+function applyRect(a){
+  a.el.style.left=a.x+"px";a.el.style.top=a.y+"px";
+  a.el.style.width=a.w+"px";a.el.style.height=a.h+"px";
+}
+function defaultName(){
+  const used=new Set(agents.map(a=>a.nm));
+  for(const ch of NAMES)if(!used.has(ch))return ch;
+  return "A"+(agentSeq+1);
+}
+function createAgent(cfg){
+  agentSeq++;
+  if(!agents.length){computeLayout(true);buildTree();}
+  const free=unassignedBlocks();
+  if(!free.length){agentSeq--;toast("所有章节均已分配，请先缩小其他 Agent 的范围");return null;}
+  const target=free[0];
+  const rect=snapToBlocks([target]);
+  const color=AGENT_COLORS[(agentSeq-1)%AGENT_COLORS.length];
+  const a={id:"ag"+agentSeq,nm:cfg.nm||defaultName(),color,model:cfg.model,
+    x:rect.x,y:rect.y,w:rect.w,h:rect.h,wAdjust:0,hAdjust:0,hits:[target],done:0,total:0,fail:0,
+    cfg:{model:cfg.model,prompt:cfg.prompt,mats:[...cfg.mats],color:cfg.color||"#ffffff"}};
+  const el=document.createElement("div");
+  el.className="agent-card";
+  el.dataset.layout=LAYOUT;
+  el.style.background=a.cfg.color;
+  el.innerHTML=`
+    <div class="ac-head">
+      <span class="dot" style="background:${color}"></span>
+      <span class="nm">${a.nm}</span>
+      <span class="model">${cfg.model}</span>
+      <span class="scope">1 章</span>
+      <span class="acts">
+        <button class="cfgbtn" title="配置 Agent">⚙ 配置</button>
+        <button class="del" title="移除">×</button>
+      </span>
+    </div>
+    <div class="ac-foot">
+      <span class="node-total">3 个节点</span>
+      <div class="pbar"><i style="background:${color}"></i></div>
+      <span class="cnt">待生成</span>
+    </div>
+    <div class="rh rh-b" title="向下拖动框选未分配章节"></div>
+    <div class="rh rh-r" title="横向：向右调整卡片宽度；纵向：框选未分配章节"></div>`;
+  a.el=el; world.appendChild(el); agents.push(a);
+  applyRect(a); refreshOwnership();
+
+  el.querySelector(".cfgbtn").addEventListener("click",e=>{e.stopPropagation();openCfg(a);});
+  el.querySelector(".del").addEventListener("click",e=>{
+    e.stopPropagation(); agents=agents.filter(x=>x!==a); el.remove();
+    if(!agents.length){computeLayout();buildTree();}
+    refreshOwnership();
+    toast(`已移除 ${a.nm}，其章节回到未分配`);
+  });
+  el.querySelectorAll(".rh").forEach(handle=>handle.addEventListener("pointerdown",e=>{
+    e.stopPropagation();e.preventDefault();
+    const horiz=LAYOUT==="h";
+    const mainResize=horiz?handle.classList.contains("rh-b"):handle.classList.contains("rh-r");
+    if(!horiz&&!mainResize)return;
+    el.classList.add("drag-resize");
+    const s0=mainResize?(horiz?e.clientY:e.clientX):e.clientX;
+    const osize=mainResize?(horiz?a.h:a.w):a.w;
+    const baseW=snapToBlocks(a.hits).w;
+    const originalHits=[...a.hits];let blocked=false;
+    document.body.style.userSelect="none";
+    const move=ev=>{
+      const d=((mainResize&&horiz?ev.clientY:ev.clientX)-s0)/view.s;
+      if(!mainResize){
+        a.w=Math.max(300,osize+d);a.wAdjust=a.w-baseW;applyRect(a);return;
+      }
+      if(horiz)a.h=Math.max(140,osize+d);else a.w=Math.max(160,osize+d);
+      applyRect(a);
+      const rawHits=blocksInRect({x:a.x,y:a.y,w:a.w,h:a.h});
+      const selectable=[];
+      for(const i of rawHits){
+        if(ownerOf(i,a)){blocked=true;break;}
+        selectable.push(i);
+      }
+      a.hits=selectable;
+      CHAPTERS.forEach((c,i)=>$("#ch"+i).classList.toggle("resize-blocked",rawHits.includes(i)&&!!ownerOf(i,a)));
+      refreshOwnership();
+    };
+    const up=()=>{
+      window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);
+      document.body.style.userSelect="";
+      el.classList.remove("drag-resize");
+      CHAPTERS.forEach((c,i)=>$("#ch"+i).classList.remove("resize-blocked"));
+      if(!mainResize){toast(`${a.nm} 宽度已调整，管辖范围保持 ${a.hits.length} 章 · ${agentNodeTotal(a)} 个节点`);return;}
+      if(!a.hits.length)a.hits=originalHits;
+      Object.assign(a,snapToBlocks(a.hits,a));applyRect(a);
+      refreshOwnership();
+      toast(`${a.nm}：${a.hits.length} 章 · ${agentNodeTotal(a)} 个节点${blocked?"（已跳过其他 Agent 的章节）":""}`);
+    };
+    window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);
+  }));
+  toast(`已创建 ${a.nm}，默认管辖第 ${target+1} 章；拖${LAYOUT==="h"?"底缘增减章节、右缘调宽":"右缘可扩框"}`);
+  return a;
+}
+
+/* ================= 配置面板 ================= */
+let editing=null, formMats=[], formColor="#ffffff";
+function refreshModelSelect(){
+  $("#cfg-model").innerHTML=SETTINGS.archives.map((a,i)=>`<option value="${i}">${a.nm}（${a.model}）</option>`).join("");
+}
+function setFormColor(color){
+  formColor=(color||"#ffffff").toLowerCase();
+  $("#cfg-color").value=formColor;
+  const swatches=[...document.querySelectorAll("#cfg-colors .color-swatch")];
+  swatches.forEach(b=>b.classList.toggle("on",b.dataset.color===formColor));
+  const active=swatches.find(b=>b.dataset.color===formColor);
+  $("#cfg-color-label").textContent=active?active.title:formColor;
+}
+document.querySelectorAll("#cfg-colors .color-swatch").forEach(b=>b.addEventListener("click",()=>setFormColor(b.dataset.color)));
+$("#cfg-color").addEventListener("input",e=>setFormColor(e.target.value));
+function refreshReuseSelect(){
+  $("#cfg-reuse").innerHTML=`<option value="">不复用，从零配置</option>`+
+    agents.filter(a=>a!==editing).map(a=>`<option value="${a.id}">复用 ${a.nm}（${a.cfg.model}）</option>`).join("");
+  $("#cfg-reuse-box").style.display=agents.filter(a=>a!==editing).length?"block":"none";
+}
+function renderFormMats(){
+  $("#cfg-mats").innerHTML=formMats.map((m,i)=>
+    `<span class="mat-chip ${m.dir?"dir":""}">${m.icon} ${m.t}<button data-i="${i}">×</button></span>`).join("")
+    +`<button class="link-btn" id="cfg-mat-add">＋ 素材 ▾</button>`;
+  $("#cfg-mats").querySelectorAll(".mat-chip button").forEach(b=>b.addEventListener("click",()=>{
+    formMats.splice(+b.dataset.i,1); renderFormMats();
+  }));
+  $("#cfg-mat-add").addEventListener("click",e=>{e.stopPropagation();openMatDrop(e.clientX,e.clientY);});
+}
+function openCfg(agent){
+  editing=agent||null;
+  $("#cfg-title").textContent=agent?`配置 ${agent.nm}`:"新增 Agent";
+  $("#cfg-save").textContent=agent?"保存配置":"创建并框选章节";
+  refreshModelSelect(); refreshReuseSelect();
+  if(agent){
+    $("#cfg-name").value=agent.nm;
+    const idx=SETTINGS.archives.findIndex(x=>x.model===agent.cfg.model);
+    $("#cfg-model").value=idx>=0?idx:0;
+    $("#cfg-prompt").value=agent.cfg.prompt;
+    formMats=[...agent.cfg.mats];
+  }else{
+    $("#cfg-name").value=""; $("#cfg-model").value=0;
+    $("#cfg-prompt").value=""; formMats=[{icon:"📎",t:"需求规格.md"}];
+  }
+  $("#cfg-reuse").value=""; renderFormMats();
+  setFormColor(agent?agent.cfg.color:"#ffffff");
+  $("#cfg").classList.add("show");
+}
+function closeCfg(){$("#cfg").classList.remove("show");editing=null;}
+$("#add-agent").addEventListener("click",()=>openCfg(null));
+$("#cfg-reuse").addEventListener("change",e=>{
+  const src=agents.find(a=>a.id===e.target.value); if(!src)return;
+  const idx=SETTINGS.archives.findIndex(x=>x.model===src.cfg.model);
+  if(idx>=0)$("#cfg-model").value=idx;
+  $("#cfg-prompt").value=src.cfg.prompt;
+  formMats=[...src.cfg.mats]; renderFormMats();
+  setFormColor(src.cfg.color||"#ffffff");
+  toast(`已复用 ${src.nm} 的配置`);
+});
+$("#cfg-save").addEventListener("click",()=>{
+  const model=SETTINGS.archives[+$("#cfg-model").value].model;
+  const cfg={nm:$("#cfg-name").value.trim(),model,prompt:$("#cfg-prompt").value.trim(),mats:[...formMats],color:formColor};
+  if(editing){
+    editing.nm=cfg.nm||editing.nm; editing.model=cfg.model; editing.cfg={model:cfg.model,prompt:cfg.prompt,mats:cfg.mats,color:cfg.color};
+    editing.el.style.background=cfg.color;
+    editing.el.querySelector(".nm").textContent=editing.nm;
+    editing.el.querySelector(".model").textContent=cfg.model;
+    refreshOwnership(); toast(`已保存 ${editing.nm} 的配置`);
+  }else{
+    createAgent(cfg);
+  }
+  closeCfg();
+});
+/* 现场新建档案 */
+$("#cfg-newarch-btn").addEventListener("click",()=>$("#cfg-newarch").classList.toggle("show"));
+$("#na-ok").addEventListener("click",()=>{
+  const nm=$("#na-name").value.trim(),md=$("#na-model").value.trim();
+  if(!nm||!md){toast("档案名和模型都要填");return;}
+  SETTINGS.archives.push({nm,model:md});
+  refreshModelSelect(); $("#cfg-model").value=SETTINGS.archives.length-1;
+  $("#na-name").value="";$("#na-model").value="";$("#cfg-newarch").classList.remove("show");
+  renderArchPanel(); toast(`已新建档案「${nm}」并选中`);
+});
+
+/* ================= 模型档案管理 ================= */
+function renderArchPanel(){
+  $("#arch-list").innerHTML=SETTINGS.archives.map((a,i)=>
+    `<div class="arch-item"><span class="nm">${a.nm}</span><span class="md">${a.model}</span>
+     <button data-i="${i}" title="删除">×</button></div>`).join("");
+  $("#arch-count").textContent=SETTINGS.archives.length;
+  $("#arch-list").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    SETTINGS.archives.splice(+b.dataset.i,1); renderArchPanel();
+  }));
+}
+$("#arch-btn").addEventListener("click",()=>$("#arch-panel").classList.toggle("show"));
+$("#ap-add").addEventListener("click",()=>{
+  const nm=$("#ap-name").value.trim(),md=$("#ap-model").value.trim();
+  if(!nm||!md){toast("档案名和模型都要填");return;}
+  SETTINGS.archives.push({nm,model:md}); renderArchPanel();
+  $("#ap-name").value="";$("#ap-model").value="";
+});
+
+/* ================= 素材（上传/粘贴/目录） ================= */
+function openMatDrop(x,y){
+  const d=$("#mat-drop");
+  d.style.left=Math.min(x,innerWidth-200)+"px"; d.style.top=(y+6)+"px";
+  d.classList.add("show");
+}
+document.addEventListener("click",e=>{if(!e.target.closest("#mat-drop"))$("#mat-drop").classList.remove("show");});
+document.querySelectorAll("#mat-drop button").forEach(b=>b.addEventListener("click",()=>{
+  $("#mat-drop").classList.remove("show");
+  if(b.dataset.src==="dir"){openDirForm(innerWidth/2-150,innerHeight/2-90);return;}
+  formMats.push(b.dataset.src==="upload"?{icon:"📎",t:"接口清单.docx"}:{icon:"📋",t:"粘贴：术语对照"});
+  renderFormMats(); toast("素材已加入");
+}));
+function openDirForm(x,y){
+  $("#dir-form").style.left=x+"px";$("#dir-form").style.top=y+"px";
+  $("#dir-form").classList.add("show");
+}
+$("#dir-cancel").addEventListener("click",()=>$("#dir-form").classList.remove("show"));
+$("#dir-ok").addEventListener("click",()=>{
+  const p=$("#dir-input").value.trim()||"/Users/我/需求资料";
+  $("#dir-form").classList.remove("show");
+  formMats.push({icon:"📁",t:p.split("/").filter(Boolean).pop()+"（12 个文件）",dir:true});
+  renderFormMats(); toast("已读取目录素材");
+});
+const PICKER_DIRS=[["📁","需求资料",8],["📁","CODESYS 参考",14],["📁","旧版手册",6],["📁","术语与规范",11]];
+$("#dir-browse").addEventListener("click",()=>{
+  $("#picker").classList.add("show");
+  $("#picker-list").innerHTML=PICKER_DIRS.map((d,i)=>`<div class="pitem ${i===0?"sel":""}" data-nm="${d[1]}"><span>${d[0]}</span>${d[1]}<span style="margin-left:auto;font-size:10.5px;color:var(--muted)">${d[2]} 个文件</span></div>`).join("");
+  $("#picker-list").querySelectorAll(".pitem").forEach(p=>p.addEventListener("click",()=>{
+    $("#picker-list").querySelectorAll(".pitem").forEach(x=>x.classList.remove("sel"));p.classList.add("sel");
+  }));
+});
+$("#picker-cancel").addEventListener("click",()=>$("#picker").classList.remove("show"));
+$("#picker-choose").addEventListener("click",()=>{
+  const sel=$("#picker-list .pitem.sel");
+  $("#dir-input").value="/Users/我/Documents/"+sel.dataset.nm;
+  $("#picker").classList.remove("show");
+});
+
+/* ================= 批量生成演示 ================= */
+let playing=false,timers=[];
+const BADGE={wait:["wait","○ 排队"],run:["run","◐ 生成中"],ok:["ok","● 完成"],fail:["fail","× 失败"]};
+function setSec(sec,st){
+  sec.st=st;const [cls,txt]=BADGE[st];
+  const b=sec.el.querySelector(".badge");b.className="badge "+cls;b.textContent=txt;
+  sec.el.classList.toggle("now",st==="run");
+  updateHero();
+}
+function toast(msg){
+  const t=$("#toast");t.textContent=msg;t.style.display="block";
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2600);
+}
+$("#run-btn").addEventListener("click",()=>{
+  if(playing){
+    timers.forEach(clearTimeout);playing=false;
+    $("#run-btn").className="hero-btn";$("#run-btn").textContent="批量生成 Topic";
+    toast("批次已取消，已完成结果保留");return;
+  }
+  if(!agents.length){toast("请先「新增 Agent」并框选章节");return;}
+  playing=true;timers=[];
+  $("#run-btn").className="hero-btn stop";$("#run-btn").textContent="取消批次";
+  CHAPTERS.forEach(c=>c.secs.forEach(s=>setSec(s,"wait")));
+  agents.forEach(a=>{a.done=0;a.fail=0;
+    a.total=a.hits.reduce((n,i)=>n+CHAPTERS[i].secs.length,0);
+    a.el.querySelector(".pbar i").style.width="0";
+    a.el.querySelector(".cnt").textContent=`0/${a.total}`;
+  });
+  let maxT=0;
+  agents.forEach(a=>{
+    let t=600;
+    a.hits.forEach(ci=>{
+      CHAPTERS[ci].secs.forEach(sec=>{
+        const dur=900+Math.random()*900;
+        timers.push(setTimeout(()=>setSec(sec,"run"),t));
+        t+=dur;
+        timers.push(setTimeout(()=>{
+          setSec(sec,"ok");a.done++;
+          a.el.querySelector(".cnt").textContent=`${a.done}/${a.total}`;
+          a.el.querySelector(".pbar i").style.width=(a.done/a.total*100)+"%";
+        },t));
+        t+=250;
+      });
+    });
+    maxT=Math.max(maxT,t);
+  });
+  timers.push(setTimeout(()=>{
+    playing=false;$("#run-btn").className="hero-btn";$("#run-btn").textContent="重新生成";
+    const done=agents.reduce((n,a)=>n+a.done,0);
+    toast(`批次完成：${done} 个节点生成成功`);
+  },maxT+400));
+});
+
+/* ================= 初始化 ================= */
+computeLayout(); buildTree(); renderArchPanel(); updateHero();
+setTimeout(fitHome,80);
+/* 调试参数 */
+if(location.hash==="#cfg")setTimeout(()=>openCfg(null),300);
+if(location.hash==="#reuse")setTimeout(()=>{
+  createAgent({nm:"",model:"glm-4.7",prompt:"角色：资深 DITA 技术写作",mats:[{icon:"📎",t:"需求规格.md"}]});
+  openCfg(null);
+},300);
+if(location.hash==="#run")setTimeout(()=>{
+  createAgent({nm:"",model:"glm-4.7",prompt:"",mats:[{icon:"📎",t:"需求规格.md"}]});
+  createAgent({nm:"",model:"gpt-5.2",prompt:"",mats:[],color:"#dceafb"});
+  setTimeout(()=>$("#run-btn").click(),600);
+},300);
+</script>
+</body>
+</html>

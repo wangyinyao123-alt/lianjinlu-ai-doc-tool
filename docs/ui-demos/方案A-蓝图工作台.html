@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>方案 A · 蓝图工作台</title>
+<style>
+  :root {
+    --bg: #f2f7fb; --grid: rgba(0, 130, 170, .07);
+    --ink: #1c3a4d; --muted: #6b8294;
+    --brand: #0a86ad; --brand-deep: #086a88; --brand-soft: #e1f2f8;
+    --line: #c9dbe6; --card: #ffffff;
+    --pink: #d16a8a; --green: #3f9d6a; --danger: #c9564a;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    color: var(--ink); min-height: 100vh;
+    background:
+      linear-gradient(60deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(-60deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 42px 42px, 42px 42px, 42px 42px;
+  }
+  .demo-note { position: fixed; right: 14px; bottom: 14px; font-size: 11px; color: var(--muted); background: rgba(255,255,255,.85); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  /* 分段式导航（参考站的核心控件） */
+  .seg-nav { display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 1px 3px rgba(28,58,77,.08); }
+  .seg-nav button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; transition: all .15s; }
+  .seg-nav button:hover { color: var(--brand-deep); background: var(--brand-soft); }
+  .seg-nav button.on { background: var(--brand); color: #fff; font-weight: 600; }
+  header { display: flex; align-items: center; justify-content: space-between; max-width: 1080px; margin: 0 auto; padding: 22px 24px 0; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .logo i { width: 26px; height: 26px; border-radius: 7px; background: var(--brand); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-style: normal; font-size: 13px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 44px 24px 60px; }
+  .kicker { font-family: var(--mono); font-size: 12px; color: var(--brand-deep); letter-spacing: .08em; }
+  h1 { font-size: 30px; letter-spacing: -.01em; margin: 8px 0 6px; }
+  .lede { color: var(--muted); font-size: 14px; max-width: 560px; line-height: 1.8; }
+  .toolbar { display: flex; gap: 10px; margin: 26px 0 30px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 9px; border: 1px solid transparent; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 2px 5px rgba(10,134,173,.3); }
+  .btn-primary:hover { background: var(--brand-deep); transform: translateY(-1px); box-shadow: 0 4px 9px rgba(10,134,173,.32); }
+  .btn-secondary { background: var(--card); border-color: var(--line); color: var(--ink); }
+  .btn-secondary:hover { border-color: var(--brand); color: var(--brand-deep); background: var(--brand-soft); }
+  .btn-danger { background: #fff; border-color: #e4b6b0; color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .search { flex: 1; max-width: 320px; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; color: var(--muted); font-size: 13px; }
+  .search input { border: 0; outline: 0; flex: 1; font-size: 13px; color: var(--ink); background: transparent; }
+  /* 书架卡 */
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 22px; }
+  .book { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 16px 14px; cursor: pointer; transition: all .18s; position: relative; overflow: hidden; }
+  .book::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--spine, var(--brand)); }
+  .book:hover { transform: translateY(-4px); box-shadow: 0 10px 22px rgba(28,58,77,.12); border-color: var(--brand); }
+  .cover { height: 120px; border-radius: 8px; background: linear-gradient(150deg, var(--brand-soft), #cfe7f2); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid var(--line); }
+  .cover span { font-family: var(--mono); font-size: 11px; color: var(--brand-deep); background: rgba(255,255,255,.8); border-radius: 5px; padding: 3px 8px; }
+  .book h3 { font-size: 14px; margin-bottom: 5px; }
+  .book .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .book .meta b { font-family: var(--mono); font-weight: 500; color: var(--brand-deep); }
+  /* 面板：速览卡风格 */
+  .panel { margin-top: 40px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--line); background: #f7fbfd; }
+  .panel-head strong { font-size: 13px; }
+  .panel-head span { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .fact { padding: 14px 18px; border-right: 1px solid var(--line); }
+  .fact:last-child { border-right: 0; }
+  .fact i { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .fact b { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  /* 消息与进度 */
+  .row { display: flex; gap: 14px; margin-top: 40px; }
+  .msg { flex: 1; font-size: 12px; padding: 11px 14px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--muted); position: relative; padding-bottom: 20px; }
+  .msg.ok { border-color: #b7dcc7; background: #f0f9f3; color: var(--green); }
+  .msg.err { border-color: #e4b6b0; background: #fdf3f2; color: var(--danger); }
+  .msg::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 9px; height: 3px; border-radius: 2px; background-image: linear-gradient(90deg, transparent, var(--brand), transparent); background-size: 42% 100%; background-repeat: no-repeat; animation: slide 1.15s ease-in-out infinite; }
+  @keyframes slide { 0% { background-position: -45% 0; } 100% { background-position: 145% 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><i>炉</i> 炼金炉</div>
+  <nav class="seg-nav" id="nav">
+    <button class="on">⌂ 首页</button><button>▣ 项目</button><button>① 框架</button><button>② Topic</button><button>✦ Skill</button><button>◌ 配置</button>
+  </nav>
+</header>
+<main>
+  <p class="kicker">PROJECT SHELF / 我的项目</p>
+  <h1>把需求投进来，按模式炼出 Topic。</h1>
+  <p class="lede">方案 A：参考站的"蓝图工作台"语言——网格图纸背景、分段式导航、等宽数字、描边卡片。配色换成炼金炉的青蓝主色。</p>
+  <div class="toolbar">
+    <label class="search">⌕ <input placeholder="搜索项目，按 / 聚焦" /></label>
+    <button class="btn btn-primary">＋ 新建项目</button>
+    <button class="btn btn-secondary">生成框架</button>
+    <button class="btn btn-danger" disabled>删除…</button>
+  </div>
+  <div class="shelf">
+    <div class="book" style="--spine: var(--brand)"><div class="cover"><span>NEWTOPIC.xml</span></div><h3>VCP 用户手册</h3><div class="meta"><span>全新开发</span><b>v2.4 · 03-12</b></div></div>
+    <div class="book" style="--spine: #7d5fbe"><div class="cover" style="background:linear-gradient(150deg,#ece5f8,#d7c9ef)"><span>UPDATE.xml</span></div><h3>网管平台操作指南</h3><div class="meta"><span>版本更新</span><b>v1.1 · 03-08</b></div></div>
+    <div class="book" style="--spine: var(--green)"><div class="cover" style="background:linear-gradient(150deg,#e2f3e8,#c8e6d3)"><span>OPTIMIZE.xml</span></div><h3>告警模块 Topic 优化</h3><div class="meta"><span>Topic 优化</span><b>v3.0 · 03-02</b></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><strong>项目速览 · VCP 用户手册</strong><span>RFC-HIK / 本地优先</span></div>
+    <div class="facts">
+      <div class="fact"><i>产品 / 模块</i><b>VCP-2400</b></div>
+      <div class="fact"><i>版本</i><b>2.4.1</b></div>
+      <div class="fact"><i>Topic 数</i><b>38</b></div>
+      <div class="fact"><i>参考语料</i><b>5 proj / 112 tp</b></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="msg ok">材料已保存。请检查提取状态后开始 AI 分析。</div>
+    <div class="msg err">无法连接本地服务，请重新启动炼金炉。</div>
+    <div class="msg">AI 正在生成框架，页面仍可操作…</div>
+  </div>
+</main>
+<div class="demo-note">方案 A · 蓝图工作台：网格背景 / 分段导航 / 等宽数字 / 描边卡片 · hover 试一下</div>
+<script>
+  document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#nav button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+  }));
+</script>
+</body>
+</html>

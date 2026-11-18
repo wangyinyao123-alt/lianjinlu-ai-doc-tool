@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>方案 p16b · 框架工坊重排（可拖分隔线 v2）</title>
+<style>
+  :root {
+    --canvas: #eef3ea;
+    --card: #fdfaf4;
+    --ink: #4a3830;
+    --ink-soft: #7d675e;
+    --muted: #a5928a;
+    --line: rgba(95, 71, 63, .55);
+    --line-soft: rgba(95, 71, 63, .18);
+    --guava: #ff82a2;
+    --guava-deep: #e86486;
+    --mint: #cfe4dd;
+    --lime: #e3f4a4;
+    --shadow: rgba(141, 108, 99, .22);
+    --serif: "Songti SC", "Noto Serif SC", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 32px 60px; background: var(--canvas); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 1.6;
+    background-image: radial-gradient(rgba(83, 63, 56, .1) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .demo-note {
+    max-width: 1180px; margin: 0 auto 22px; padding: 12px 16px;
+    background: var(--lime); border: 1.5px solid var(--line); border-radius: 2px;
+    box-shadow: 2px 2px 0 var(--shadow); font-size: 13px;
+  }
+  .demo-note b { font-family: var(--serif); }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
+
+  .panel {
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 2px;
+    box-shadow: 3px 3px 0 var(--shadow);
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 13px 18px; border-bottom: 1px solid var(--line-soft);
+  }
+  .panel-head h2 { margin: 0; font-family: var(--serif); font-size: 16px; letter-spacing: .02em; }
+  .kicker { margin: 0 0 2px; color: var(--guava-deep); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; }
+  .badge {
+    display: inline-flex; align-items: center; padding: 3px 10px; font-size: 13px;
+    border: 1px solid var(--line); background: var(--mint); border-radius: 3px; color: var(--ink);
+  }
+
+  /* 按钮：统一印章风 */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 36px; padding: 7px 16px; font-family: var(--sans); font-size: 14px; font-weight: 500;
+    color: var(--ink); background: var(--card); border: 1.5px solid var(--line); border-radius: 3px;
+    box-shadow: 2px 2px 0 var(--shadow); cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { background: var(--mint); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--shadow); }
+  .btn.primary { color: #fff; background: var(--guava); border-color: var(--guava-deep); box-shadow: 3px 3px 0 rgba(232,100,134,.5); font-weight: 600; }
+  .btn.primary:hover { background: #ff8fae; }
+  .btn.small { min-height: 30px; padding: 4px 11px; font-size: 13px; }
+  .btn.icon {
+    min-height: 30px; width: 34px; padding: 0; font-size: 16px; line-height: 1;
+  }
+  .btn-group { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn-sep { width: 1px; height: 24px; background: var(--line-soft); }
+
+  /* ===== ① 指令卡 ===== */
+  .command-body { padding: 16px 18px 18px; display: grid; gap: 14px; }
+  .cmd-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .cmd-label { padding-top: 8px; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; }
+  .material-zone {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; border: 1px dashed var(--line); border-radius: 3px; background: rgba(255, 253, 246, .7);
+  }
+  .material-count { font-weight: 600; }
+  .material-count i { font-style: normal; color: var(--guava-deep); }
+  .material-empty { color: var(--muted); font-size: 13px; }
+  .skill-prompt-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px; }
+  .skill-box, .prompt-box { border: 1px solid var(--line-soft); border-radius: 3px; background: #fffdf6; }
+  .skill-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 14px; }
+  .skill-item + .skill-item { border-top: 1px solid var(--line-soft); }
+  .skill-item .check { color: #5c8746; font-weight: 700; }
+  .prompt-box textarea {
+    width: 100%; min-height: 74px; resize: vertical; border: 0; background: transparent;
+    padding: 10px 12px; font-family: var(--sans); font-size: 14px; color: var(--ink); outline: none;
+  }
+  .prompt-box textarea::placeholder { color: var(--muted); }
+  .cmd-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+    padding-top: 13px; border-top: 1px solid var(--line-soft);
+  }
+  .cmd-actions .hint-left { margin-right: auto; color: var(--muted); font-size: 12px; }
+
+  /* 更多菜单（收敛次要按钮） */
+  .more-wrap { position: relative; }
+  .more-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 168px;
+    padding: 6px; background: var(--card); border: 1.5px solid var(--line); border-radius: 3px;
+    box-shadow: 4px 4px 0 var(--shadow); display: none;
+  }
+  .more-menu.is-open { display: block; }
+  .more-menu button {
+    display: block; width: 100%; text-align: left; padding: 9px 12px; font-size: 14px;
+    background: transparent; border: 0; color: var(--ink); cursor: pointer; border-radius: 2px;
+  }
+  .more-menu button:hover { background: var(--mint); }
+  .more-menu .menu-sep { height: 1px; margin: 5px 6px; background: var(--line-soft); }
+  .more-menu .danger { color: #c94a63; }
+
+  /* ===== ② 工作台 ===== */
+  .ws-head { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
+  .ws-head h2 { margin: 0; font-family: var(--serif); font-size: 22px; letter-spacing: .04em; }
+  .ws-head .sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .ws-head-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  .split { display: flex; align-items: stretch; min-height: 460px; }
+  .pane { min-width: 0; display: flex; flex-direction: column; }
+  .pane-editor { flex: 0 0 46%; min-width: 200px; }
+  .pane-preview { flex: 1 1 0; min-width: 240px; background: rgba(255, 253, 246, .55); }
+  .pane-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;   /* 分栏变窄时自动换行，不再遮挡 */
+    row-gap: 6px; padding: 9px 14px; border-bottom: 1px solid var(--line-soft); background: rgba(255, 253, 246, .6);
+  }
+  .pane-toolbar .title { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; color: var(--muted); }
+  .pane-toolbar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; }
+  .tabs { display: inline-flex; border: 1.5px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .tab { padding: 6px 14px; font-size: 13px; font-weight: 600; background: var(--card); color: var(--ink-soft); cursor: pointer; white-space: nowrap; }
+  .tab.is-active { background: var(--mint); color: var(--ink); }
+  .tab + .tab { border-left: 1px solid var(--line-soft); }
+  .zoom { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 3px; padding: 4px 10px; background: var(--card); }
+  .zoom input[type="range"] { width: 110px; accent-color: var(--guava-deep); cursor: pointer; }
+  .zoom .val { font-family: var(--mono); font-size: 12px; min-width: 40px; text-align: right; }
+  .btn.play { color: var(--ink); background: var(--lime); border-color: var(--line); font-weight: 600; }
+  .btn.play:hover { background: #d9f18e; }
+
+  .editor-body { flex: 1; padding: 16px; font-family: var(--mono); font-size: 13px; line-height: 1.9; color: var(--ink); white-space: pre-wrap; overflow: auto; }
+  .preview-body { flex: 1; overflow: auto; padding: 18px; }
+  .preview-stage {
+    min-height: 300px; border: 1px dashed var(--line-soft); border-radius: 3px;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px;
+  }
+  .preview-stage.is-playing {
+    background: linear-gradient(120deg, rgba(255, 130, 162, .08), rgba(207, 228, 221, .18));
+  }
+
+  /* 分隔线 */
+  .divider {
+    flex: 0 0 10px; position: relative; cursor: col-resize; background: transparent;
+    display: flex; align-items: center; justify-content: center; user-select: none; touch-action: none; z-index: 5;
+  }
+  .divider::before {
+    content: ""; position: absolute; top: 8px; bottom: 8px; left: 4px; right: 4px;
+    border-left: 1.5px dashed var(--line); border-radius: 2px;
+  }
+  .divider .grip {
+    position: relative; z-index: 1; width: 14px; height: 44px; border: 1.5px solid var(--line);
+    border-radius: 7px; background: var(--card); box-shadow: 2px 2px 0 var(--shadow);
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+  }
+  .divider .grip i { width: 2px; height: 16px; background: var(--line); border-radius: 1px; }
+  .divider:hover .grip, .divider.is-dragging .grip { background: var(--mint); }
+  .divider.is-dragging::before { border-color: var(--guava-deep); }
+  .divider-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 34px)); padding: 3px 8px; background: #26262c; color: #f5f5f4; font-size: 11px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 6; }
+  .divider:hover .divider-tip { opacity: 1; }
+  body.is-resizing { cursor: col-resize; user-select: none; }
+
+  .node-list { display: grid; gap: 8px; margin-top: 14px; }
+  .node {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border: 1px solid var(--line-soft); border-radius: 3px; background: var(--card); font-size: 13px;
+  }
+  .node i { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--guava-deep); }
+</style>
+</head>
+<body>
+  <div class="demo-note">
+    <b>方案 p16b</b> —— ① 撤销/重做改为符号按钮，缩放改为<b>拉杆</b> ② 分栏拖动时两侧工具条<b>自动换行</b>，按钮不会被盖住 ③ 预览栏补回<b>▶ 演示播放</b>（可点，逐节点高亮）④ 指令区只留 <b>生成框架（主）+ 重新生成 + ⋯ 更多</b>，其余收进菜单。
+  </div>
+
+  <div class="wrap">
+    <!-- ① 指令卡 -->
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="kicker">// 框架工坊 / 证据优先</p>
+          <h2>生成指令</h2>
+        </div>
+        <span class="badge">test · 全新开发</span>
+      </div>
+      <div class="command-body">
+        <div class="cmd-row">
+          <span class="cmd-label">需求材料</span>
+          <div class="material-zone">
+            <span class="material-count"><i>0</i> 份</span>
+            <span class="material-empty">还没有材料，先导入或粘贴文本</span>
+            <span style="margin-left:auto" class="btn-group">
+              <button class="btn small">贴贴文本</button>
+              <button class="btn small">导入外部框架</button>
+              <button class="btn small primary">＋ 添加材料</button>
+            </span>
+          </div>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd-label">Skill · 提示词</span>
+          <div class="skill-prompt-grid">
+            <div class="skill-box">
+              <div class="skill-item"><span class="check">✓</span>HIK Writing Skill</div>
+              <div class="skill-item"><span class="check">✓</span>HIK DITA Rule</div>
+            </div>
+            <div class="prompt-box">
+              <textarea placeholder="本次生成提示词，例如：重点覆盖产品概述、工程创建、设备配置和异常处理。"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="cmd-actions">
+          <span class="hint-left">先选项目和材料，再生成框架</span>
+          <button class="btn primary">生成框架</button>
+          <button class="btn">重新生成</button>
+          <span class="more-wrap">
+            <button class="btn" id="moreButton">⋯ 更多</button>
+            <span class="more-menu" id="moreMenu">
+              <button>批量生成 Topic</button>
+              <div class="menu-sep"></div>
+              <button>保存框架</button>
+              <button>导出</button>
+              <button>管理材料</button>
+              <div class="menu-sep"></div>
+              <button class="danger">删除框架</button>
+            </span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ② 工作台 -->
+    <section class="panel">
+      <div class="ws-head">
+        <button class="btn small">← 返回主页</button>
+        <div>
+          <h2>文档框架</h2>
+          <span class="sub">test · 全新开发</span>
+        </div>
+        <div class="ws-head-actions">
+          <button class="btn small">Topic 编辑器</button>
+          <span class="badge">未生成</span>
+        </div>
+      </div>
+
+      <div class="split" id="split">
+        <!-- 左：Markdown 编辑器 -->
+        <div class="pane pane-editor" id="paneEditor">
+          <div class="pane-toolbar">
+            <span class="title">MARKDOWN</span>
+            <span class="right">
+              <button class="btn small icon" title="撤销">↶</button>
+              <button class="btn small icon" title="重做">↷</button>
+              <button class="btn small">粘贴并转换</button>
+              <button class="btn small">全屏编辑</button>
+            </span>
+          </div>
+          <div class="editor-body"># 产品用户手册
+
+## 产品概述
+介绍产品定位、适用范围和主要功能。
+
+## 创建工程
+指导用户完成工程创建、参数配置与保存。</div>
+        </div>
+
+        <!-- 可拖分隔线 -->
+        <div class="divider" id="divider" role="separator" aria-orientation="vertical" title="拖动调整宽度，双击复位">
+          <span class="grip"><i></i><i></i></span>
+          <span class="divider-tip">左右拖动调整 · 双击复位</span>
+        </div>
+
+        <!-- 右：框架图 / 章节预览 -->
+        <div class="pane pane-preview">
+          <div class="pane-toolbar">
+            <span class="tabs">
+              <span class="tab is-active">框架图</span>
+              <span class="tab">章节预览</span>
+            </span>
+            <span class="right">
+              <button class="btn small play" id="playButton">▶ 演示</button>
+              <span class="zoom">
+                <input type="range" id="zoomRange" min="50" max="200" value="100" step="5" />
+                <span class="val" id="zoomVal">100%</span>
+              </span>
+              <button class="btn small">适应</button>
+            </span>
+          </div>
+          <div class="preview-body">
+            <div class="preview-stage" id="previewStage">
+              框架图画布 · 拖动上方拉杆缩放，点「▶ 演示」自动播放讲解
+            </div>
+            <div class="node-list">
+              <div class="node"><i>01</i>产品概述</div>
+              <div class="node"><i>02</i>创建工程</div>
+              <div class="node"><i>03</i>设备配置与异常处理</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+  // 可拖分隔线：拖拽调宽，双击复位
+  (function () {
+    const split = document.getElementById("split");
+    const editor = document.getElementById("paneEditor");
+    const divider = document.getElementById("divider");
+    let dragging = false;
+    divider.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      divider.classList.add("is-dragging");
+      document.body.classList.add("is-resizing");
+      divider.setPointerCapture(e.pointerId);
+    });
+    divider.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const rect = split.getBoundingClientRect();
+      const ratio = Math.min(0.72, Math.max(0.22, (e.clientX - rect.left) / rect.width));
+      editor.style.flexBasis = (ratio * 100).toFixed(1) + "%";
+    });
+    const stop = (e) => {
+      dragging = false;
+      divider.classList.remove("is-dragging");
+      document.body.classList.remove("is-resizing");
+      if (divider.hasPointerCapture?.(e.pointerId)) divider.releasePointerCapture(e.pointerId);
+    };
+    divider.addEventListener("pointerup", stop);
+    divider.addEventListener("pointercancel", stop);
+    divider.addEventListener("dblclick", () => { editor.style.flexBasis = "46%"; });
+  })();
+
+  // 更多菜单
+  (function () {
+    const btn = document.getElementById("moreButton");
+    const menu = document.getElementById("moreMenu");
+    btn.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.toggle("is-open"); });
+    document.addEventListener("click", () => menu.classList.remove("is-open"));
+    menu.addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") menu.classList.remove("is-open"); });
+  })();
+
+  // 缩放拉杆
+  (function () {
+    const range = document.getElementById("zoomRange");
+    const val = document.getElementById("zoomVal");
+    range.addEventListener("input", () => { val.textContent = range.value + "%"; });
+  })();
+
+  // 演示播放（示意：逐节点高亮循环）
+  (function () {
+    const btn = document.getElementById("playButton");
+    const stage = document.getElementById("previewStage");
+    let playing = false;
+    btn.addEventListener("click", () => {
+      playing = !playing;
+      btn.textContent = playing ? "■ 停止" : "▶ 演示";
+      stage.classList.toggle("is-playing", playing);
+      const nodes = document.querySelectorAll(".node");
+      if (playing) {
+        let i = 0;
+        btn._timer && clearInterval(btn._timer);
+        btn._timer = setInterval(() => {
+          nodes.forEach((n) => (n.style.background = ""));
+          if (nodes[i]) nodes[i].style.background = "var(--mint)";
+          i = (i + 1) % Math.max(nodes.length, 1);
+        }, 900);
+      } else {
+        btn._timer && clearInterval(btn._timer);
+        nodes.forEach((n) => (n.style.background = ""));
+      }
+    });
+  })();
+
+  // 页签切换（示意）
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tab.parentElement.querySelectorAll(".tab").forEach((t) => t.classList.remove("is-active"));
+      tab.classList.add("is-active");
+    });
+  });
+</script>
+</body>
+</html>

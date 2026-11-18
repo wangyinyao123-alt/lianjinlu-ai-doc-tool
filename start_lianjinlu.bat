@@ -14,7 +14,7 @@ if not exist "%~dp0python.exe" (
   exit /b 1
 )
 
-start "Lianjinlu Server" /min "%~dp0python.exe" "%~dp0app.py"
+start "Lianjinlu Server" /min "%~dp0python.exe" "%~dp0window_mode.py"
 timeout /t 2 /nobreak >nul
 start "" "http://127.0.0.1:8765"
 echo Lianjinlu started: http://127.0.0.1:8765
