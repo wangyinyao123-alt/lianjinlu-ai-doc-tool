@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#f7fbef" />
     <link rel="icon" type="image/png" href="/static/assets/alchemy-furnace-pixel.png" />
     <title>炼金炉 · HIK 文档开发工作台</title>
-    <link rel="stylesheet" href="/static/app.css?v=20261117-b19" />
-    <link rel="stylesheet" href="/static/canvas.css?v=20261117-b19" />
-    <link rel="stylesheet" href="/static/blocks.css?v=20261117-b19" />
+    <link rel="stylesheet" href="/static/app.css?v=20261119-b21" />
+    <link rel="stylesheet" href="/static/canvas.css?v=20261119-b21" />
+    <link rel="stylesheet" href="/static/blocks.css?v=20261119-b21" />
   </head>
   <body id="bk-body" class="is-home">
     <div class="app-shell">
@@ -185,7 +185,7 @@
                 <label>模型名称<input id="model" type="text" placeholder="例如：your-model-name" /></label>
                 <label>API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="留空表示保持现有 Key" /></label>
               </div>
-              <details class="adv"><summary>高级设置</summary><div class="field-grid adv-body"><label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1" /></label><label>超时（秒）<input id="timeout" type="number" min="5" max="600" step="1" /></label></div><p class="field-hint">已保存的 Key 不回显。想取回时打开「钥匙串访问」搜 <b>HIK-炼金炉</b>（账户 <b>default</b>），或在终端执行 <code>security find-generic-password -s "HIK-炼金炉" -a default -w | pbcopy</code>，直接进剪贴板、不显示在屏幕上。</p></details>
+              <details class="adv"><summary>高级设置</summary><div class="field-grid adv-body"><label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1" /></label><label>超时（秒）<input id="timeout" type="number" min="5" max="600" step="1" /></label><label>并行上限（Agent 数）<input id="max-parallel" type="number" min="1" max="12" step="1" /></label><label>每波条数（批量分片）<input id="batch-chunk" type="number" min="1" max="100" step="1" /></label></div><p class="field-hint">并行上限控制同时工作的 Agent 数；每波条数达到后先落盘再开下一波，遇到限流会自动退避并临时降低并发。已保存的 Key 不回显。想取回时打开「钥匙串访问」搜 <b>HIK-炼金炉</b>（账户 <b>default</b>），或在终端执行 <code>security find-generic-password -s "HIK-炼金炉" -a default -w | pbcopy</code>，直接进剪贴板、不显示在屏幕上。</p></details>
               <div class="form-actions"><button type="submit" class="primary-button">保存配置</button><button type="button" class="secondary-button" id="test-connection">测试连接</button></div>
               <div class="inline-message" id="settings-message" role="status"></div>
             </form>
@@ -339,7 +339,7 @@
       <p class="field-hint" id="card-look-note"></p>
       <p class="field-hint">建议横向图，宽度 800px 以上，不超过 8 MB。图片只保存在本机浏览器，并会与卡片颜色融合：右上清晰，向左下渐隐。</p>
     </div>
-    <script src="/static/app.js?v=20261117-b19"></script>
-    <script src="/static/canvas.js?v=20261117-b19"></script>
+    <script src="/static/app.js?v=20261119-b21"></script>
+    <script src="/static/canvas.js?v=20261119-b21"></script>
   </body>
 </html>

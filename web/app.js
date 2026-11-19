@@ -27,6 +27,7 @@ const state = {
   frameworkHistoryIndex: -1,
   frameworkLastSavedMarkdown: "",
   activeJobs: { framework: null, topic: null, batch: null },
+  maxParallelWorkers: 6,
   jobPollTimers: { framework: null, topic: null, batch: null },
   jobPollResolvers: {},
   jobCenterJobs: {},
@@ -242,7 +243,15 @@ function jobCenterUpdate(channel, job) {
   if (!entry || !job || entry.jobId !== job.id) return;
   entry.status = job.status || "running";
   entry.progress = job.progress || null;
-  entry.detail = job.progress?.detail || (job.status === "queued" ? "排队中" : "AI 处理中…");
+  if (job.status === "queued") {
+    const ahead = Math.max(0, Number(job.queue?.ahead) || 0);
+    const slots = Number(job.queue?.slots) || 2;
+    entry.detail = ahead > 0
+      ? `排队中：前面还有 ${ahead} 个任务（${slots} 个并发槽都在跑）`
+      : "排队中：等待并发槽位…";
+  } else {
+    entry.detail = job.progress?.detail || "AI 处理中…";
+  }
   entry.tone = "";
   renderJobCenter();
 }
@@ -3458,6 +3467,11 @@ async function startParallelBatch(event) {
     });
     const job = await pollJob(queued.job_id, {
       progress: (current) => {
+        if (current?.status === "queued") {
+          const ahead = Math.max(0, Number(current.queue?.ahead) || 0);
+          showMessage("#parallel-batch-message", ahead > 0 ? `排队中：前面还有 ${ahead} 个任务在跑…` : "排队中：等待并发槽位…");
+          return;
+        }
         const progress = current?.progress;
         if (!progress) return;
         (progress.completed_titles || []).forEach((title) => { if (statusMap[title] !== "failed") statusMap[title] = "created"; });
@@ -4086,6 +4100,9 @@ async function loadSettings() {
   $("#model").value = settings.model || "";
   $("#temperature").value = settings.temperature ?? 0.2;
   $("#timeout").value = settings.timeout_seconds ?? 60;
+  state.maxParallelWorkers = Math.max(1, Math.min(12, Number(settings.max_parallel_workers) || 6));
+  if ($("#max-parallel")) $("#max-parallel").value = state.maxParallelWorkers;
+  if ($("#batch-chunk")) $("#batch-chunk").value = Math.max(1, Math.min(100, Number(settings.batch_chunk_size) || 20));
   $("#api-key").placeholder = settings.api_key_configured ? "已配置，留空表示保持现有 Key" : "输入后保存到系统凭据存储";
 }
 
@@ -4100,8 +4117,12 @@ async function saveSettings(event) {
       api_key: $("#api-key").value,
       temperature: Number($("#temperature").value),
       timeout_seconds: Number($("#timeout").value),
+      max_parallel_workers: Number($("#max-parallel")?.value) || 6,
+      batch_chunk_size: Number($("#batch-chunk")?.value) || 20,
     };
     const settings = await request("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
+    state.maxParallelWorkers = Math.max(1, Math.min(12, Number(settings.max_parallel_workers) || 6));
+    if (typeof syncParallelWorkerOptions === "function") syncParallelWorkerOptions();
     $("#api-key").value = "";
     $("#api-key").placeholder = settings.api_key_configured ? "已配置，留空表示保持现有 Key" : "输入后保存到系统凭据存储";
     showMessage("#settings-message", "配置已保存，API Key 未写入项目文件。", "success");
@@ -4486,14 +4507,16 @@ function syncParallelWorkerOptions() {
   const select = $("#parallel-workers");
   if (!select) return;
   const checked = $("#parallel-profile-options")?.querySelectorAll("input[type=checkbox]:checked").length || 0;
-  const max = checked > 0 ? checked : 2;
+  const cap = Math.max(1, Math.min(12, Number(state.maxParallelWorkers) || 6));
+  const max = Math.min(cap, checked > 0 ? checked : Math.min(2, cap));
   const current = Number(select.value) || 1;
   select.innerHTML = Array.from({ length: max }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("");
   select.value = String(Math.min(Math.max(1, current), max));
   const hint = $("#parallel-workers-hint");
   if (hint) {
+    const capped = checked > cap ? `（受设置里的并行上限 ${cap} 限制）` : "";
     hint.textContent = checked > 0
-      ? `已勾选 ${checked} 个档案，最多 ${max} 个并行通道（通道轮流使用勾选的档案）。`
+      ? `已勾选 ${checked} 个档案，最多 ${max} 个并行通道${capped}（通道轮流使用勾选的档案）。`
       : "未勾选档案：并行通道全部使用主配置。";
   }
   if (typeof syncSelectDisplays === "function") syncSelectDisplays();

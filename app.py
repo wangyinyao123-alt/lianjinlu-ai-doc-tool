@@ -117,7 +117,101 @@ JOB_CONTEXT = threading.local()
 # 线程级配置覆盖：并行子 Agent 在各自线程里用档案配置替换主配置，
 # 让下游 load_settings() 自然读到本 Agent 的模型/地址/Key，而不必改所有函数签名。
 SETTINGS_CONTEXT = threading.local()
-GENERATION_SLOTS = threading.BoundedSemaphore(2)
+GENERATION_SLOT_COUNT = 2
+GENERATION_SLOTS = threading.BoundedSemaphore(GENERATION_SLOT_COUNT)
+# 429/5xx 退避重试：第 n 次重试等待 BACKOFF[n] 秒（有 Retry-After 时以响应头为准）。
+AI_RETRY_BACKOFF = (2.0, 5.0, 10.0)
+AI_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+MAX_PARALLEL_DEFAULT = 6
+BATCH_CHUNK_DEFAULT = 20
+JOB_HISTORY_KEEP = 20
+
+
+class AdaptiveLimiter:
+    """AI 请求闸门：正常时按上限放行，遇到 429 逐步收缩并发，安静一段时间后回升。
+
+    单批最多 6 个线程，但中转站往往扛不住 6 路持续打满。收缩而不是硬失败，
+    能显著降低「跑一半全变 failed」的概率。
+    """
+
+    def __init__(self, limit: int, floor: int = 1) -> None:
+        self._cond = threading.Condition()
+        self.ceiling = max(floor, limit)
+        self.floor = floor
+        self.limit = self.ceiling
+        self.active = 0
+        self._calm_at = 0.0
+
+    @contextmanager
+    def slot(self):
+        with self._cond:
+            while self.active >= self.limit:
+                # 带上限的等待：即使 limit 被收缩到低于 active，也不会永久卡死。
+                self._cond.wait(5.0)
+            self.active += 1
+        try:
+            yield
+        finally:
+            with self._cond:
+                self.active = max(0, self.active - 1)
+                self._cond.notify()
+
+    def on_rate_limited(self) -> int:
+        with self._cond:
+            self.limit = max(self.floor, self.limit - 1)
+            self._calm_at = time.time() + 20.0
+            return self.limit
+
+    def allow(self, width: int) -> None:
+        """配置允许更大的并行时抬高闸门，否则闸门会悄悄把并发压回 6。"""
+        with self._cond:
+            if width > self.ceiling:
+                self.ceiling = width
+                self.limit = max(self.limit, width)
+                self._cond.notify_all()
+
+    def on_success(self) -> None:
+        with self._cond:
+            if self.limit < self.ceiling and time.time() >= self._calm_at:
+                self.limit += 1
+                self._cond.notify()
+
+
+AI_REQUEST_GATE = AdaptiveLimiter(MAX_PARALLEL_DEFAULT)
+
+
+def max_parallel_workers(settings: dict[str, Any] | None = None) -> int:
+    settings = settings if isinstance(settings, dict) else load_settings()
+    try:
+        value = int(settings.get("max_parallel_workers") or MAX_PARALLEL_DEFAULT)
+    except (TypeError, ValueError):
+        value = MAX_PARALLEL_DEFAULT
+    return max(1, min(value, 12))
+
+
+def batch_chunk_size(settings: dict[str, Any] | None = None, override: Any = None) -> int:
+    raw = override if override not in (None, "") else (settings or load_settings()).get("batch_chunk_size")
+    try:
+        value = int(raw or BATCH_CHUNK_DEFAULT)
+    except (TypeError, ValueError):
+        value = BATCH_CHUNK_DEFAULT
+    return max(1, min(value, 100))
+
+
+def retry_after_seconds(exc: urllib.error.HTTPError, attempt: int) -> float:
+    """优先用服务端 Retry-After，其次按指数退避。"""
+    header = ""
+    try:
+        header = str((exc.headers or {}).get("Retry-After", "") or "").strip()
+    except Exception:
+        header = ""
+    if header:
+        try:
+            return max(1.0, min(float(header), 30.0))
+        except ValueError:
+            pass
+    index = min(attempt, len(AI_RETRY_BACKOFF) - 1)
+    return AI_RETRY_BACKOFF[index]
 
 
 class JobCancelled(RuntimeError):
@@ -151,6 +245,22 @@ def new_job_id() -> str:
     return f"job_{int(time.time())}_{secrets.token_hex(5)}"
 
 
+def prune_background_jobs(keep: int = JOB_HISTORY_KEEP) -> None:
+    """任务表只保留最近 keep 条，避免长时间会话里结果越攒越多。
+
+    仍在排队/运行的任务永不删除；只从最旧的已完成任务开始淘汰。
+    """
+    with BACKGROUND_JOBS_LOCK:
+        if len(BACKGROUND_JOBS) <= keep:
+            return
+        ordered = sorted(BACKGROUND_JOBS.items(), key=lambda item: str(item[1].get("created_at", "")))
+        for job_id, job in ordered:
+            if len(BACKGROUND_JOBS) <= keep:
+                break
+            if job.get("status") in {"success", "failed", "cancelled"}:
+                BACKGROUND_JOBS.pop(job_id, None)
+
+
 def start_background_job(operation: str, callback) -> str:
     """Run an AI operation outside the HTTP request thread.
 
@@ -159,6 +269,7 @@ def start_background_job(operation: str, callback) -> str:
     browser refresh does not lose completed work.
     """
     job_id = new_job_id()
+    prune_background_jobs()
     with BACKGROUND_JOBS_LOCK:
         BACKGROUND_JOBS[job_id] = {
             "id": job_id,
@@ -227,7 +338,26 @@ def update_job_progress(done: int, total: int, detail: str = "") -> None:
 def get_background_job(job_id: str) -> dict[str, Any] | None:
     with BACKGROUND_JOBS_LOCK:
         job = BACKGROUND_JOBS.get(job_id)
-        return background_job_summary(job) if job else None
+        if job is None:
+            return None
+        summary = background_job_summary(job)
+        if job.get("status") == "queued":
+            created = str(job.get("created_at", ""))
+            ahead = 0
+            for other_id, other in BACKGROUND_JOBS.items():
+                if other_id == job_id:
+                    continue
+                status = other.get("status")
+                if status == "running":
+                    ahead += 1
+                elif status == "queued" and str(other.get("created_at", "")) < created:
+                    ahead += 1
+            summary["queue"] = {
+                "position": ahead + 1,
+                "ahead": ahead,
+                "slots": GENERATION_SLOT_COUNT,
+            }
+        return summary
 
 
 def cancel_background_job(job_id: str) -> bool:
@@ -1014,6 +1144,8 @@ def default_settings() -> dict[str, Any]:
         "model": "",
         "temperature": 0.2,
         "timeout_seconds": 60,
+        "max_parallel_workers": MAX_PARALLEL_DEFAULT,
+        "batch_chunk_size": BATCH_CHUNK_DEFAULT,
         "updated_at": None,
     }
 
@@ -3411,6 +3543,8 @@ def delete_project(project_id: str) -> None:
     if not (directory / "project.json").exists():
         raise ValueError("项目不存在。")
     shutil.rmtree(directory)
+    # 生成日志在独立目录（含 usage/token 记账），不跟着项目目录走，需要单独清。
+    shutil.rmtree(GENERATION_LOG_DIR / project_id, ignore_errors=True)
 
 
 def get_project(project_id: str) -> dict[str, Any] | None:
@@ -3903,6 +4037,18 @@ def update_settings(payload: dict[str, Any]) -> dict[str, Any]:
         settings["structured_task"] = bool(payload["structured_task"])
     if "structured_output" in payload:
         settings["structured_output"] = bool(payload["structured_output"])
+    if "max_parallel_workers" in payload:
+        try:
+            value = int(payload["max_parallel_workers"] or MAX_PARALLEL_DEFAULT)
+        except (TypeError, ValueError):
+            value = MAX_PARALLEL_DEFAULT
+        settings["max_parallel_workers"] = max(1, min(value, 12))
+    if "batch_chunk_size" in payload:
+        try:
+            value = int(payload["batch_chunk_size"] or BATCH_CHUNK_DEFAULT)
+        except (TypeError, ValueError):
+            value = BATCH_CHUNK_DEFAULT
+        settings["batch_chunk_size"] = max(1, min(value, 100))
     if "api_key" in payload and str(payload["api_key"]).strip():
         KEYCHAIN.save(str(payload["api_key"]).strip())
     settings["updated_at"] = now_iso()
@@ -4028,6 +4174,12 @@ class AIHTTPError(RuntimeError):
                 else "请确认 Key 在这个接口地址下有效（有的中转站按 Key 区分线路）。"
             )
             return f"HTTP {self.status}：接口拒绝了这次请求，Key 未被接受。{tip}（请求地址：{self.endpoint}）"
+        if self.status == 429:
+            return (
+                f"HTTP 429：请求被限流（请求地址：{self.endpoint}）。已自动退避重试 3 次并临时降低并发，仍未通过。"
+                "通常是同一账号并发太高或额度用完：把「并行上限」调低（如 2–3）、或换一个 Agent 档案分批跑，"
+                "等额度重置后再试。"
+            )
         if self.status == 504:
             return (
                 f"HTTP 504：上游网关超时（请求地址：{self.endpoint}），不是本机网络问题。"
@@ -4122,30 +4274,48 @@ def post_ai_json(
     attempts: list[str] = []
     waf_blocked = False
     last: AIHTTPError | None = None
+    # 退避预算按「整次调用」共享，而不是每个 UA / 端点各给一份：
+    # 否则一个被限流的 Key 会为同一条内容发出 8 次请求，越限越重。
+    retries = 0
     for endpoint in endpoints:
         for user_agent in user_agents:
-            headers = build_ai_headers(settings, provider, api_key, user_agent)
-            request = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
-            try:
-                with open_ai_request(request, endpoint, timeout=timeout) as response:
-                    raw = response.read().decode("utf-8", errors="replace")
-                    return response.status, raw, endpoint
-            except urllib.error.HTTPError as exc:
-                raw = exc.read().decode("utf-8", errors="replace")
-                attempts.append(f"{endpoint} → HTTP {exc.code}")
-                last = AIHTTPError(exc.code, raw, endpoint, attempts.copy())
-                if looks_like_waf_block(exc.code, raw):
-                    waf_blocked = True
-                    continue
-                if exc.code in {404, 405}:
-                    continue
-                raise last from exc
-            except urllib.error.URLError as exc:
-                raise RuntimeError(f"网络连接失败（请求地址：{endpoint}）：{exc.reason}") from exc
-            except ConnectionRefusedError as exc:
-                raise RuntimeError(f"模型地址拒绝连接：{endpoint}") from exc
-            except TimeoutError as exc:
-                raise RuntimeError("请求超时，请检查地址或超时设置。") from exc
+            while True:
+                headers = build_ai_headers(settings, provider, api_key, user_agent)
+                request = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+                try:
+                    with AI_REQUEST_GATE.slot():
+                        with open_ai_request(request, endpoint, timeout=timeout) as response:
+                            raw = response.read().decode("utf-8", errors="replace")
+                            AI_REQUEST_GATE.on_success()
+                            return response.status, raw, endpoint
+                except urllib.error.HTTPError as exc:
+                    raw = exc.read().decode("utf-8", errors="replace")
+                    attempts.append(f"{endpoint} → HTTP {exc.code}")
+                    last = AIHTTPError(exc.code, raw, endpoint, attempts.copy())
+                    if exc.code == 429:
+                        # 限流的直接信号：先把并发压下来，再按 Retry-After 退避重试。
+                        AI_REQUEST_GATE.on_rate_limited()
+                    max_retries = len(AI_RETRY_BACKOFF) if exc.code == 429 else 1
+                    if exc.code in AI_RETRYABLE_STATUS and retries < max_retries:
+                        wait = retry_after_seconds(exc, retries)
+                        retries += 1
+                        time.sleep(wait)
+                        continue
+                    if exc.code == 429:
+                        # 换 UA 或换端点都救不了限流，直接报错，别继续打。
+                        raise last from exc
+                    if looks_like_waf_block(exc.code, raw):
+                        waf_blocked = True
+                        break
+                    if exc.code in {404, 405} or exc.code in AI_RETRYABLE_STATUS:
+                        break
+                    raise last from exc
+                except urllib.error.URLError as exc:
+                    raise RuntimeError(f"网络连接失败（请求地址：{endpoint}）：{exc.reason}") from exc
+                except ConnectionRefusedError as exc:
+                    raise RuntimeError(f"模型地址拒绝连接：{endpoint}") from exc
+                except TimeoutError as exc:
+                    raise RuntimeError("请求超时，请检查地址或超时设置。") from exc
 
     if waf_blocked and not str(settings.get("transport", "")) == "urllib":
         for endpoint in endpoints:
@@ -5540,7 +5710,12 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
         workers = int(payload.get("workers") or 2)
     except (TypeError, ValueError):
         workers = 2
-    workers = max(1, min(workers, 6))
+    run_settings = load_settings()
+    worker_cap = max_parallel_workers(run_settings)
+    workers = max(1, min(workers, worker_cap))
+    # 闸门跟着配置抬高，否则「并行上限 = 10」会被闸门悄悄压回 6。
+    AI_REQUEST_GATE.allow(workers)
+    chunk_size = batch_chunk_size(run_settings, payload.get("chunk_size"))
     profile_ids = [str(item).strip() for item in (payload.get("profile_ids") or []) if str(item).strip()]
     worker_settings: list[dict[str, Any]] = []
     for index in range(workers):
@@ -5571,9 +5746,8 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
         for topic in list_topics(project_id)
         if topic.get("framework_node_key")
     }
+    # 每个波次用自己的队列；这里留一个空队列作为兜底，避免遗漏参数时静默空转。
     task_queue: queue.Queue = queue.Queue()
-    for index, node in enumerate(nodes):
-        task_queue.put((index, node))
     results: list[dict[str, Any] | None] = [None] * len(nodes)
     state_lock = threading.Lock()
     shared: dict[str, Any] = {
@@ -5625,7 +5799,7 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
         for index, node in enumerate(nodes):
             title_index.setdefault(node["title"], index)
         assigned: set[int] = set()
-        for raw_group in groups_raw[:6]:
+        for raw_group in groups_raw[:worker_cap]:
             if not isinstance(raw_group, dict):
                 continue
             raw_keys = raw_group.get("node_keys")
@@ -5664,26 +5838,21 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
             raise ValueError("画布未分配任何章节，请至少给一个 Agent 框选章节。")
         tracked_total = len(assigned)
     else:
-        thread_specs = [
-            {
-                "indexes": None,
-                "settings": worker_settings[index % len(worker_settings)],
-                "prompt": "",
-                "skills": None,
-                "inherit": None,
-                "material_ids": None,
-            }
-            for index in range(min(workers, len(nodes)))
-        ]
+        # 自动派发模式按波次切片：每波开始时按档案轮询生成 spec（见下方驱动循环）。
+        thread_specs = []
+
+    wave_state: dict[str, int] = {"index": 1, "total": 1}
 
     def publish_progress() -> None:
         with BACKGROUND_JOBS_LOCK:
             job = BACKGROUND_JOBS.get(job_id)
             if job is not None:
+                titles = "、".join(shared["completed_titles"][-3:]) or "进行中"
+                prefix = f"第 {wave_state['index']}/{wave_state['total']} 波 · " if wave_state["total"] > 1 else ""
                 job["progress"] = {
                     "done": shared["done"],
                     "total": tracked_total,
-                    "detail": "、".join(shared["completed_titles"][-3:]) or "进行中",
+                    "detail": prefix + titles,
                     "completed_titles": list(shared["completed_titles"]),
                     "failed_titles": list(shared["failed_titles"]),
                     "running_titles": list(shared["running_titles"]),
@@ -5693,7 +5862,7 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
                     "updated_at": now_iso(),
                 }
 
-    def worker(spec: dict[str, Any]) -> None:
+    def worker(spec: dict[str, Any], work_queue: "queue.Queue | None" = None) -> None:
         JOB_CONTEXT.job_id = job_id
         # 子 Agent 档案配置在本线程内生效：模型 / 地址 / Key 都走档案，
         # 生成记录里的 model 也会记成该 Agent 的模型，便于回溯是哪一路产出的。
@@ -5704,7 +5873,7 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
         while True:
             if indexes is None:
                 try:
-                    index, node = task_queue.get_nowait()
+                    index, node = (work_queue or task_queue).get_nowait()
                 except queue.Empty:
                     return
             else:
@@ -5745,11 +5914,46 @@ def batch_generate_topics_parallel(project_id: str, payload: dict[str, Any]) -> 
                 mark_finished(node, False)
             publish_progress()
 
-    threads = [threading.Thread(target=worker, args=(spec,), daemon=True) for spec in thread_specs]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    def run_wave(specs: list[dict[str, Any]], work_queue: "queue.Queue | None" = None) -> None:
+        threads = [threading.Thread(target=worker, args=(spec, work_queue), daemon=True) for spec in specs]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    if thread_specs:
+        # 画布模式：每个 Agent 框选的章节是固定分组，一次跑完即可。
+        run_wave(thread_specs)
+    else:
+        # 自动派发模式：按 chunk_size 切片，一波落盘后再开下一波。
+        # 中断时已完成的部分都在磁盘上；也避免长时间持续打满限流。
+        total = len(nodes)
+        wave_count = (total + chunk_size - 1) // chunk_size
+        wave_state["total"] = wave_count
+        for wave in range(wave_count):
+            if wave:
+                check_job_cancelled()
+            wave_state["index"] = wave + 1
+            start = wave * chunk_size
+            wave_indexes = list(range(start, min(total, start + chunk_size)))
+            work_queue: queue.Queue = queue.Queue()
+            for index in wave_indexes:
+                work_queue.put((index, nodes[index]))
+            specs = [
+                {
+                    "indexes": None,
+                    "settings": worker_settings[position % len(worker_settings)],
+                    "prompt": "",
+                    "skills": None,
+                    "inherit": None,
+                    "material_ids": None,
+                }
+                for position in range(min(workers, len(wave_indexes)))
+            ]
+            run_wave(specs, work_queue)
+            publish_progress()
+            if wave < wave_count - 1:
+                time.sleep(0.4)
     check_job_cancelled()
     items = [item or {"title": nodes[index]["title"], "status": "skipped", "topic_id": None, "error": None, "framework_node_key": nodes[index]["framework_node_key"]} for index, item in enumerate(results)]
     succeeded = sum(1 for item in items if item["status"] in {"created", "updated"})
